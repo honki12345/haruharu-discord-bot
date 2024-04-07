@@ -10,7 +10,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^14.14.1"
+    "app-root-path": "^3.1.0",
+    "discord.js": "^14.14.1",
+    "sequelize": "^6.37.2",
+    "sqlite3": "^5.1.7",
+    "winston": "^3.13.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "eslint": "^9.0.0"

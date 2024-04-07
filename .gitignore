@@ -1,3 +1,9 @@
 node_modules
 config.json
 .idea/**
+database.sqlite
+logs/*
+!logs/.gitkeep
+
+# mac
+.DS_Store
