@@ -1,6 +1,5 @@
 const { Events, Collection } = require('discord.js');
-const { cooldown } = require('../commands/utility/ping');
-const { channelId } = require('../config.json');
+const { noticeChannelId, checkChannelId, testChannelId } = require('../config.json');
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -15,7 +14,7 @@ module.exports = {
     }
 
     const firedChannelId = interaction.channel.id;
-    if (firedChannelId !== channelId) {
+    if (firedChannelId !== noticeChannelId || firedChannelId !== checkChannelId || firedChannelId !== testChannelId) {
       await interaction.reply({ content: 'no valid channel for command', ephemeral: true });
       return;
     }
