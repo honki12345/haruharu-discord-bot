@@ -14,7 +14,8 @@ module.exports = {
     }
 
     const firedChannelId = interaction.channel.id;
-    if (firedChannelId !== noticeChannelId || firedChannelId !== checkChannelId || firedChannelId !== testChannelId) {
+    const isValidChannelId = firedChannelId === noticeChannelId || firedChannelId === checkChannelId || firedChannelId === testChannelId;
+    if (!isValidChannelId) {
       await interaction.reply({ content: 'no valid channel for command', ephemeral: true });
       return;
     }
