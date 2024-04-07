@@ -1,7 +1,7 @@
 const { Events } = require('discord.js');
 const { Users } = require('../repository/Users');
 const { TimeLog } = require('../repository/TimeLog');
-const { channelId } = require('../config.json');
+const { checkChannelId } = require('../config.json');
 const { getYearMonthDate, SUNDAY, SATURDAY, ONE_DAY_MILLISECONDS, ALARM_TIME } = require('../utils');
 const logger = require('../logger');
 
@@ -32,7 +32,7 @@ const alarm = async (client) => {
     return;
   }
 
-  const channel = client.channels.cache.get(channelId);
+  const channel = client.channels.cache.get(checkChannelId);
   let string = `### ${year}${month}${date} 출석표\n`;
   const yearmonth = year + '' + month;
   const yearmonthday = yearmonth + date;
