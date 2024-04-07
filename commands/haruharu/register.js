@@ -16,22 +16,22 @@ module.exports = {
         .setRequired(true),
     )
     .addStringOption(option =>
-      option.setName('username')
-        .setDescription('set username'),
-    )
-    .addStringOption(option =>
       option.setName('yearmonth')
         .setDescription('set year-month yyyymm')
         .setRequired(true),
     )
     .addStringOption(option =>
-      option.setName('vacances')
-        .setDescription('set vacances count'),
-    )
-    .addStringOption(option =>
       option.setName('waketime')
         .setDescription('set waketime HHmm')
         .setRequired(true),
+    )
+    .addStringOption(option =>
+      option.setName('username')
+        .setDescription('set username'),
+    )
+    .addStringOption(option =>
+      option.setName('vacances')
+        .setDescription('set vacances count'),
     ),
   async execute(interaction) {
     const userid = interaction.options.getString('userid') ?? '';
