@@ -21,7 +21,8 @@ module.exports = {
     )
     .addStringOption(option =>
       option.setName('yearmonth')
-        .setDescription('set year-month yyyymm'),
+        .setDescription('set year-month yyyymm')
+        .setRequired(true),
     )
     .addStringOption(option =>
       option.setName('vacances')
@@ -29,32 +30,28 @@ module.exports = {
     )
     .addStringOption(option =>
       option.setName('waketime')
-        .setDescription('set waketime HHmm'),
+        .setDescription('set waketime HHmm')
+        .setRequired(true),
     ),
   async execute(interaction) {
     const userid = interaction.options.getString('userid') ?? '';
-    logger.info(`명령행에 입력한 userid 값: `, { userid });
+    const yearmonth = interaction.options.getString('yearmonth');
+    const waketime = interaction.options.getString('waketime');
+    logger.info(`register 명령행에 입력한 값: userid: ${userid}, yearmonth: ${yearmonth}, waketime: ${waketime}`);
 
-    // userid 를 입력하지 않은 경우
-    if (!userid) {
-      return await interaction.reply(`userid 를 입력하지 않았습니다`);
-    }
+    const user = await Users.findOne({ where: { userid, yearmonth } });
 
     // update, not add
-    const user = await Users.findOne({ where: { userid } });
-
     if (user) {
       logger.info(`등록 전 유저 검색값 : `, { user });
       const username = interaction.options.getString('username') ?? user.username;
-      const yearmonth = interaction.options.getString('yearmonth') ?? user.yearmonth;
-      const waketime = interaction.options.getString('waketime') ?? user.waketime;
       const vacances = interaction.options.getString('vacances') ?? user.vacances;
 
       const affectedRows = await Users.update({ username, yearmonth, waketime, vacances }, {
-        where: { userid },
+        where: { userid, yearmonth },
       });
       if (affectedRows > 0) {
-        return await interaction.reply(`${username} register success`);
+        return await interaction.reply(`${username} update success => yearmonth: ${yearmonth}, waketime: ${waketime}, vacances: ${vacances}`);
       }
       return await interaction.reply(`register 업데이트 실패`);
     }
