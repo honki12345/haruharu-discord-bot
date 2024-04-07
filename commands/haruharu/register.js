@@ -74,7 +74,7 @@ module.exports = {
         waketime,
         vacances,
       });
-      await interaction.reply(`${username} register success`);
+      await interaction.reply(`${username} register success => yearmonth: ${yearmonth}, waketime: ${waketime}`);
     } catch (e) {
       logger.error(`register 등록 실패`, { e });
       await interaction.reply(`register 등록 실패`);
