@@ -57,6 +57,7 @@ const logger = winston.createLogger({
   ],
 });
 
+// NODE_ENV=production node index
 if (process.env.NODE_ENV !== 'production') {
   logger.add(new winston.transports.Console({
     format: winston.format.combine(
