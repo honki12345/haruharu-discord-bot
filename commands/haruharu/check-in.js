@@ -38,7 +38,7 @@ module.exports = {
       where: { yearmonthday, userid },
     });
     const isDuplicated = timelogs?.some(timelog => timelog.checkintime);
-    logger.info(`timelogs for checking duplicated`, { timelogs });
+    logger.info(`timelogs for check-in duplicated`, { timelogs });
     logger.info(`result isDuplicated: ${isDuplicated}`);
     if (isDuplicated) {
       return await interaction.reply(`you did already check-in`);

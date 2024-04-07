@@ -27,7 +27,7 @@ module.exports = {
     if (!user) {
       return await interaction.reply(`${interaction.user.globalName} not registered`);
     }
-    logger.info(`check-in 검색 유저모델`, { user });
+    logger.info(`check-out 검색 유저모델`, { user });
 
     // duplication validation
     const yearmonthday = year + '' + month + date;
@@ -35,10 +35,10 @@ module.exports = {
       where: { yearmonthday, userid },
     });
     const isDuplicated = timelogs?.some(timelog => timelog.checkouttime);
-    logger.info(`timelogs for checking duplicated`, { timelogs });
+    logger.info(`timelogs for check-out duplicated`, { timelogs });
     logger.info(`result isDuplicated: ${isDuplicated}`);
     if (isDuplicated) {
-      return await interaction.reply(`you did already check-in`);
+      return await interaction.reply(`you did already check-out`);
     }
 
     // time validation
@@ -54,7 +54,7 @@ module.exports = {
         isintime = false;
       }
     } catch (e) {
-      logger.error(`check-in 시간 계산 로직 오류발생`, { e });
+      logger.error(`check-out 시간 계산 로직 오류발생`, { e });
       return await interaction.reply(`error occurred: ${e.name}`);
     }
 
