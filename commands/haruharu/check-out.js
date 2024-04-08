@@ -44,13 +44,16 @@ module.exports = {
     // time validation
     let isintime = true;
     try {
-      const awakentime = (Number(user.waketime.substring(0, 2)) + 1) * 60 + Number(user.waketime.substring(2));
-      const nowTime = Number(hours) * 60 + Number(minutes);
-      const timeValue = Math.abs(awakentime - nowTime);
-      if (timeValue > RANGE_OUT_TIME) {
-        return await interaction.reply(`Not time for check-in/out: now:${hours}${minutes} yours: ${user.waketime}`);
+      const hoursString = user.waketime.substring(0, 2);
+      const minutesString = user.waketime.substring(2);
+      const checkoutTimeInMinutes = (Number(hoursString) + 1) * 60 + Number(minutesString);
+      const checkoutTimeString = ('0' + (Number(hoursString) + 1)).slice(-2) + minutesString;
+      const nowTimeInMinutes = Number(hours) * 60 + Number(minutes);
+      const timeDifferenceValue = Math.abs(checkoutTimeInMinutes - nowTimeInMinutes);
+      if (timeDifferenceValue > RANGE_OUT_TIME) {
+        return await interaction.reply(`Not time for check-in/out: now:${hours}${minutes} yours: ${checkoutTimeString}`);
       }
-      if (timeValue > RANGE_IN_TIME) {
+      if (timeDifferenceValue > RANGE_IN_TIME) {
         isintime = false;
       }
     } catch (e) {
