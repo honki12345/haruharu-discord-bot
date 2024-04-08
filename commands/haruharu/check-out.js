@@ -78,12 +78,12 @@ module.exports = {
     const username = interaction.user.globalName;
     const checkouttime = hours + '' + minutes;
     await TimeLog.create({ userid, username, yearmonthday, checkouttime, isintime });
+    await interaction.reply(`${interaction.user.globalName}님 check-out에 성공하셨습니다: ${checkouttime}`);
     await interaction.channel.send({
       files: [{
         attachment: attachment?.attachment,
         name: `${attachment.name}`,
       }],
     });
-    await interaction.reply(`${interaction.user.globalName}님 check-out에 성공하셨습니다: ${checkouttime}`);
   },
 };
