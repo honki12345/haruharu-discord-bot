@@ -40,3 +40,14 @@
 - `/register <memberId> <yearMonth> <time>`
     - 월별 기상시간을 설정한다
     - 관리자에게만 허용한다
+
+## 시스템
+
+- 배포
+  - Amazon EC2
+  - pm2
+- 데이터베이스
+  - sqlite3
+- 라이브러리
+  - sequelize (데이터 접근 기술, ORM)
+  - winston, winston-daily-rotate-file (logging)
