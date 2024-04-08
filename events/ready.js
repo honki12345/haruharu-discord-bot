@@ -34,6 +34,9 @@ const alarm = async (client) => {
 
   const channel = client.channels.cache.get(checkChannelId);
   let string = `### ${year}${month}${date} 출석표\n`;
+  let attendees = '';
+  let latecomers = '';
+  let absentees = '';
   const yearmonth = year + '' + month;
   const yearmonthday = yearmonth + date;
   const users = await Users.findAll({
@@ -42,6 +45,7 @@ const alarm = async (client) => {
   const timelogs = await TimeLog.findAll({
     where: { yearmonthday },
   });
+  // TODO outer join 을 할 줄 몰라서 이렇게 처리
   const userids = users.reduce((p, c) => {
     p[c.userid] = [];
     return p;
@@ -56,21 +60,29 @@ const alarm = async (client) => {
   for await (const userid of Object.keys(timelogsGroupById)) {
     const user = await Users.findOne({ where: { userid } });
     const value = timelogsGroupById[userid];
+    // 결석자
     if (value.length !== 2) {
       await Users.update({ absencecount: user.absencecount + 1 }, { where: { userid } });
       const findUser = users.find(user => userid === user.userid);
-      string += `- ${findUser.username}: 결석 (${user.absencecount + 1}/${user.vacances})\n`;
+      absentees += `- ${findUser.username}: 결석 (${user.absencecount + 1}/${user.vacances})\n`;
       continue;
     }
 
+    // 지각자
     if (!value[0].isintime || !value[1].isintime) {
       await Users.update({ latecount: user.latecount + 1 }, { where: { userid } });
-      string += `- ${value[0].username}: 지각 (${user.latecount + 1})\n`;
+      latecomers += `- ${value[0].username}: 지각 (${user.latecount + 1})\n`;
       continue;
     }
-    string += `- ${value[0].username}: 출석\n`;
+
+    //출석자
+    attendees += `- ${value[0].username}: 출석\n`;
   }
   logger.info(`alarm final string`, { string });
+
+  (attendees) ? string += attendees : '';
+  (latecomers) ? string += latecomers : '';
+  (absentees) ? string += absentees : '';
   channel.send(string);
 };
 
