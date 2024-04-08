@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { Users } = require('../../repository/Users');
-const { getYearMonthDate, RANGE_IN_TIME, RANGE_OUT_TIME } = require('../../utils');
+const { getYearMonthDate, LATE_RANGE_TIME, ABSENCE_RANGE_TIME } = require('../../utils');
 const { TimeLog } = require('../../repository/TimeLog');
 const logger = require('../../logger');
 
@@ -42,6 +42,7 @@ module.exports = {
     }
 
     // time validation
+    // 1. 10분 이내 => 출석
     let isintime = true;
     try {
       const hoursString = user.waketime.substring(0, 2);
@@ -49,11 +50,15 @@ module.exports = {
       const checkoutTimeInMinutes = (Number(hoursString) + 1) * 60 + Number(minutesString);
       const checkoutTimeString = ('0' + (Number(hoursString) + 1)).slice(-2) + minutesString;
       const nowTimeInMinutes = Number(hours) * 60 + Number(minutes);
-      const timeDifferenceValue = Math.abs(checkoutTimeInMinutes - nowTimeInMinutes);
-      if (timeDifferenceValue > RANGE_OUT_TIME) {
+      const timeDifferenceValue = nowTimeInMinutes - checkoutTimeInMinutes;
+
+      // 2. 10분 이전 또는 30분 이후 => no valid time
+      if (timeDifferenceValue < -LATE_RANGE_TIME || timeDifferenceValue > ABSENCE_RANGE_TIME) {
         return await interaction.reply(`Not time for check-in/out: now:${hours}${minutes} yours: ${checkoutTimeString}`);
       }
-      if (timeDifferenceValue > RANGE_IN_TIME) {
+
+      // 3. 10분 이후 => 지각
+      if (timeDifferenceValue > LATE_RANGE_TIME) {
         isintime = false;
       }
     } catch (e) {

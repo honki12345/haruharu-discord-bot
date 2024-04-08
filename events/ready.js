@@ -2,14 +2,14 @@ const { Events } = require('discord.js');
 const { Users } = require('../repository/Users');
 const { TimeLog } = require('../repository/TimeLog');
 const { checkChannelId } = require('../config.json');
-const { getYearMonthDate, SUNDAY, SATURDAY, ONE_DAY_MILLISECONDS, ALARM_TIME } = require('../utils');
+const { getYearMonthDate, SUNDAY, SATURDAY, ONE_DAY_MILLISECONDS, PRINT_TIME } = require('../utils');
 const logger = require('../logger');
 
 // 알람 세팅 전까지 남은 시간 계산
 const calculateRemainingTime = () => {
   const now = new Date();
   const target = new Date();
-  target.setHours(ALARM_TIME);
+  target.setHours(PRINT_TIME);
   target.setMinutes(0);
   target.setSeconds(0);
   target.setMilliseconds(0);

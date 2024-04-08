@@ -12,11 +12,11 @@ const getYearMonthDate = () => {
 
 const getFileName = (filename) => {
   return filename.substring(filename.lastIndexOf('/'));
-}
+};
 
-const ALARM_TIME= 11;
-const RANGE_IN_TIME = 10;
-const RANGE_OUT_TIME = 30;
+const PRINT_TIME = 11;
+const LATE_RANGE_TIME = 10;
+const ABSENCE_RANGE_TIME = 30;
 const PERMISSION_NUM_ADMIN = 0;
 const DEFAULT_VACANCES_COUNT = 3;
 const ONE_DAY_MILLISECONDS = 51464318;
@@ -27,12 +27,12 @@ module.exports = {
   getYearMonthDate,
   getFileName,
 
-  RANGE_IN_TIME,
-  RANGE_OUT_TIME,
+  LATE_RANGE_TIME,
+  ABSENCE_RANGE_TIME,
   PERMISSION_NUM_ADMIN,
   DEFAULT_VACANCES_COUNT,
   ONE_DAY_MILLISECONDS,
   SUNDAY,
   SATURDAY,
-  ALARM_TIME
+  PRINT_TIME,
 };
