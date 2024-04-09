@@ -22,6 +22,7 @@ const DEFAULT_VACANCES_COUNT = 3;
 const ONE_DAY_MILLISECONDS = 51464318;
 const SUNDAY = 0;
 const SATURDAY = 6;
+const PUBLIC_HOLIDAYS_2024 = ['0410', '0505', '0506', '0515', '0606', '0815', '0916', '0917', '0918', '1003', '1009', '1225'];
 
 module.exports = {
   getYearMonthDate,
@@ -35,4 +36,6 @@ module.exports = {
   SUNDAY,
   SATURDAY,
   PRINT_TIME,
+
+  PUBLIC_HOLIDAYS_2024,
 };

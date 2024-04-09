@@ -2,7 +2,14 @@ const { Events } = require('discord.js');
 const { Users } = require('../repository/Users');
 const { TimeLog } = require('../repository/TimeLog');
 const { checkChannelId } = require('../config.json');
-const { getYearMonthDate, SUNDAY, SATURDAY, ONE_DAY_MILLISECONDS, PRINT_TIME } = require('../utils');
+const {
+  getYearMonthDate,
+  PUBLIC_HOLIDAYS_2024,
+  SUNDAY,
+  SATURDAY,
+  ONE_DAY_MILLISECONDS,
+  PRINT_TIME,
+} = require('../utils');
 const logger = require('../logger');
 
 // 알람 세팅 전까지 남은 시간 계산
@@ -27,10 +34,17 @@ const calculateRemainingTime = () => {
 const alarm = async (client) => {
   logger.info('alarm start');
   const { year, month, date, hours, minutes, day } = getYearMonthDate();
-  // 공휴일 제외
+  // 주말 제외
   if (day === SATURDAY || day === SUNDAY) {
     return;
   }
+
+  // 공휴일 제외
+  const monthdate = month + date;
+  if (PUBLIC_HOLIDAYS_2024.includes(monthdate)) {
+    return;
+  }
+
 
   const channel = client.channels.cache.get(checkChannelId);
   let string = `### ${year}${month}${date} 출석표\n`;
