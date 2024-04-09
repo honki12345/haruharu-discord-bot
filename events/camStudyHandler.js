@@ -14,7 +14,6 @@ const logger = require('../logger');
 * 1. 유저 테이블
 * 2. 하루하루 공부량 계산 테이블
 * */
-// TODO 12시에 계산 출력
 
 module.exports = {
   name: 'voiceStateUpdate',
@@ -22,7 +21,7 @@ module.exports = {
     const wasOldStateInChannel = oldState.channelId === voiceChannelId;
     const wasOldStateVideoOn = oldState.selfVideo === true;
     const wasOldStateVideoOff = oldState.selfVideo === false;
-    const isNewStateOut = newState.channelId === null;
+    const isNotNewStateInChannel = newState.channelId !== voiceChannelId;
     const isNewStateInChannel = newState.channelId === voiceChannelId;
     const isNewStateVideoOff = newState.selfVideo === false;
     const isNewStateVideoOn = newState.selfVideo === true;
@@ -37,10 +36,13 @@ module.exports = {
       }
     }
 
+    // console.log(oldState);
+    // console.log(newState);
+
     const timelog = await CamStudyTimeLog.findOne({ where: { userid: newState.id, yearmonthday } });
 
-    // newState: 종료했을 때, oldState: 공부실 채널에 접속한 상태 && 비디오를 킨 상태
-    const conditionEndWhenQuit = isNewStateOut && wasOldStateVideoOn && wasOldStateInChannel;
+    // newState: 공부실을 떠났을 때, oldState: 공부실 채널에 접속한 상태 && 비디오를 킨 상태
+    const conditionEndWhenQuit = isNotNewStateInChannel && wasOldStateVideoOn && wasOldStateInChannel;
     // oldState: 공부실 접속한 상태 && 비디오를 킨 상태, newState: 공부실 접속한 상태 && 비디오를 끈 상태
     const conditionEndWhenTurnOff = wasOldStateInChannel && isNewStateInChannel && isNewStateVideoOff;
 
