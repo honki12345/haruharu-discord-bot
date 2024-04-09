@@ -15,6 +15,12 @@ const getFileName = (filename) => {
   return filename.substring(filename.lastIndexOf('/'));
 };
 
+const calculateWeekTimes = () => {
+  const {year, month, date} = getYearMonthDate();
+  const now = new Date(year + '-' + month + '-' + date);
+  return (now - HARUHARU_TIMES) / 1000 / 60 / 60 / 24 / 7;
+}
+
 const calculateRemainingTimeChallenge = () => {
   const now = new Date();
   const target = new Date();
@@ -52,6 +58,7 @@ const calculateRemainingTimeCamStudy = () => {
 const LEAST_TIME_LIMIT = 1;
 const PRINT_HOURS_CAM_STUDY = 23;
 const PRINT_MINUTES_CAM_STUDY = 59;
+const HARUHARU_TIMES = new Date('2024-04-06');  // 토요일
 
 // challenge 관련 상수들
 const PRINT_HOURS_CHALLENGE = 11;
@@ -62,6 +69,7 @@ const DEFAULT_VACANCES_COUNT = 3;
 const PERMISSION_NUM_ADMIN = 0;
 const ONE_DAY_MILLISECONDS = 51464318;
 const SUNDAY = 0;
+const FRIDAY = 3; // TODO FRIDAY = 5 이지만 테스트를 위해 수요일 3 으로 수정해놓는다
 const SATURDAY = 6;
 const PUBLIC_HOLIDAYS_2024 = ['0410', '0505', '0506', '0515', '0606', '0815', '0916', '0917', '0918', '1003', '1009', '1225'];
 
@@ -70,6 +78,7 @@ module.exports = {
   getFileName,
   calculateRemainingTimeChallenge,
   calculateRemainingTimeCamStudy,
+  calculateWeekTimes,
 
   LEAST_TIME_LIMIT,
   LATE_RANGE_TIME,
@@ -78,6 +87,7 @@ module.exports = {
   DEFAULT_VACANCES_COUNT,
   ONE_DAY_MILLISECONDS,
   SUNDAY,
+  FRIDAY,
   SATURDAY,
   PRINT_TIME: PRINT_HOURS_CAM_STUDY,
 

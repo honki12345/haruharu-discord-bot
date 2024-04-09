@@ -7,17 +7,19 @@ const { checkChannelId, logChannelId } = require('../config.json');
 const {
   getYearMonthDate,
   calculateRemainingTimeChallenge,
+  calculateWeekTimes,
   PUBLIC_HOLIDAYS_2024,
   SUNDAY,
   SATURDAY,
   ONE_DAY_MILLISECONDS,
-  calculateRemainingTimeCamStudy,
+  calculateRemainingTimeCamStudy, FRIDAY,
 } = require('../utils');
 const logger = require('../logger');
+const { CamStudyWeeklyTimeLog } = require('../repository/CamStudyWeeklyTimeLog');
 
 const printChallengeInterval = async (client) => {
   logger.info('print challenge start');
-  const { year, month, date, hours, minutes, day } = getYearMonthDate();
+  const { year, month, date, day } = getYearMonthDate();
   // 주말 제외
   if (day === SATURDAY || day === SUNDAY) {
     return;
@@ -87,7 +89,7 @@ const printChallengeInterval = async (client) => {
 
 const printCamStudyInterval = async (client) => {
   logger.info('print cam_study start');
-  const { year, month, date, hours, minutes, day } = getYearMonthDate();
+  const { year, month, date, day } = getYearMonthDate();
 
   const channel = client.channels.cache.get(logChannelId);
   let string = `### ${year}${month}${date} 타임리스트\n`;
@@ -97,6 +99,7 @@ const printCamStudyInterval = async (client) => {
     where: { yearmonthday },
   });
 
+  // daily time log update
   // TODO outer join 을 할 줄 몰라서 이렇게 처리
   const objWithName = camStudyUsers.reduce((p, c) => {
     p[c.userid] = [c.username];
@@ -108,21 +111,49 @@ const printCamStudyInterval = async (client) => {
         p[timelog.userid]?.push(0);
         return p;
       }
-      p[timelog.userid]?.push(timelog.totalminutes);
+      p[timelog.userid]?.push(Number(timelog.totalminutes));
       return p;
     }, objWithName);
   const timelogsGroupById = Object.entries(objWithNameAndMinutes).sort(([, [, a]], [, [, b]]) => a - b);
   logger.info(`user id 로 그룹핑한 cam-study timelog 인스턴스들: `, { timelogsGroupById });
 
-  // 출력할 string 생성
+  // daily timelog string
   // 0: userid, 1.1: username, 1.2: totalminutes
   for (const array of timelogsGroupById) {
     const username = array[1][0];
-    const totalMinutes = array[1][1];
-    string += `- ${username}님의 공부시간: ${totalMinutes}분`;
+    const totalminutes = array[1][1];
+    string += `- ${username}님의 공부시간: ${totalminutes}분`;
   }
   logger.info(`cam study final string`, { string });
   channel.send(string);
+
+  // weekly time log update
+  const weektimes = calculateWeekTimes();
+  let weeklyString = `### ${year}${month}: ${weektimes}번째 주 타임리스트\n`;
+  for await (const timelog of camStudyTimelogs) {
+    const userid = timelog.userid;
+    const username = timelog.username;
+    const totalminutes = timelog.totalminutes;
+    const weekTimeLog = await CamStudyWeeklyTimeLog.findOne({ where: { userid, weektimes } });
+    if (weekTimeLog) {
+      const updatedTotalminutes = weekTimeLog.totalminutes + totalminutes;
+      await CamStudyWeeklyTimeLog.update({ totalminutes: updatedTotalminutes }, {
+        where: {
+          userid,
+          weektimes,
+        },
+      });
+      string += `- ${username}님의 공부시간: ${updatedTotalminutes}분`;
+    } else {
+      await CamStudyWeeklyTimeLog.create({ userid, username, weektimes, totalminutes });
+      string += `- ${username}님의 공부시간: ${totalminutes}분`;
+    }
+  }
+
+  if (day === FRIDAY) {
+    logger.info(`cam study weekly final string`, { string });
+    channel.send(weeklyString);
+  }
 };
 
 
@@ -141,6 +172,7 @@ module.exports = {
     await TimeLog.sync();
     await CamStudyUsers.sync();
     await CamStudyTimeLog.sync();
+    await CamStudyWeeklyTimeLog.sync();
 
     // set challenge print
     const remainingTimeChallenge = calculateRemainingTimeChallenge();
