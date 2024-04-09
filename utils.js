@@ -48,14 +48,18 @@ const calculateRemainingTimeCamStudy = () => {
 };
 
 
+// cam study 관련 상수들
 const LEAST_TIME_LIMIT = 1;
+const PRINT_HOURS_CAM_STUDY = 23;
+const PRINT_MINUTES_CAM_STUDY = 59;
+
+// challenge 관련 상수들
 const PRINT_HOURS_CHALLENGE = 11;
-const PRINT_HOURS_CAM_STUDY = 17;
-const PRINT_MINUTES_CAM_STUDY = 37;
 const LATE_RANGE_TIME = 10;
 const ABSENCE_RANGE_TIME = 30;
-const PERMISSION_NUM_ADMIN = 0;
 const DEFAULT_VACANCES_COUNT = 3;
+
+const PERMISSION_NUM_ADMIN = 0;
 const ONE_DAY_MILLISECONDS = 51464318;
 const SUNDAY = 0;
 const SATURDAY = 6;
