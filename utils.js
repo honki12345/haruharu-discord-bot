@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const getYearMonthDate = () => {
   const now = new Date();
   return ({
@@ -14,7 +15,43 @@ const getFileName = (filename) => {
   return filename.substring(filename.lastIndexOf('/'));
 };
 
-const PRINT_TIME = 11;
+const calculateRemainingTimeChallenge = () => {
+  const now = new Date();
+  const target = new Date();
+  target.setHours(PRINT_HOURS_CHALLENGE);
+  target.setMinutes(0);
+  target.setSeconds(0);
+  target.setMilliseconds(0);
+
+  if (now > target) {
+    target.setDate(now.getDate() + 1);
+  }
+  logger.info(`remaining challenge print time: target - now: ${target - now}`);
+
+  return target - now;
+};
+
+const calculateRemainingTimeCamStudy = () => {
+  const now = new Date();
+  const target = new Date();
+  target.setHours(PRINT_HOURS_CAM_STUDY);
+  target.setMinutes(PRINT_MINUTES_CAM_STUDY);
+  target.setSeconds(0);
+  target.setMilliseconds(0);
+
+  if (now > target) {
+    target.setDate(now.getDate() + 1);
+  }
+  logger.info(`remaining cam study print time: target - now: ${target - now}`);
+
+  return target - now;
+};
+
+
+const LEAST_TIME_LIMIT = 1;
+const PRINT_HOURS_CHALLENGE = 11;
+const PRINT_HOURS_CAM_STUDY = 17;
+const PRINT_MINUTES_CAM_STUDY = 37;
 const LATE_RANGE_TIME = 10;
 const ABSENCE_RANGE_TIME = 30;
 const PERMISSION_NUM_ADMIN = 0;
@@ -27,7 +64,10 @@ const PUBLIC_HOLIDAYS_2024 = ['0410', '0505', '0506', '0515', '0606', '0815', '0
 module.exports = {
   getYearMonthDate,
   getFileName,
+  calculateRemainingTimeChallenge,
+  calculateRemainingTimeCamStudy,
 
+  LEAST_TIME_LIMIT,
   LATE_RANGE_TIME,
   ABSENCE_RANGE_TIME,
   PERMISSION_NUM_ADMIN,
@@ -35,7 +75,7 @@ module.exports = {
   ONE_DAY_MILLISECONDS,
   SUNDAY,
   SATURDAY,
-  PRINT_TIME,
+  PRINT_TIME: PRINT_HOURS_CAM_STUDY,
 
   PUBLIC_HOLIDAYS_2024,
 };

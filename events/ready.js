@@ -1,38 +1,22 @@
 const { Events } = require('discord.js');
 const { Users } = require('../repository/Users');
 const { TimeLog } = require('../repository/TimeLog');
-const { checkChannelId } = require('../config.json');
+const { CamStudyUsers } = require('../repository/CamStudyUsers');
+const { CamStudyTimeLog } = require('../repository/CamStudyTimeLog');
+const { checkChannelId, logChannelId } = require('../config.json');
 const {
   getYearMonthDate,
+  calculateRemainingTimeChallenge,
   PUBLIC_HOLIDAYS_2024,
   SUNDAY,
   SATURDAY,
   ONE_DAY_MILLISECONDS,
-  PRINT_TIME,
+  calculateRemainingTimeCamStudy,
 } = require('../utils');
 const logger = require('../logger');
 
-// 알람 세팅 전까지 남은 시간 계산
-const calculateRemainingTime = () => {
-  const now = new Date();
-  const target = new Date();
-  target.setHours(PRINT_TIME);
-  target.setMinutes(0);
-  target.setSeconds(0);
-  target.setMilliseconds(0);
-
-  if (now > target) {
-    target.setDate(now.getDate() + 1);
-  }
-  logger.info(`target: ${target}`);
-  logger.info(`now: ${now}`);
-  logger.info(`target - now: ${target - now}`);
-
-  return target - now;
-};
-
-const alarm = async (client) => {
-  logger.info('alarm start');
+const printChallengeInterval = async (client) => {
+  logger.info('print challenge start');
   const { year, month, date, hours, minutes, day } = getYearMonthDate();
   // 주말 제외
   if (day === SATURDAY || day === SUNDAY) {
@@ -44,7 +28,6 @@ const alarm = async (client) => {
   if (PUBLIC_HOLIDAYS_2024.includes(monthdate)) {
     return;
   }
-
 
   const channel = client.channels.cache.get(checkChannelId);
   let string = `### ${year}${month}${date} 출석표\n`;
@@ -59,6 +42,7 @@ const alarm = async (client) => {
   const timelogs = await TimeLog.findAll({
     where: { yearmonthday },
   });
+
   // TODO outer join 을 할 줄 몰라서 이렇게 처리
   const userids = users.reduce((p, c) => {
     p[c.userid] = [];
@@ -71,6 +55,7 @@ const alarm = async (client) => {
     }, userids);
   logger.info(`user id 로 그룹핑한 timelog 인스턴스들: `, { timelogsGroupById });
 
+  // 출력할 string 생성
   for await (const userid of Object.keys(timelogsGroupById)) {
     const user = await Users.findOne({ where: { userid } });
     const value = timelogsGroupById[userid];
@@ -100,6 +85,46 @@ const alarm = async (client) => {
   channel.send(string);
 };
 
+const printCamStudyInterval = async (client) => {
+  logger.info('print cam_study start');
+  const { year, month, date, hours, minutes, day } = getYearMonthDate();
+
+  const channel = client.channels.cache.get(logChannelId);
+  let string = `### ${year}${month}${date} 타임리스트\n`;
+  const yearmonthday = year + '' + month + date;
+  const camStudyUsers = await CamStudyUsers.findAll();
+  const camStudyTimelogs = await CamStudyTimeLog.findAll({
+    where: { yearmonthday },
+  });
+
+  // TODO outer join 을 할 줄 몰라서 이렇게 처리
+  const objWithName = camStudyUsers.reduce((p, c) => {
+    p[c.userid] = [c.username];
+    return p;
+  }, {});
+  const objWithNameAndMinutes = camStudyTimelogs.reduce(
+    (p, timelog) => {
+      if (!timelog.totalminutes) {
+        p[timelog.userid]?.push(0);
+        return p;
+      }
+      p[timelog.userid]?.push(timelog.totalminutes);
+      return p;
+    }, objWithName);
+  const timelogsGroupById = Object.entries(objWithNameAndMinutes).sort(([, [, a]], [, [, b]]) => a - b);
+  logger.info(`user id 로 그룹핑한 cam-study timelog 인스턴스들: `, { timelogsGroupById });
+
+  // 출력할 string 생성
+  // 0: userid, 1.1: username, 1.2: totalminutes
+  for (const array of timelogsGroupById) {
+    const username = array[1][0];
+    const totalMinutes = array[1][1];
+    string += `- ${username}님의 공부시간: ${totalMinutes}분`;
+  }
+  logger.info(`cam study final string`, { string });
+  channel.send(string);
+};
+
 
 module.exports = {
   name: Events.ClientReady,
@@ -108,18 +133,29 @@ module.exports = {
     // test
     // await Users.sync({ force: true });
     // await TimeLog.sync({ force: true });
+    // await CamStudyUsers.sync({ force : true});
+    // await CamStudyTimeLog.sync({force: true});
 
     // database synchronous
     await Users.sync();
     await TimeLog.sync();
+    await CamStudyUsers.sync();
+    await CamStudyTimeLog.sync();
 
-    const remainingTime = calculateRemainingTime();
-    logger.info(`remainingTime: ${remainingTime}`);
+    // set challenge print
+    const remainingTimeChallenge = calculateRemainingTimeChallenge();
     setTimeout(() => {
-      alarm(client);
-      setInterval(alarm, ONE_DAY_MILLISECONDS, client);
+      printChallengeInterval(client);
+      setInterval(printChallengeInterval, ONE_DAY_MILLISECONDS, client);
 
-    }, remainingTime);
+    }, remainingTimeChallenge);
+
+    // set cam_study print
+    const remainingTimeCamStudy = calculateRemainingTimeCamStudy();
+    setTimeout(() => {
+      printCamStudyInterval(client);
+      setInterval(printCamStudyInterval, ONE_DAY_MILLISECONDS, client);
+    }, remainingTimeCamStudy);
 
     logger.info(`Ready! Logged in as ${client.user.tag}`);
   },
