@@ -85,8 +85,8 @@ module.exports = {
       }, { where: { userid: newState.id, yearmonthday } });
       const channelLog = newState.guild.channels.cache.get(logChannelId);
 
-      await voiceChannel.send(`${user.username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}`);
-      await logChannel.send(`${user.username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}`);
+      await voiceChannel.send(`${user.username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`);
+      await logChannel.send(`${user.username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`);
     }
 
     // 2 study start
