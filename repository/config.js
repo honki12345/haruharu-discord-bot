@@ -9,7 +9,6 @@ const sequelize = new Sequelize('haruharu-database', databaseUser, password, {
   logging: false,
   storage: 'database.sqlite',
   query: { raw: true },
-  timezone: '+09:00',
 });
 
 module.exports = {
