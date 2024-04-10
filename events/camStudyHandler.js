@@ -59,6 +59,7 @@ module.exports = {
     // 2.2 5분 초과면 합계 칼럼을 업데이트한다
     if (conditionEndWhenTurnOff || conditionEndWhenQuit) {
       if (!timelog) {
+        logger.info('비정상 공부 종료', { oldState }, { newState });
         await logChannel.send(`${user.username}님 study end: 공부시간 정상 입력안됨`);
         await voiceChannel.send(`${user.username}님 study end: 공부시간 정상 입력안됨`);
         return;
@@ -69,9 +70,7 @@ module.exports = {
       const timeDiffInMinutes = Math.floor(timeDiff / 1000 / 60);
       // 5분 이내 입력 안함
       if (timeDiffInMinutes < LEAST_TIME_LIMIT) {
-        console.log(`now: ${now}`);
-        console.log(`timeDiff: ${timeDiff}`);
-        console.log(`timeDiffInMinutes: ${timeDiffInMinutes}`);
+        logger.info(`5분 이내 입력 안함, timeDiffInMinutes: ${timeDiffInMinutes}`);
         await CamStudyTimeLog.update({ timestamp: now.toString() }, { where: { userid: newState.id, yearmonthday } });
 
         await voiceChannel.send(`${user.username}님 study end: 5분 이내 입력안됨`);
