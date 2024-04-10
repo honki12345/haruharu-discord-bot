@@ -123,15 +123,16 @@ const printCamStudyInterval = async (client) => {
   // 0: userid, 1.1: username, 1.2: totalminutes
   for (const array of timelogsGroupById) {
     const username = array[1][0];
-    const totalminutes = array[1][1];
-    string += `- ${username}님의 공부시간: ${totalminutes}분`;
+    let totalminutes = array[1][1];
+    totalminutes = totalminutes ? totalminutes : 0;
+    string += `- ${username}님의 공부시간: ${totalminutes}분\n`;
   }
   logger.info(`cam study final string`, { string });
   channel.send(string);
 
   // weekly time log update
   const weektimes = calculateWeekTimes();
-  let weeklyString = `### ${year}${month}: ${weektimes}번째 주 타임리스트\n`;
+  let weeklyString = `### ${year}${month}: ${weektimes}번째 주(week) 타임리스트\n`;
   for await (const timelog of camStudyTimelogs) {
     const userid = timelog.userid;
     const username = timelog.username;
@@ -145,15 +146,15 @@ const printCamStudyInterval = async (client) => {
           weektimes,
         },
       });
-      string += `- ${username}님의 공부시간: ${formatFromMinutesToHours(updatedTotalminutes)}분`;
+      weeklyString += `- ${username}님의 공부시간: ${formatFromMinutesToHours(updatedTotalminutes)}분\n`;
     } else {
       await CamStudyWeeklyTimeLog.create({ userid, username, weektimes, totalminutes });
-      string += `- ${username}님의 공부시간: ${formatFromMinutesToHours(totalminutes)}분`;
+      weeklyString += `- ${username}님의 공부시간: ${formatFromMinutesToHours(totalminutes)}분\n`;
     }
   }
 
   if (day === FRIDAY) {
-    logger.info(`cam study weekly final string`, { string });
+    logger.info(`cam study weekly final string`, { weeklyString });
     channel.send(weeklyString);
   }
 };

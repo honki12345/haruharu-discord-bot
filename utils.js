@@ -18,7 +18,7 @@ const getFileName = (filename) => {
 const calculateWeekTimes = () => {
   const { year, month, date } = getYearMonthDate();
   const now = new Date(year + '-' + month + '-' + date);
-  return (now - HARUHARU_TIMES) / 1000 / 60 / 60 / 24 / 7;
+  return Math.floor((now - HARUHARU_TIMES) / 1000 / 60 / 60 / 24 / 7);
 };
 
 const calculateRemainingTimeChallenge = () => {
@@ -54,14 +54,14 @@ const calculateRemainingTimeCamStudy = () => {
 };
 
 const formatFromMinutesToHours = (minutes) => {
-  const dividedByHour = minutes / 60;
+  const dividedByHour = Math.floor(minutes / 60);
   const remainderByHour = minutes % 60;
   if (dividedByHour) {
     return `${dividedByHour}시간 ${remainderByHour}분`;
   }
 
   return `${remainderByHour}분`;
-}
+};
 
 
 // cam study 관련 상수들
@@ -79,7 +79,7 @@ const DEFAULT_VACANCES_COUNT = 3;
 const PERMISSION_NUM_ADMIN = 0;
 const ONE_DAY_MILLISECONDS = 51464318;
 const SUNDAY = 0;
-const FRIDAY = 3; // TODO FRIDAY = 5 이지만 테스트를 위해 수요일 3 으로 수정해놓는다
+const FRIDAY = 4; // TODO FRIDAY = 5 이지만 테스트를 위해 목요일 4 로 수정해놓는다
 const SATURDAY = 6;
 const PUBLIC_HOLIDAYS_2024 = ['0410', '0505', '0506', '0515', '0606', '0815', '0916', '0917', '0918', '1003', '1009', '1225'];
 
