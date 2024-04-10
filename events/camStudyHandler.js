@@ -44,7 +44,7 @@ module.exports = {
     // newState: 공부실을 떠났을 때, oldState: 공부실 채널에 접속한 상태 && 비디오를 킨 상태
     const conditionEndWhenQuit = isNotNewStateInChannel && wasOldStateVideoOn && wasOldStateInChannel;
     // oldState: 공부실 접속한 상태 && 비디오를 킨 상태, newState: 공부실 접속한 상태 && 비디오를 끈 상태
-    const conditionEndWhenTurnOff = wasOldStateInChannel && isNewStateInChannel && isNewStateVideoOff;
+    const conditionEndWhenTurnOff = wasOldStateInChannel && wasOldStateVideoOn && isNewStateInChannel && isNewStateVideoOff;
 
     // await newState.channel.send(`${user.username}님 study end: 공부시간 정상 입력안됨`);
     const logChannel = newState.guild.channels.cache.get(logChannelId);
