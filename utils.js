@@ -16,10 +16,10 @@ const getFileName = (filename) => {
 };
 
 const calculateWeekTimes = () => {
-  const {year, month, date} = getYearMonthDate();
+  const { year, month, date } = getYearMonthDate();
   const now = new Date(year + '-' + month + '-' + date);
   return (now - HARUHARU_TIMES) / 1000 / 60 / 60 / 24 / 7;
-}
+};
 
 const calculateRemainingTimeChallenge = () => {
   const now = new Date();
@@ -55,7 +55,7 @@ const calculateRemainingTimeCamStudy = () => {
 
 
 // cam study 관련 상수들
-const LEAST_TIME_LIMIT = 1;
+const LEAST_TIME_LIMIT = 5;
 const PRINT_HOURS_CAM_STUDY = 23;
 const PRINT_MINUTES_CAM_STUDY = 59;
 const HARUHARU_TIMES = new Date('2024-04-06');  // 토요일
