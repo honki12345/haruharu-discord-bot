@@ -53,6 +53,16 @@ const calculateRemainingTimeCamStudy = () => {
   return target - now;
 };
 
+const formatFromMinutesToHours = (minutes) => {
+  const dividedByHour = minutes / 60;
+  const remainderByHour = minutes % 60;
+  if (dividedByHour) {
+    return `${dividedByHour}시간 ${remainderByHour}분`;
+  }
+
+  return `${remainderByHour}분`;
+}
+
 
 // cam study 관련 상수들
 const LEAST_TIME_LIMIT = 5;
@@ -79,6 +89,7 @@ module.exports = {
   calculateRemainingTimeChallenge,
   calculateRemainingTimeCamStudy,
   calculateWeekTimes,
+  formatFromMinutesToHours,
 
   LEAST_TIME_LIMIT,
   LATE_RANGE_TIME,

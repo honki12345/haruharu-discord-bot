@@ -8,11 +8,13 @@ const {
   getYearMonthDate,
   calculateRemainingTimeChallenge,
   calculateWeekTimes,
+  calculateRemainingTimeCamStudy,
+  formatFromMinutesToHours,
   PUBLIC_HOLIDAYS_2024,
   SUNDAY,
   SATURDAY,
   ONE_DAY_MILLISECONDS,
-  calculateRemainingTimeCamStudy, FRIDAY,
+  FRIDAY,
 } = require('../utils');
 const logger = require('../logger');
 const { CamStudyWeeklyTimeLog } = require('../repository/CamStudyWeeklyTimeLog');
@@ -133,20 +135,20 @@ const printCamStudyInterval = async (client) => {
   for await (const timelog of camStudyTimelogs) {
     const userid = timelog.userid;
     const username = timelog.username;
-    const totalminutes = timelog.totalminutes;
+    const totalminutes = Number(timelog.totalminutes);
     const weekTimeLog = await CamStudyWeeklyTimeLog.findOne({ where: { userid, weektimes } });
     if (weekTimeLog) {
-      const updatedTotalminutes = weekTimeLog.totalminutes + totalminutes;
+      const updatedTotalminutes = Number(weekTimeLog.totalminutes) + totalminutes;
       await CamStudyWeeklyTimeLog.update({ totalminutes: updatedTotalminutes }, {
         where: {
           userid,
           weektimes,
         },
       });
-      string += `- ${username}님의 공부시간: ${updatedTotalminutes}분`;
+      string += `- ${username}님의 공부시간: ${formatFromMinutesToHours(updatedTotalminutes)}분`;
     } else {
       await CamStudyWeeklyTimeLog.create({ userid, username, weektimes, totalminutes });
-      string += `- ${username}님의 공부시간: ${totalminutes}분`;
+      string += `- ${username}님의 공부시간: ${formatFromMinutesToHours(totalminutes)}분`;
     }
   }
 
