@@ -77,7 +77,7 @@ const ABSENCE_RANGE_TIME = 30;
 const DEFAULT_VACANCES_COUNT = 3;
 
 const PERMISSION_NUM_ADMIN = 0;
-const ONE_DAY_MILLISECONDS = 51464318;
+const ONE_DAY_MILLISECONDS = 86400000;
 const SUNDAY = 0;
 const FRIDAY = 4; // TODO FRIDAY = 5 이지만 테스트를 위해 목요일 4 로 수정해놓는다
 const SATURDAY = 6;

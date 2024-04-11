@@ -81,11 +81,11 @@ const printChallengeInterval = async (client) => {
     //출석자
     attendees += `- ${value[0].username}: 출석\n`;
   }
-  logger.info(`alarm final string`, { string });
 
   (attendees) ? string += attendees : '';
   (latecomers) ? string += latecomers : '';
   (absentees) ? string += absentees : '';
+  logger.info(`alarm final string`, { string });
   channel.send(string);
 };
 
