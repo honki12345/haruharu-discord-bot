@@ -125,7 +125,7 @@ const printCamStudyInterval = async (client) => {
   for (const array of timelogsGroupById) {
     const username = array[1][0];
     let totalminutes = array[1][1];
-    dailyTotalString += `- ${username}님의 공부시간: ${formatFromMinutesToHours(Number(totalminutes))}분\n`;
+    dailyTotalString += `- ${username}님의 공부시간: ${formatFromMinutesToHours(Number(totalminutes))}\n`;
   }
   logger.info(`cam study final string`, { string: dailyTotalString });
   channel.send(dailyTotalString);
@@ -161,7 +161,7 @@ const printCamStudyInterval = async (client) => {
     ],
   });
   for (const weeklyTimeLog of weeklyTimeLogs) {
-    weeklyString += `- ${weeklyTimeLog.username}님의 공부시간: ${formatFromMinutesToHours(Number(weeklyTimeLog.totalminutes))}분\n`;
+    weeklyString += `- ${weeklyTimeLog.username}님의 공부시간: ${formatFromMinutesToHours(Number(weeklyTimeLog.totalminutes))}\n`;
   }
 
   logger.info(`cam study weekly final string`, { weeklyString });
