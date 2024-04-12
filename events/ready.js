@@ -14,7 +14,6 @@ const {
   SUNDAY,
   SATURDAY,
   ONE_DAY_MILLISECONDS,
-  FRIDAY,
 } = require('../utils');
 const logger = require('../logger');
 const { CamStudyWeeklyTimeLog } = require('../repository/CamStudyWeeklyTimeLog');
@@ -91,7 +90,7 @@ const printChallengeInterval = async (client) => {
 
 const printCamStudyInterval = async (client) => {
   logger.info('print cam_study start');
-  const { year, month, date, day } = getYearMonthDate();
+  const { year, month, date } = getYearMonthDate();
 
   const channel = client.channels.cache.get(logChannelId);
   let dailyTotalString = `### 일일 타임리스트 (${year}${month}${date})\n`;
@@ -153,22 +152,20 @@ const printCamStudyInterval = async (client) => {
   }
 
 
-  if (day === FRIDAY) {
-    // weekly time log string generator
-    let weeklyString = `### 주간 타임리스트 (${year}${month}: ${weektimes}번째 주)\n`;
-    const weeklyTimeLogs = await CamStudyWeeklyTimeLog.findAll({
-      where: { weektimes },
-      order: [
-        ['totalminutes', 'DESC'],
-      ],
-    });
-    for (const weeklyTimeLog of weeklyTimeLogs) {
-      weeklyString += `- ${weeklyTimeLog.username}님의 공부시간: ${formatFromMinutesToHours(Number(weeklyTimeLog.totalminutes))}분\n`;
-    }
-
-    logger.info(`cam study weekly final string`, { weeklyString });
-    channel.send(weeklyString);
+  // weekly time log string generator
+  let weeklyString = `### 주간 타임리스트 (${year}${month}: ${weektimes}번째 주)\n`;
+  const weeklyTimeLogs = await CamStudyWeeklyTimeLog.findAll({
+    where: { weektimes },
+    order: [
+      ['totalminutes', 'DESC'],
+    ],
+  });
+  for (const weeklyTimeLog of weeklyTimeLogs) {
+    weeklyString += `- ${weeklyTimeLog.username}님의 공부시간: ${formatFromMinutesToHours(Number(weeklyTimeLog.totalminutes))}분\n`;
   }
+
+  logger.info(`cam study weekly final string`, { weeklyString });
+  channel.send(weeklyString);
 };
 
 
