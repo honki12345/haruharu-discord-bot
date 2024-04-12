@@ -94,7 +94,7 @@ const printCamStudyInterval = async (client) => {
   const { year, month, date, day } = getYearMonthDate();
 
   const channel = client.channels.cache.get(logChannelId);
-  let string = `### ${year}${month}${date} 타임리스트\n`;
+  let dailyTotalString = `### 일일 타임리스트 (${year}${month}${date})\n`;
   const yearmonthday = year + '' + month + date;
   const camStudyUsers = await CamStudyUsers.findAll();
   const camStudyTimelogs = await CamStudyTimeLog.findAll({
@@ -102,37 +102,38 @@ const printCamStudyInterval = async (client) => {
   });
 
   // daily time log update
-  // TODO outer join 을 할 줄 몰라서 이렇게 처리
+  // TODO outer join 을 할 줄 몰라서 이렇게 처리: 결과적으로 복잡도가 올라가버렸다
   const objWithName = camStudyUsers.reduce((p, c) => {
-    p[c.userid] = [c.username];
+    p[c.userid] = [c.username, 0];
     return p;
   }, {});
   const objWithNameAndMinutes = camStudyTimelogs.reduce(
     (p, timelog) => {
       if (!timelog.totalminutes) {
-        p[timelog.userid]?.push(0);
         return p;
       }
-      p[timelog.userid]?.push(Number(timelog.totalminutes));
+      if (Array.isArray(p[timelog.userid])) {
+        p[timelog.userid][1] = Number(timelog.totalminutes);
+      }
       return p;
     }, objWithName);
-  const timelogsGroupById = Object.entries(objWithNameAndMinutes).sort(([, [, a]], [, [, b]]) => a - b);
+  // totalminutes 기준으로 내림차순
+  const timelogsGroupById = Object.entries(objWithNameAndMinutes).sort(([, [, a]], [, [, b]]) => b - a);
   logger.info(`user id 로 그룹핑한 cam-study timelog 인스턴스들: `, { timelogsGroupById });
 
-  // daily timelog string
-  // 0: userid, 1.1: username, 1.2: totalminutes
+  // daily timelog string generator
+  // array => 0: userid, 1.1: username, 1.2: totalminutes
   for (const array of timelogsGroupById) {
     const username = array[1][0];
     let totalminutes = array[1][1];
-    totalminutes = totalminutes ? totalminutes : 0;
-    string += `- ${username}님의 공부시간: ${totalminutes}분\n`;
+    dailyTotalString += `- ${username}님의 공부시간: ${formatFromMinutesToHours(Number(totalminutes))}분\n`;
   }
-  logger.info(`cam study final string`, { string });
-  channel.send(string);
+  logger.info(`cam study final string`, { string: dailyTotalString });
+  channel.send(dailyTotalString);
 
+  // ######## weekly logic start
   // weekly time log update
   const weektimes = calculateWeekTimes();
-  let weeklyString = `### ${year}${month}: ${weektimes}번째 주(week) 타임리스트\n`;
   for await (const timelog of camStudyTimelogs) {
     const userid = timelog.userid;
     const username = timelog.username;
@@ -146,14 +147,25 @@ const printCamStudyInterval = async (client) => {
           weektimes,
         },
       });
-      weeklyString += `- ${username}님의 공부시간: ${formatFromMinutesToHours(updatedTotalminutes)}분\n`;
     } else {
       await CamStudyWeeklyTimeLog.create({ userid, username, weektimes, totalminutes });
-      weeklyString += `- ${username}님의 공부시간: ${formatFromMinutesToHours(totalminutes)}분\n`;
     }
   }
 
+
   if (day === FRIDAY) {
+    // weekly time log string generator
+    let weeklyString = `### 주간 타임리스트 (${year}${month}: ${weektimes}번째 주)\n`;
+    const weeklyTimeLogs = await CamStudyWeeklyTimeLog.findAll({
+      where: { weektimes },
+      order: [
+        ['totalminutes', 'DESC'],
+      ],
+    });
+    for (const weeklyTimeLog of weeklyTimeLogs) {
+      weeklyString += `- ${weeklyTimeLog.username}님의 공부시간: ${formatFromMinutesToHours(Number(weeklyTimeLog.totalminutes))}분\n`;
+    }
+
     logger.info(`cam study weekly final string`, { weeklyString });
     channel.send(weeklyString);
   }
