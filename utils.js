@@ -3,7 +3,7 @@ const getYearMonthDate = () => {
   const now = new Date();
   return ({
     year: now.getFullYear(),
-    month: ('0' + (1 + now.getMonth())).slice(-2),
+    month: ('0' + (now.getMonth() + 1)).slice(-2),
     date: ('0' + now.getDate()).slice(-2),
     day: now.getDay(),
     hours: ('0' + now.getHours()).slice(-2),
@@ -11,8 +11,23 @@ const getYearMonthDate = () => {
   });
 };
 
+const getFormattedYesterday = () => {
+  const now = new Date();
+  now.setDate(now.getDate() - 1);
+  const year = now.getFullYear();
+  const month = ('0' + (now.getMonth() + 1)).slice(-2);
+  const date = ('0' + now.getDate()).slice(-2);
+  return year + month + date;
+};
+
 const getFileName = (filename) => {
   return filename.substring(filename.lastIndexOf('/'));
+};
+
+const getTimeDiffFromNowInMinutes = (timestamp) => {
+  const now = Date.now();
+  const timeDiff = now - Number(timestamp);
+  return  Math.floor(timeDiff / 1000 / 60);
 };
 
 const calculateWeekTimes = () => {
@@ -90,6 +105,8 @@ module.exports = {
   calculateRemainingTimeCamStudy,
   calculateWeekTimes,
   formatFromMinutesToHours,
+  getFormattedYesterday,
+  getTimeDiffFromNowInMinutes,
 
   LEAST_TIME_LIMIT,
   LATE_RANGE_TIME,
