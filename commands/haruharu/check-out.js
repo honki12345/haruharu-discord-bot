@@ -54,7 +54,7 @@ module.exports = {
 
       // 2. 10분 이전 또는 30분 이후 => no valid time
       if (timeDifferenceValue < -LATE_RANGE_TIME || timeDifferenceValue > ABSENCE_RANGE_TIME) {
-        return await interaction.reply(`Not time for check-in/out: now:${hours}${minutes} yours: ${checkoutTimeString}`);
+        return await interaction.reply(`Not time for check-out: now:${hours}${minutes} yours: ${checkoutTimeString}`);
       }
 
       // 3. 10분 이후 => 지각
@@ -78,7 +78,8 @@ module.exports = {
     const username = interaction.user.globalName;
     const checkouttime = hours + '' + minutes;
     await TimeLog.create({ userid, username, yearmonthday, checkouttime, isintime });
-    await interaction.reply(`${interaction.user.globalName}님 check-out에 성공하셨습니다: ${checkouttime}`);
+    isintime ? await interaction.reply(`${interaction.user.globalName}님 check-out에 성공하셨습니다: ${checkouttime}`)
+      : await interaction.reply(`${interaction.user.globalName}님 check-out에 성공하셨습니다 (지각): ${checkouttime}`);
     await interaction.channel.send({
       files: [{
         attachment: attachment?.attachment,

@@ -54,7 +54,7 @@ module.exports = {
 
       // 1. timeDifferenceValue < -30 || timeDifferenceValue > 30 : 30분 이전 또는 30분 이후 => no valid time
       if (Math.abs(timeDifferenceValue) > ABSENCE_RANGE_TIME) {
-        return await interaction.reply(`Not time for check-in/out: now:${hours}${minutes} yours: ${user.waketime}`);
+        return await interaction.reply(`Not time for check-in: now:${hours}${minutes} yours: ${user.waketime}`);
       }
 
       // 2. timeDifferenceValue > 10 : 10분 이후 => 지각
@@ -78,7 +78,8 @@ module.exports = {
     const username = interaction.user.globalName;
     const checkintime = hours + '' + minutes;
     await TimeLog.create({ userid, username, yearmonthday, checkintime, isintime });
-    await interaction.reply(`${interaction.user.globalName}님 check-in에 성공하셨습니다: ${checkintime}`);
+    isintime ? await interaction.reply(`${interaction.user.globalName}님 check-in에 성공하셨습니다: ${checkintime}`)
+      : await interaction.reply(`${interaction.user.globalName}님 check-in에 성공하셨습니다 (지각): ${checkintime}`);
     await interaction.channel.send({
       files: [{
         attachment: attachment?.attachment,
