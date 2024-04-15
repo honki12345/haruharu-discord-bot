@@ -28,7 +28,7 @@ module.exports = {
       logger.info(`delete 명령행에 입력한 값: userid: ${userid}`);
 
       await CamStudyUsers.destroy({ where: { userid } });
-      await interaction.reply(`${userid}님 cam-study  delete success `);
+      await interaction.reply(`${foundUser.username}님 cam-study  delete success `);
     } catch (e) {
       logger.error(`cam-study 삭제 실패`, { e });
       await interaction.reply(`cam-study 삭제 실패`);
