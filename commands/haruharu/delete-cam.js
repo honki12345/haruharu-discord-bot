@@ -20,7 +20,7 @@ module.exports = {
     const foundUser = await CamStudyUsers.findOne({ where: { userid } });
 
     if (!foundUser) {
-      await interaction.reply(`cam-study 삭제 실패: 존재하지 않는 회원입니다`);
+      return await interaction.reply(`cam-study 삭제 실패: 존재하지 않는 회원입니다`);
     }
 
     // add logic
