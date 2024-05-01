@@ -1,9 +1,9 @@
-const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
-const { PERMISSION_NUM_ADMIN } = require('../../utils');
-const logger = require('../../logger');
-const { CamStudyUsers } = require('../../repository/CamStudyUsers');
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { PERMISSION_NUM_ADMIN } from '../../utils.js';
+import { logger } from '../../logger.js';
+import { CamStudyUsers } from '../../repository/CamStudyUsers.js';
 
-module.exports = {
+export const command = {
   cooldown: 30,
   data: new SlashCommandBuilder()
     .setName('register-cam')
@@ -20,8 +20,8 @@ module.exports = {
         .setRequired(true),
     ),
 
-  async execute(interaction) {
-    const userid = interaction.options.getString('userid');
+  async execute(interaction: ChatInputCommandInteraction) {
+    const userid = interaction.options.getString('userid')!;
     const foundUser = await CamStudyUsers.findOne({ where: { userid } });
 
     if (foundUser) {
@@ -30,7 +30,7 @@ module.exports = {
 
     // add logic
     try {
-      const username = interaction.options.getString('username');
+      const username = interaction.options.getString('username') ?? 'null';
       logger.info(`register-cam 명령행에 입력한 값: userid: ${userid}, username: ${username}`);
 
       const user = await CamStudyUsers.create({

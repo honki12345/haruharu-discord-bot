@@ -1,11 +1,11 @@
-const { SlashCommandBuilder } = require('discord.js');
-const { Users } = require('../../repository/Users');
-const { getYearMonthDate, LATE_RANGE_TIME, ABSENCE_RANGE_TIME } = require('../../utils');
-const { TimeLog } = require('../../repository/TimeLog');
-const logger = require('../../logger');
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { Users } from '../../repository/Users.js';
+import { getYearMonthDate, LATE_RANGE_TIME, ABSENCE_RANGE_TIME } from '../../utils.js';
+import { TimeLog } from '../../repository/TimeLog.js';
+import { logger } from '../../logger.js';
 
 
-module.exports = {
+export const command = {
   cooldown: 30,
 
   data: new SlashCommandBuilder()
@@ -17,7 +17,7 @@ module.exports = {
         .setRequired(true),
     ),
 
-  async execute(interaction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     // registered validation
     const { year, month, date, hours, minutes } = getYearMonthDate();
     const userid = interaction.user.id;
@@ -63,26 +63,29 @@ module.exports = {
       }
     } catch (e) {
       logger.error(`check-out 시간 계산 로직 오류발생`, { e });
-      return await interaction.reply(`error occurred: ${e.name}`);
+
+      if (e instanceof Error) {
+        return await interaction.reply(`error occurred: ${e.name}`);
+      }
     }
 
     // image file validation
     const attachment = interaction.options.getAttachment('image');
     logger.info(`image attachment info: `, { attachment });
-    if (!attachment.contentType.startsWith('image/')) {
+    if (!attachment?.contentType?.startsWith('image/')) {
       return await interaction.reply(`please upload image file`);
     }
 
 
     // add
-    const username = interaction.user.globalName;
+    const username = interaction.user.globalName ?? 'null';
     const checkouttime = hours + '' + minutes;
     await TimeLog.create({ userid, username, yearmonthday, checkouttime, isintime });
     isintime ? await interaction.reply(`${interaction.user.globalName}님 check-out에 성공하셨습니다: ${checkouttime}`)
       : await interaction.reply(`${interaction.user.globalName}님 check-out에 성공하셨습니다 (지각): ${checkouttime}`);
-    await interaction.channel.send({
+    await interaction.channel?.send({
       files: [{
-        attachment: attachment?.attachment,
+        attachment: attachment.url,
         name: `${attachment.name}`,
       }],
     });

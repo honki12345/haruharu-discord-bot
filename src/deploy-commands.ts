@@ -1,7 +1,10 @@
-const { REST, Routes } = require('discord.js');
-const { clientId, guildId, token } = require('../../../config.json');
-const fs = require('node:fs');
-const path = require('node:path');
+import { REST, Routes } from 'discord.js';
+import { createRequire } from 'node:module';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const jsonRequire = createRequire(import.meta.url);
+const { clientId, guildId, token } = jsonRequire('../config.json');
 
 const commands = [];
 const foldersPath = path.join(__dirname, 'commands');
@@ -41,7 +44,10 @@ const rest = new REST().setToken(token);
       { body: commands },
     );
 
-    console.log(`Successfully reloaded ${data.length} application (/) commands`);
+    if (data !== null && typeof data === 'object' && 'length' in data) {
+      console.log(`Successfully reloaded ${data.length} application (/) commands`);
+    }
+
   } catch (e) {
     // And of course, make sure you catch and log any errors
     console.error(e);

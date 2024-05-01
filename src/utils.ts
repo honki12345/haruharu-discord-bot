@@ -1,4 +1,5 @@
-const logger = require('./logger');
+import { logger } from './logger.js';
+
 const getYearMonthDate = () => {
   const now = new Date();
   return ({
@@ -20,20 +21,20 @@ const getFormattedYesterday = () => {
   return year + month + date;
 };
 
-const getFileName = (filename) => {
+const getFileName = (filename: string) => {
   return filename.substring(filename.lastIndexOf('/'));
 };
 
-const getTimeDiffFromNowInMinutes = (timestamp) => {
+const getTimeDiffFromNowInMinutes = (timestamp: number) => {
   const now = Date.now();
-  const timeDiff = now - Number(timestamp);
-  return  Math.floor(timeDiff / 1000 / 60);
+  const timeDiff = now - timestamp;
+  return Math.floor(timeDiff / 1000 / 60);
 };
 
 const calculateWeekTimes = () => {
   const { year, month, date } = getYearMonthDate();
   const now = new Date(year + '-' + month + '-' + date);
-  return Math.floor((now - HARUHARU_TIMES) / 1000 / 60 / 60 / 24 / 7);
+  return Math.floor((now.getTime() - HARUHARU_TIMES.getTime()) / 1000 / 60 / 60 / 24 / 7);
 };
 
 const calculateRemainingTimeChallenge = () => {
@@ -47,9 +48,9 @@ const calculateRemainingTimeChallenge = () => {
   if (now > target) {
     target.setDate(now.getDate() + 1);
   }
-  logger.info(`remaining challenge print time: target - now: ${target - now}`);
+  logger.info(`remaining challenge print time: target - now: ${target.getTime() - now.getTime()}`);
 
-  return target - now;
+  return target.getTime() - now.getTime();
 };
 
 const calculateRemainingTimeCamStudy = () => {
@@ -63,12 +64,12 @@ const calculateRemainingTimeCamStudy = () => {
   if (now > target) {
     target.setDate(now.getDate() + 1);
   }
-  logger.info(`remaining cam study print time: target - now: ${target - now}`);
+  logger.info(`remaining cam study print time: target - now: ${target.getTime() - now.getTime()}`);
 
-  return target - now;
+  return target.getTime() - now.getTime();
 };
 
-const formatFromMinutesToHours = (minutes) => {
+const formatFromMinutesToHours = (minutes: number) => {
   const dividedByHour = Math.floor(minutes / 60);
   const remainderByHour = minutes % 60;
   if (dividedByHour) {
@@ -98,7 +99,7 @@ const FRIDAY = 5; // TODO FRIDAY = 5 이지만 테스트를 위해 목요일 4 �
 const SATURDAY = 6;
 const PUBLIC_HOLIDAYS_2024 = ['0410', '0505', '0506', '0515', '0606', '0815', '0916', '0917', '0918', '1003', '1009', '1225'];
 
-module.exports = {
+export {
   getYearMonthDate,
   getFileName,
   calculateRemainingTimeChallenge,
@@ -117,7 +118,6 @@ module.exports = {
   SUNDAY,
   FRIDAY,
   SATURDAY,
-  PRINT_TIME: PRINT_HOURS_CAM_STUDY,
 
   PUBLIC_HOLIDAYS_2024,
 };

@@ -1,19 +1,23 @@
-const { Events, Collection } = require('discord.js');
-const { noticeChannelId, checkChannelId, testChannelId, camStudyRegisterChannelId } = require('../../config.json');
+import { Events, Collection, ChatInputCommandInteraction } from 'discord.js';
+import { createRequire } from 'node:module';
+import { MyClient } from '../index.js';
 
-module.exports = {
+const jsonRequire = createRequire(import.meta.url);
+const { noticeChannelId, checkChannelId, testChannelId, camStudyRegisterChannelId } = jsonRequire('../../config.json');
+
+export const event = {
   name: Events.InteractionCreate,
-  async execute(interaction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.isChatInputCommand()) return;
 
-    const command = interaction.client.commands.get(interaction.commandName);
+    const command = (interaction.client as MyClient).commands.get(interaction.commandName);
 
     if (!command) {
       console.error(`No command matching ${interaction.commandName} was found`);
       return;
     }
 
-    const firedChannelId = interaction.channel.id;
+    const firedChannelId = interaction.channel?.id;
     const isValidChannelId = firedChannelId === noticeChannelId || firedChannelId === checkChannelId || firedChannelId === testChannelId || firedChannelId === camStudyRegisterChannelId;
     if (!isValidChannelId) {
       await interaction.reply({ content: 'no valid channel for command', ephemeral: true });
@@ -21,7 +25,7 @@ module.exports = {
     }
 
 
-    const { cooldowns } = interaction.client;
+    const { cooldowns } = (interaction.client as MyClient);
 
     if (!cooldowns.has(command.data.name)) {
       cooldowns.set(command.data.name, new Collection());

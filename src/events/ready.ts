@@ -1,10 +1,12 @@
-const { Events } = require('discord.js');
-const { Users } = require('../repository/Users');
-const { TimeLog } = require('../repository/TimeLog');
-const { CamStudyUsers } = require('../repository/CamStudyUsers');
-const { CamStudyTimeLog } = require('../repository/CamStudyTimeLog');
-const { checkChannelId, logChannelId } = require('../../config.json');
-const {
+import { Client, Events } from 'discord.js';
+import { Users } from '../repository/Users.js';
+import { TimeLog } from '../repository/TimeLog.js';
+import { CamStudyUsers } from '../repository/CamStudyUsers.js';
+import { CamStudyTimeLog } from '../repository/CamStudyTimeLog.js';
+import { CamStudyWeeklyTimeLog } from '../repository/CamStudyWeeklyTimeLog.js';
+import { createRequire } from 'node:module';
+import { logger } from '../logger.js';
+import {
   getYearMonthDate,
   calculateRemainingTimeChallenge,
   calculateWeekTimes,
@@ -14,11 +16,13 @@ const {
   SUNDAY,
   SATURDAY,
   ONE_DAY_MILLISECONDS,
-} = require('../utils');
-const logger = require('../logger');
-const { CamStudyWeeklyTimeLog } = require('../repository/CamStudyWeeklyTimeLog');
+} from '../utils.js';
 
-const printChallengeInterval = async (client) => {
+const jsonRequire = createRequire(import.meta.url);
+const { checkChannelId, logChannelId } = jsonRequire('../../config.json');
+
+
+const printChallengeInterval = async (client: Client) => {
   logger.info('print challenge start');
   const { year, month, date, day } = getYearMonthDate();
   // 주말 제외
@@ -47,7 +51,7 @@ const printChallengeInterval = async (client) => {
   });
 
   // TODO outer join 을 할 줄 몰라서 이렇게 처리
-  const userids = users.reduce((p, c) => {
+  const userids = users.reduce<{ [index: string]: TimeLog[] }>((p, c) => {
     p[c.userid] = [];
     return p;
   }, {});
@@ -61,12 +65,17 @@ const printChallengeInterval = async (client) => {
   // 출력할 string 생성
   for await (const userid of Object.keys(timelogsGroupById)) {
     const user = await Users.findOne({ where: { userid, yearmonth } });
+    if (user === null) {
+      continue;
+    }
     const value = timelogsGroupById[userid];
     // 결석자
     if (value.length !== 2) {
       await Users.update({ absencecount: user.absencecount + 1 }, { where: { userid, yearmonth } });
       const findUser = users.find(user => userid === user.userid);
-      absentees += `- ${findUser.username}: 결석 (${user.absencecount + 1}/${user.vacances})\n`;
+      if (findUser) {
+        absentees += `- ${findUser.username}: 결석 (${user.absencecount + 1}/${user.vacances})\n`;
+      }
       continue;
     }
 
@@ -85,10 +94,12 @@ const printChallengeInterval = async (client) => {
   (latecomers) ? string += latecomers : '';
   (absentees) ? string += absentees : '';
   logger.info(`alarm final string`, { string });
-  channel.send(string);
+  if (channel && 'send' in channel) {
+    await channel.send(string);
+  }
 };
 
-const printCamStudyInterval = async (client) => {
+const printCamStudyInterval = async (client: Client) => {
   logger.info('print cam_study start');
   const { year, month, date } = getYearMonthDate();
 
@@ -102,7 +113,7 @@ const printCamStudyInterval = async (client) => {
 
   // daily time log update
   // TODO outer join 을 할 줄 몰라서 이렇게 처리: 결과적으로 복잡도가 올라가버렸다
-  const objWithName = camStudyUsers.reduce((p, c) => {
+  const objWithName = camStudyUsers.reduce<{ [index: string]: [string, number] }>((p, c) => {
     p[c.userid] = [c.username, 0];
     return p;
   }, {});
@@ -128,7 +139,9 @@ const printCamStudyInterval = async (client) => {
     dailyTotalString += `- ${username}님의 공부시간: ${formatFromMinutesToHours(Number(totalminutes))}\n`;
   }
   logger.info(`cam study final string`, { string: dailyTotalString });
-  channel.send(dailyTotalString);
+  if (channel && 'send' in channel) {
+    await channel.send(dailyTotalString);
+  }
 
   // ######## weekly logic start
   // weekly time log update
@@ -165,14 +178,16 @@ const printCamStudyInterval = async (client) => {
   }
 
   logger.info(`cam study weekly final string`, { weeklyString });
-  channel.send(weeklyString);
+  if (channel && 'send' in channel) {
+    channel.send(weeklyString);
+  }
 };
 
 
-module.exports = {
+export const event = {
   name: Events.ClientReady,
   once: true,
-  async execute(client) {
+  async execute(client: Client) {
     // test
     // await Users.sync({ force: true });
     // await TimeLog.sync({ force: true });
@@ -201,6 +216,6 @@ module.exports = {
       setInterval(printCamStudyInterval, ONE_DAY_MILLISECONDS, client);
     }, remainingTimeCamStudy);
 
-    logger.info(`Ready! Logged in as ${client.user.tag}`);
+    logger.info(`Ready! Logged in as ${client.user?.tag}`);
   },
 };
