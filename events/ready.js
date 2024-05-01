@@ -60,11 +60,11 @@ const printChallengeInterval = async (client) => {
 
   // 출력할 string 생성
   for await (const userid of Object.keys(timelogsGroupById)) {
-    const user = await Users.findOne({ where: { userid } });
+    const user = await Users.findOne({ where: { userid, yearmonth } });
     const value = timelogsGroupById[userid];
     // 결석자
     if (value.length !== 2) {
-      await Users.update({ absencecount: user.absencecount + 1 }, { where: { userid } });
+      await Users.update({ absencecount: user.absencecount + 1 }, { where: { userid, yearmonth } });
       const findUser = users.find(user => userid === user.userid);
       absentees += `- ${findUser.username}: 결석 (${user.absencecount + 1}/${user.vacances})\n`;
       continue;
@@ -72,7 +72,7 @@ const printChallengeInterval = async (client) => {
 
     // 지각자
     if (!value[0].isintime || !value[1].isintime) {
-      await Users.update({ latecount: user.latecount + 1 }, { where: { userid } });
+      await Users.update({ latecount: user.latecount + 1 }, { where: { userid, yearmonth } });
       latecomers += `- ${value[0].username}: 지각 (${user.latecount + 1})\n`;
       continue;
     }
