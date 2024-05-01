@@ -3,7 +3,10 @@ import { Users } from '../../repository/Users.js';
 import { getYearMonthDate, LATE_RANGE_TIME, ABSENCE_RANGE_TIME } from '../../utils.js';
 import { TimeLog } from '../../repository/TimeLog.js';
 import { logger } from '../../logger.js';
+import { createRequire } from 'node:module';
 
+const jsonRequire = createRequire(import.meta.url);
+const { checkChannelId } = jsonRequire('../../../config.json');
 
 export const command = {
   cooldown: 30,
@@ -18,6 +21,12 @@ export const command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
+    // fired channel validation
+    const firedChannelId = interaction.channelId;
+    if (firedChannelId !== checkChannelId) {
+      return await interaction.reply({ content: `no valid channel for command`, ephemeral: true });
+    }
+
     // registered validation
     const { year, month, date, hours, minutes } = getYearMonthDate();
     const userid = interaction.user.id;
