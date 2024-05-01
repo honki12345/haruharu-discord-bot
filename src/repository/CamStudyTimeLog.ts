@@ -36,7 +36,7 @@ CamStudyTimeLog.init({
   },
   {
     sequelize,
-    tableName: 'cam_study_time_log',
+    tableName: 'cam_study_time_logs',
   },
 );
 
