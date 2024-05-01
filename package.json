@@ -4,7 +4,8 @@
   "description": "",
   "main": "src/index.ts",
   "scripts": {
-    "start": "tsc && node \"dist/index.js\""
+    "start": "tsc && node \"dist/index.js\"",
+    "pm2": "tsc && NODE_ENV=production pm2 start \"dist/index.js\""
   },
   "keywords": [],
   "author": "",
