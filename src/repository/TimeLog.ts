@@ -41,7 +41,7 @@ TimeLog.init(
   },
   {
     sequelize,
-    tableName: 'time_log',
+    tableName: 'time_logs',
   },
 );
 

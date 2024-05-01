@@ -32,7 +32,7 @@ CamStudyWeeklyTimeLog.init({
   },
   {
     sequelize,
-    tableName: 'cam_study_weekly_time_log',
+    tableName: 'cam_study_weekly_time_logs',
   });
 
 export {
