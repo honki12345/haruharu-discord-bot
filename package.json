@@ -9,6 +9,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "type": "module",
   "dependencies": {
     "app-root-path": "^3.1.0",
     "discord.js": "^14.14.1",
