@@ -1,5 +1,5 @@
 const { Events, Collection } = require('discord.js');
-const { noticeChannelId, checkChannelId, testChannelId, camStudyRegisterChannelId } = require('../config.json');
+const { noticeChannelId, checkChannelId, testChannelId, camStudyRegisterChannelId } = require('../../config.json');
 
 module.exports = {
   name: Events.InteractionCreate,

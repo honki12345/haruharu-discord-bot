@@ -1,5 +1,5 @@
 const { Sequelize, DataType } = require('sequelize');
-const { databaseUser, password } = require('../config.json');
+const { databaseUser, password } = require('../../config.json');
 
 const sequelize = new Sequelize('haruharu-database', databaseUser, password, {
   host: 'localhost',

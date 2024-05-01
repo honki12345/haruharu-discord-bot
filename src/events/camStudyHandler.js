@@ -1,4 +1,4 @@
-const { voiceChannelId, logChannelId } = require('../config.json');
+const { voiceChannelId, logChannelId } = require('../../config.json');
 const { CamStudyUsers } = require('../repository/CamStudyUsers');
 const { CamStudyTimeLog } = require('../repository/CamStudyTimeLog');
 const { getYearMonthDate, getFormattedYesterday, getTimeDiffFromNowInMinutes, LEAST_TIME_LIMIT } = require('../utils');

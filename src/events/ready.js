@@ -3,7 +3,7 @@ const { Users } = require('../repository/Users');
 const { TimeLog } = require('../repository/TimeLog');
 const { CamStudyUsers } = require('../repository/CamStudyUsers');
 const { CamStudyTimeLog } = require('../repository/CamStudyTimeLog');
-const { checkChannelId, logChannelId } = require('../config.json');
+const { checkChannelId, logChannelId } = require('../../config.json');
 const {
   getYearMonthDate,
   calculateRemainingTimeChallenge,
