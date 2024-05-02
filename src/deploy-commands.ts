@@ -2,10 +2,11 @@ import { REST, Routes } from 'discord.js';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'url';
 
 const jsonRequire = createRequire(import.meta.url);
 const { clientId, guildId, token } = jsonRequire('../config.json');
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const commands = [];
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
