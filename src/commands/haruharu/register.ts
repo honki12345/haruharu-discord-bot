@@ -44,9 +44,9 @@ export const command = {
     if (user) {
       logger.info(`등록 전 유저 검색값 : `, { user });
       const username = interaction.options.getString('username') ?? user.username;
-      const vacances = Number(interaction.options.getString('vacances')) ?? user.vacances ;
+      const vacances = interaction.options.getString('vacances') ?? user.vacances;
 
-      const affectedRows = await Users.update({ username, yearmonth, waketime, vacances }, {
+      const affectedRows = await Users.update({ username, yearmonth, waketime, vacances: Number(vacances) }, {
         where: { userid, yearmonth },
       });
       if (affectedRows[0] > 0) {
@@ -60,7 +60,7 @@ export const command = {
       const username = interaction.options.getString('username')!;
       const yearmonth = interaction.options.getString('yearmonth')!;
       const waketime = interaction.options.getString('waketime')!;
-      const vacances = Number(interaction.options.getString('vacances')) ?? DEFAULT_VACANCES_COUNT;
+      const vacances = DEFAULT_VACANCES_COUNT;
       logger.info(`register model: username: ${username}, yearmonth: ${yearmonth}, waketime: ${waketime}, vacances: ${vacances}`);
 
       const user = await Users.create({
