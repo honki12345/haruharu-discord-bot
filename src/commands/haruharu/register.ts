@@ -26,7 +26,8 @@ export const command = {
     )
     .addStringOption(option =>
       option.setName('username')
-        .setDescription('set username'),
+        .setDescription('set username')
+        .setRequired(true),
     )
     .addStringOption(option =>
       option.setName('vacances')
