@@ -1,9 +1,25 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
-const { token } = require('./config.json');
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { Client, ClientOptions, Collection, GatewayIntentBits } from 'discord.js';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'node:module';
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
+const jsonRequire = createRequire(import.meta.url);
+const config = jsonRequire('../config.json');
+
+export class MyClient extends Client {
+  cooldowns: Collection<any, any>;
+  commands: Collection<any, any>;
+
+  constructor(options: ClientOptions) {
+    super(options);
+    this.cooldowns = new Collection();
+    this.commands = new Collection();
+  }
+}
+
+const client = new MyClient({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 client.cooldowns = new Collection();
 client.commands = new Collection();
@@ -17,11 +33,14 @@ for (const folder of commandFolders) {
 
   const commandsPath = path.join(foldersPath, folder);
   const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+  console.log(commandFiles);
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
+    // const command = require(filePath);
+    console.log(`filePath: ${filePath}`);
+    const { command } = await import(filePath);
     // Set a new item in the Collection with the key as the command name and the value as the exported module
-    if ('data' in command && 'execute' in command) {
+    if (command && 'data' in command && 'execute' in command) {
       client.commands.set(command.data.name, command);
     } else {
       console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property`);
@@ -34,7 +53,8 @@ const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'
 
 for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
-  const event = require(filePath);
+  const { event } = await import(filePath);
+  // const event = require(filePath);
   if (event.once) {
     client.once(event.name, (...args) => event.execute(...args));
   } else {
@@ -42,4 +62,4 @@ for (const file of eventFiles) {
   }
 }
 
-client.login(token);
+client.login(config.token);

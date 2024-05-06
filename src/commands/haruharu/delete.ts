@@ -1,10 +1,9 @@
-const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
-const { PERMISSION_NUM_ADMIN } = require('../../utils');
-const logger = require('../../logger');
-const { CamStudyUsers } = require('../../repository/CamStudyUsers');
-const { Users } = require('../../repository/Users');
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import {logger} from '../../logger.js';
+import {Users} from '../../repository/Users.js';
+import { PERMISSION_NUM_ADMIN } from '../../utils.js';
 
-module.exports = {
+export const command = {
   cooldown: 30,
   data: new SlashCommandBuilder()
     .setName('delete')
@@ -21,9 +20,9 @@ module.exports = {
         .setRequired(true),
     ),
 
-  async execute(interaction) {
-    const userid = interaction.options.getString('userid');
-    const yearmonth = interaction.options.getString('yearmonth');
+  async execute(interaction: ChatInputCommandInteraction) {
+    const userid = interaction.options.getString('userid')!;
+    const yearmonth = interaction.options.getString('yearmonth')!;
     const foundUser = await Users.findOne({ where: { userid, yearmonth } });
 
     if (!foundUser) {

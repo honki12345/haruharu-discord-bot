@@ -1,7 +1,7 @@
-const winston = require('winston');
-const winstonDaily = require('winston-daily-rotate-file');
-const appRoot = require('app-root-path');
-const process = require('node:process');
+import * as winston from 'winston';
+import winstonDaily from 'winston-daily-rotate-file';
+import appRoot from 'app-root-path';
+import * as process from 'node:process';
 
 const logDir = `${appRoot}/logs`;
 
@@ -15,13 +15,13 @@ const {
 
 // log level
 // error: 0, warn: 1, info: 2, http: 3, verbose: 4, debug: 5
-const logger = winston.createLogger({
+export const logger = winston.createLogger({
   format: combine(
     label({
       label: 'haruharu',
     }),
     timestamp({
-      foramt: 'YYYY-MM-DD HH:mm:ss',
+      format: 'YYYY-MM-DD HH:mm:ss',
     }),
     prettyPrint(),
   ),
@@ -66,5 +66,3 @@ if (process.env.NODE_ENV !== 'production') {
   }))
   ;
 }
-
-module.exports = logger;

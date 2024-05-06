@@ -1,11 +1,14 @@
-const { SlashCommandBuilder } = require('discord.js');
-const { Users } = require('../../repository/Users');
-const { getYearMonthDate, LATE_RANGE_TIME, ABSENCE_RANGE_TIME } = require('../../utils');
-const { TimeLog } = require('../../repository/TimeLog');
-const logger = require('../../logger');
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { Users } from '../../repository/Users.js';
+import { getYearMonthDate, LATE_RANGE_TIME, ABSENCE_RANGE_TIME } from '../../utils.js';
+import { TimeLog } from '../../repository/TimeLog.js';
+import { logger } from '../../logger.js';
+import { createRequire } from 'node:module';
 
+const jsonRequire = createRequire(import.meta.url);
+const { checkChannelId } = jsonRequire('../../../config.json');
 
-module.exports = {
+export const command = {
   cooldown: 30,
 
   data: new SlashCommandBuilder()
@@ -17,7 +20,13 @@ module.exports = {
         .setRequired(true),
     ),
 
-  async execute(interaction) {
+  async execute(interaction: ChatInputCommandInteraction) {
+    // fired channel validation
+    const firedChannelId = interaction.channelId;
+    if (firedChannelId !== checkChannelId) {
+      return await interaction.reply({ content: `no valid channel for command`, ephemeral: true });
+    }
+
     // registered validation
     const { year, month, date, hours, minutes } = getYearMonthDate();
     const userid = interaction.user.id;
@@ -63,26 +72,28 @@ module.exports = {
       }
     } catch (e) {
       logger.error(`check-in 시간 계산 로직 오류발생`, { e });
-      return await interaction.reply(`error occurred: ${e.name}`);
+      if (e instanceof Error) {
+        return await interaction.reply(`error occurred: ${e.name}`);
+      }
     }
 
     // image file validation
     const attachment = interaction.options.getAttachment('image');
     logger.info(`image attachment info: `, { attachment });
-    if (!attachment.contentType.startsWith('image/')) {
+    if (!attachment?.contentType?.startsWith('image/')) {
       return await interaction.reply(`please upload image file`);
     }
 
 
     // add
-    const username = interaction.user.globalName;
+    const username = interaction.user.globalName ?? 'null';
     const checkintime = hours + '' + minutes;
-    await TimeLog.create({ userid, username, yearmonthday, checkintime, isintime });
+    await TimeLog.create({ userid, username, yearmonthday, checkintime, checkouttime: null, isintime });
     isintime ? await interaction.reply(`${interaction.user.globalName}님 check-in에 성공하셨습니다: ${checkintime}`)
       : await interaction.reply(`${interaction.user.globalName}님 check-in에 성공하셨습니다 (지각): ${checkintime}`);
-    await interaction.channel.send({
+    await interaction.channel?.send({
       files: [{
-        attachment: attachment?.attachment,
+        attachment: attachment?.url,
         name: `${attachment.name}`,
       }],
     });

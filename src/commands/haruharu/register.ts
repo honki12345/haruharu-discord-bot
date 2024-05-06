@@ -1,10 +1,9 @@
-const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
-const { Users } = require('../../repository/Users');
-const { DEFAULT_VACANCES_COUNT, PERMISSION_NUM_ADMIN, getFileName } = require('../../utils');
-const path = require('node:path');
-const logger = require('../../logger');
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { Users } from '../../repository/Users.js';
+import { DEFAULT_VACANCES_COUNT, PERMISSION_NUM_ADMIN } from '../../utils.js';
+import { logger } from '../../logger.js';
 
-module.exports = {
+export const command = {
   cooldown: 30,
   data: new SlashCommandBuilder()
     .setName('register')
@@ -27,16 +26,17 @@ module.exports = {
     )
     .addStringOption(option =>
       option.setName('username')
-        .setDescription('set username'),
+        .setDescription('set username')
+        .setRequired(true),
     )
     .addStringOption(option =>
       option.setName('vacances')
         .setDescription('set vacances count'),
     ),
-  async execute(interaction) {
+  async execute(interaction: ChatInputCommandInteraction) {
     const userid = interaction.options.getString('userid') ?? '';
-    const yearmonth = interaction.options.getString('yearmonth');
-    const waketime = interaction.options.getString('waketime');
+    const yearmonth = interaction.options.getString('yearmonth')!;
+    const waketime = interaction.options.getString('waketime')!;
     logger.info(`register 명령행에 입력한 값: userid: ${userid}, yearmonth: ${yearmonth}, waketime: ${waketime}`);
 
     const user = await Users.findOne({ where: { userid, yearmonth } });
@@ -47,10 +47,10 @@ module.exports = {
       const username = interaction.options.getString('username') ?? user.username;
       const vacances = interaction.options.getString('vacances') ?? user.vacances;
 
-      const affectedRows = await Users.update({ username, yearmonth, waketime, vacances }, {
+      const affectedRows = await Users.update({ username, yearmonth, waketime, vacances: Number(vacances) }, {
         where: { userid, yearmonth },
       });
-      if (affectedRows > 0) {
+      if (affectedRows[0] > 0) {
         return await interaction.reply(`${username} update success => yearmonth: ${yearmonth}, waketime: ${waketime}, vacances: ${vacances}`);
       }
       return await interaction.reply(`register 업데이트 실패`);
@@ -58,10 +58,10 @@ module.exports = {
 
     // add logic
     try {
-      const username = interaction.options.getString('username');
-      const yearmonth = interaction.options.getString('yearmonth');
-      const waketime = interaction.options.getString('waketime');
-      const vacances = interaction.options.getString('vacances') ?? DEFAULT_VACANCES_COUNT;
+      const username = interaction.options.getString('username')!;
+      const yearmonth = interaction.options.getString('yearmonth')!;
+      const waketime = interaction.options.getString('waketime')!;
+      const vacances = DEFAULT_VACANCES_COUNT;
       logger.info(`register model: username: ${username}, yearmonth: ${yearmonth}, waketime: ${waketime}, vacances: ${vacances}`);
 
       const user = await Users.create({
@@ -69,6 +69,8 @@ module.exports = {
         username,
         yearmonth,
         waketime,
+        latecount: 0,
+        absencecount: 0,
         vacances,
       });
       await interaction.reply(`${username} register success => yearmonth: ${yearmonth}, waketime: ${waketime}`);

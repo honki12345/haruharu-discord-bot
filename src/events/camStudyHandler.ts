@@ -1,8 +1,12 @@
-const { voiceChannelId, logChannelId } = require('../config.json');
-const { CamStudyUsers } = require('../repository/CamStudyUsers');
-const { CamStudyTimeLog } = require('../repository/CamStudyTimeLog');
-const { getYearMonthDate, getFormattedYesterday, getTimeDiffFromNowInMinutes, LEAST_TIME_LIMIT } = require('../utils');
-const logger = require('../logger');
+import { createRequire } from 'node:module';
+import { CamStudyUsers } from '../repository/CamStudyUsers.js';
+import { CamStudyTimeLog } from '../repository/CamStudyTimeLog.js';
+import { getYearMonthDate, getFormattedYesterday, getTimeDiffFromNowInMinutes, LEAST_TIME_LIMIT } from '../utils.js';
+import { logger } from '../logger.js';
+import { VoiceState } from 'discord.js';
+
+const jsonRequire = createRequire(import.meta.url);
+const { voiceChannelId, logChannelId } = jsonRequire('../../config.json');
 
 /*
 * 시스템은 동일하게
@@ -15,9 +19,9 @@ const logger = require('../logger');
 * 2. 하루하루 공부량 계산 테이블
 * */
 
-module.exports = {
+export const event = {
   name: 'voiceStateUpdate',
-  async execute(oldState, newState) {
+  async execute(oldState: VoiceState, newState: VoiceState) {
     const wasOldStateInChannel = oldState.channelId === voiceChannelId;
     const wasOldStateVideoOn = oldState.selfVideo === true;
     const wasOldStateVideoOff = oldState.selfVideo === false;
@@ -41,10 +45,11 @@ module.exports = {
     const user = await CamStudyUsers.findOne({ where: { userid: newState.id } });
     if (!user) {
       if (isNewStateInChannel) {
-        return await newState.channel.send('등록되지 않은 회원입니다');
+        return await newState.channel?.send('등록되지 않은 회원입니다');
       }
     }
-    const { userid, username } = user;
+
+    const { userid, username } = user!;
 
     // console.log(oldState);
     // console.log(newState);
@@ -72,7 +77,7 @@ module.exports = {
         });
         // 1.1 어제 날짜의 timelog 가 있다면 새로운 timelog 를 생성하고 거기에 타임을 주입
         if (yesterdayTimelog) {
-          const passedMinutes = getTimeDiffFromNowInMinutes(yesterdayTimelog.timestamp);
+          const passedMinutes = getTimeDiffFromNowInMinutes(Number(yesterdayTimelog.timestamp));
           await CamStudyTimeLog.create({
             userid,
             username,
@@ -80,19 +85,27 @@ module.exports = {
             timestamp: timestampNowString,
             totalminutes: passedMinutes,
           });
-          await voiceChannel.send(`${username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`);
-          await logChannel.send(`${username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`);
+          if (voiceChannel && 'send' in voiceChannel) {
+            await voiceChannel.send(`${username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`);
+          }
+          if (logChannel && 'send' in logChannel) {
+            await logChannel.send(`${username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`);
+          }
           return;
         }
 
         // 1.2 없다면 비정상 공부종료
         logger.info('비정상 공부 종료', { oldState }, { newState });
-        await logChannel.send(`${username}님 study end: 공부시간 정상 입력안됨`);
-        await voiceChannel.send(`${username}님 study end: 공부시간 정상 입력안됨`);
+        if (logChannel && 'send' in logChannel) {
+          await logChannel.send(`${username}님 study end: 공부시간 정상 입력안됨`);
+        }
+        if (voiceChannel && 'send' in voiceChannel) {
+          await voiceChannel.send(`${username}님 study end: 공부시간 정상 입력안됨`);
+        }
         return;
       }
 
-      const timeDiffInMinutes = getTimeDiffFromNowInMinutes(timelog.timestamp);
+      const timeDiffInMinutes = getTimeDiffFromNowInMinutes(Number(timelog.timestamp));
       // 5분 이내 입력 안함
       if (timeDiffInMinutes < LEAST_TIME_LIMIT) {
         logger.info(`5분 이내 입력 안함, timeDiffInMinutes: ${timeDiffInMinutes}`);
@@ -103,19 +116,27 @@ module.exports = {
           },
         });
 
-        await voiceChannel.send(`${username}님 study end: 5분 이내 입력안됨`);
-        await logChannel.send(`${username}님 study end: 5분 이내 입력안됨`);
+        if (voiceChannel && 'send' in voiceChannel) {
+          await voiceChannel.send(`${username}님 study end: 5분 이내 입력안됨`);
+        }
+        if (logChannel && 'send' in logChannel) {
+          await logChannel.send(`${username}님 study end: 5분 이내 입력안됨`);
+        }
         return;
       }
 
       const totalMinutes = Number(timelog.totalminutes) + timeDiffInMinutes;
       await CamStudyTimeLog.update({
         timestamp: timestampNowString,
-        totalminutes: totalMinutes.toString(),
+        totalminutes: totalMinutes,
       }, { where: { userid, yearmonthday: today } });
 
-      await voiceChannel.send(`${username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`);
-      await logChannel.send(`${username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`);
+      if (voiceChannel && 'send' in voiceChannel) {
+        await voiceChannel.send(`${username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`);
+      }
+      if (logChannel && 'send' in logChannel) {
+        await logChannel.send(`${username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`);
+      }
     }
 
     // 2 study start
@@ -131,13 +152,18 @@ module.exports = {
         await CamStudyTimeLog.create({
           userid,
           username,
+          totalminutes: 0,
           yearmonthday: today,
           timestamp: timestampNowString,
         });
       }
-      await voiceChannel.send(`${username}님 study start`);
+      if (voiceChannel && 'send' in voiceChannel) {
+        await voiceChannel.send(`${username}님 study start`);
+      }
       const channelLog = newState.guild.channels.cache.get(logChannelId);
-      await channelLog.send(`${username}님 study start`);
+      if (channelLog && 'send' in channelLog) {
+        await channelLog.send(`${username}님 study start`);
+      }
     }
   },
 };

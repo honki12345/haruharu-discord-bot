@@ -4,6 +4,7 @@ config.json
 database.sqlite
 logs/*
 !logs/.gitkeep
+dist
 
 # mac
 .DS_Store
