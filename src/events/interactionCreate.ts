@@ -3,7 +3,13 @@ import { createRequire } from 'node:module';
 import { MyClient } from '../index.js';
 
 const jsonRequire = createRequire(import.meta.url);
-const { noticeChannelId, checkChannelId, testChannelId, camStudyRegisterChannelId } = jsonRequire('../../config.json');
+const {
+  noticeChannelId,
+  vacancesRegisterChannelId,
+  checkChannelId,
+  testChannelId,
+  camStudyRegisterChannelId,
+} = jsonRequire('../../config.json');
 
 export const event = {
   name: Events.InteractionCreate,
@@ -18,7 +24,7 @@ export const event = {
     }
 
     const firedChannelId = interaction.channel?.id;
-    const isValidChannelId = firedChannelId === noticeChannelId || firedChannelId === checkChannelId || firedChannelId === testChannelId || firedChannelId === camStudyRegisterChannelId;
+    const isValidChannelId = firedChannelId === noticeChannelId || firedChannelId === checkChannelId || firedChannelId === testChannelId || firedChannelId === camStudyRegisterChannelId || firedChannelId === vacancesRegisterChannelId;
     if (!isValidChannelId) {
       await interaction.reply({ content: 'no valid channel for command', ephemeral: true });
       return;
