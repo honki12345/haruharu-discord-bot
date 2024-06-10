@@ -22,13 +22,18 @@ const { voiceChannelId, logChannelId } = jsonRequire('../../config.json');
 export const event = {
   name: 'voiceStateUpdate',
   async execute(oldState: VoiceState, newState: VoiceState) {
+    // const wasOldStateVideoOn = oldState.selfVideo === true;
+    // const wasOldStateVideoOff = oldState.selfVideo === false;
+    // const isNewStateVideoOff = newState.selfVideo === false;
+    // const isNewStateVideoOn = newState.selfVideo === true;
+
     const wasOldStateInChannel = oldState.channelId === voiceChannelId;
-    const wasOldStateVideoOn = oldState.selfVideo === true;
-    const wasOldStateVideoOff = oldState.selfVideo === false;
+    const wasOldStateVideoOn = oldState.streaming === true;
+    const wasOldStateVideoOff = oldState.streaming=== false;
     const isNotNewStateInChannel = newState.channelId !== voiceChannelId;
     const isNewStateInChannel = newState.channelId === voiceChannelId;
-    const isNewStateVideoOff = newState.selfVideo === false;
-    const isNewStateVideoOn = newState.selfVideo === true;
+    const isNewStateVideoOff = newState.streaming === false;
+    const isNewStateVideoOn = newState.streaming === true;
     // newState: 공부실을 떠났을 때, oldState: 공부실 채널에 접속한 상태 && 비디오를 킨 상태
     const conditionEndWhenQuit = isNotNewStateInChannel && wasOldStateVideoOn && wasOldStateInChannel;
     // oldState: 공부실 접속한 상태 && 비디오를 킨 상태, newState: 공부실 접속한 상태 && 비디오를 끈 상태
