@@ -87,7 +87,7 @@ export const command = {
 
 
     // add
-    const username = interaction.user.globalName ?? 'null';
+    const username = user.username;
     const checkouttime = hours + '' + minutes;
     await TimeLog.create({ userid, username, yearmonthday, checkouttime, isintime });
     isintime ? await interaction.reply(`${interaction.user.globalName}님 check-out에 성공하셨습니다: ${checkouttime}`)
