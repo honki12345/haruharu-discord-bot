@@ -31,10 +31,7 @@ export const command = {
     const { year, month, date, hours, minutes } = getYearMonthDate();
     const userid = interaction.user.id;
     logger.info(`check-in input value: userid: ${userid}, yearmonth: ${year + '' + month}`);
-    const user = await Users.findOne({
-      attributes: ['waketime', 'id'],
-      where: { userid, yearmonth: year + '' + month },
-    });
+    const user = await Users.findOne({ where: { userid, yearmonth: year + '' + month } });
 
     if (!user) {
       return await interaction.reply(`check-in fail: ${interaction.user.globalName} not registered`);
