@@ -86,8 +86,8 @@ export const command = {
     const username = user.username;
     const checkintime = hours + '' + minutes;
     await TimeLog.create({ userid, username, yearmonthday, checkintime, checkouttime: null, isintime });
-    isintime ? await interaction.reply(`${interaction.user.globalName}님 check-in에 성공하셨습니다: ${checkintime}`)
-      : await interaction.reply(`${interaction.user.globalName}님 check-in에 성공하셨습니다 (지각): ${checkintime}`);
+    isintime ? await interaction.reply(`${username}님 check-in에 성공하셨습니다: ${checkintime}`)
+      : await interaction.reply(`${username}님 check-in에 성공하셨습니다 (지각): ${checkintime}`);
     await interaction.channel?.send({
       files: [{
         attachment: attachment?.url,
