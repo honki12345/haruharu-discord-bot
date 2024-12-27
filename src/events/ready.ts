@@ -28,16 +28,6 @@ const { checkChannelId, logChannelId, testChannelId } = jsonRequire('../../confi
 const printChallengeInterval = async (client: Client) => {
   logger.info('print challenge start');
   const { year, month, date, day } = getYearMonthDate();
-  // 주말 제외
-  if (day === SATURDAY || day === SUNDAY) {
-    return;
-  }
-
-  // 공휴일 제외
-  const monthdate = month + date;
-  if (PUBLIC_HOLIDAYS_2025.includes(monthdate)) {
-    return;
-  }
 
   // 월말 명예의 전당
   // TODO channel 수정 && 위치 아래로 수정
@@ -60,6 +50,17 @@ const printChallengeInterval = async (client: Client) => {
     if (channel && 'send' in channel) {
       await channel.send(string);
     }
+  }
+
+  // 주말 제외
+  if (day === SATURDAY || day === SUNDAY) {
+    return;
+  }
+
+  // 공휴일 제외
+  const monthdate = month + date;
+  if (PUBLIC_HOLIDAYS_2025.includes(monthdate)) {
+    return;
   }
 
   const channel = client.channels.cache.get(checkChannelId);
