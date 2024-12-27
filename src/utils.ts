@@ -12,6 +12,14 @@ const getYearMonthDate = () => {
   });
 };
 
+const isLastDayOfMonth = (year: number, month: number, date: number): boolean => {
+  // new Date(year, month, 0)는 주어진 달(다음 달의 0번째 날짜)의 마지막 날짜를 반환
+  const lastDateOfMonth = new Date(year, Number(month), 0).getDate();
+
+  // 주어진 날짜(date)가 그 달의 마지막 날짜와 같은지 확인
+  return date === lastDateOfMonth;
+}
+
 const getFormattedYesterday = () => {
   const now = new Date();
   now.setDate(now.getDate() - 1);
@@ -109,6 +117,7 @@ export {
   formatFromMinutesToHours,
   getFormattedYesterday,
   getTimeDiffFromNowInMinutes,
+  isLastDayOfMonth,
 
   LEAST_TIME_LIMIT,
   LATE_RANGE_TIME,

@@ -12,14 +12,17 @@ import {
   calculateWeekTimes,
   calculateRemainingTimeCamStudy,
   formatFromMinutesToHours,
+  isLastDayOfMonth,
   PUBLIC_HOLIDAYS_2025,
   SUNDAY,
   SATURDAY,
   ONE_DAY_MILLISECONDS,
 } from '../utils.js';
+import { Op } from 'sequelize';
+import { sequelize } from '../repository/config.js';
 
 const jsonRequire = createRequire(import.meta.url);
-const { checkChannelId, logChannelId } = jsonRequire('../../config.json');
+const { checkChannelId, logChannelId, testChannelId } = jsonRequire('../../config.json');
 
 
 const printChallengeInterval = async (client: Client) => {
@@ -34,6 +37,29 @@ const printChallengeInterval = async (client: Client) => {
   const monthdate = month + date;
   if (PUBLIC_HOLIDAYS_2025.includes(monthdate)) {
     return;
+  }
+
+  // 월말 명예의 전당
+  // TODO channel 수정 && 위치 아래로 수정
+  // if (isLastDayOfMonth(Number(year), Number(month), Number(date)))
+  {
+    const yearmonth = year + '' + month;
+    const channel = client.channels.cache.get(testChannelId);
+    const users = await Users.findAll({
+      where: {
+        yearmonth,
+        absencecount: {
+          [Op.lte]: sequelize.col('vacances'),
+        },
+      },
+    });
+    let string = `### ${year}${month} 생존명단\n`;
+    users.forEach((user) => {
+      string += `- ${user.username}\n`;
+    })
+    if (channel && 'send' in channel) {
+      await channel.send(string);
+    }
   }
 
   const channel = client.channels.cache.get(checkChannelId);
