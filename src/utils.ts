@@ -97,7 +97,8 @@ const ONE_DAY_MILLISECONDS = 86400000;
 const SUNDAY = 0;
 const FRIDAY = 5; // TODO FRIDAY = 5 이지만 테스트를 위해 목요일 4 로 수정해놓는다
 const SATURDAY = 6;
-const PUBLIC_HOLIDAYS_2024 = ['0410', '0505', '0506', '0515', '0606', '0815', '0916', '0917', '0918', '1001', '1003', '1009', '1225'];
+// const PUBLIC_HOLIDAYS_2024 = ['0410', '0505', '0506', '0515', '0606', '0815', '0916', '0917', '0918', '1001', '1003', '1009', '1225'];
+const PUBLIC_HOLIDAYS_2025 = ['0101', '0128', '0129', '0130', '0301', '0303', '0505', '0506', '0606', '0815', '1003', '1005', '1006', '1007', '1008', '1009', '1225'];
 
 export {
   getYearMonthDate,
@@ -119,5 +120,5 @@ export {
   FRIDAY,
   SATURDAY,
 
-  PUBLIC_HOLIDAYS_2024,
+  PUBLIC_HOLIDAYS_2025,
 };

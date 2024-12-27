@@ -12,7 +12,7 @@ import {
   calculateWeekTimes,
   calculateRemainingTimeCamStudy,
   formatFromMinutesToHours,
-  PUBLIC_HOLIDAYS_2024,
+  PUBLIC_HOLIDAYS_2025,
   SUNDAY,
   SATURDAY,
   ONE_DAY_MILLISECONDS,
@@ -32,7 +32,7 @@ const printChallengeInterval = async (client: Client) => {
 
   // 공휴일 제외
   const monthdate = month + date;
-  if (PUBLIC_HOLIDAYS_2024.includes(monthdate)) {
+  if (PUBLIC_HOLIDAYS_2025.includes(monthdate)) {
     return;
   }
 
