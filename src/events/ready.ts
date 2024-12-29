@@ -22,7 +22,7 @@ import { Op } from 'sequelize';
 import { sequelize } from '../repository/config.js';
 
 const jsonRequire = createRequire(import.meta.url);
-const { checkChannelId, logChannelId, testChannelId } = jsonRequire('../../config.json');
+const { checkChannelId, logChannelId, resultChannelId } = jsonRequire('../../config.json');
 
 
 const printChallengeInterval = async (client: Client) => {
@@ -30,11 +30,9 @@ const printChallengeInterval = async (client: Client) => {
   const { year, month, date, day } = getYearMonthDate();
 
   // 월말 명예의 전당
-  // TODO channel 수정 && 위치 아래로 수정
-  // if (isLastDayOfMonth(Number(year), Number(month), Number(date)))
-  {
+  if (isLastDayOfMonth(Number(year), Number(month), Number(date))) {
     const yearmonth = year + '' + month;
-    const channel = client.channels.cache.get(testChannelId);
+    const channel = client.channels.cache.get(resultChannelId);
     const users = await Users.findAll({
       where: {
         yearmonth,
