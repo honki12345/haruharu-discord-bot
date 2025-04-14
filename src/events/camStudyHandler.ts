@@ -51,11 +51,12 @@ export const event = {
     if (!user) {
       if (isNewStateInChannel) {
         return await newState.channel?.send('등록되지 않은 회원입니다');
-      } else {
-        if (logChannel && 'send' in logChannel) {
-          return await logChannel.send(`비정상 로그인 발견: id-${newState.id}`);
-        }
       }
+      // else {
+      //   if (logChannel && 'send' in logChannel) {
+      //     return await logChannel.send(`비정상 로그인 발견: id-${newState.id}`);
+      //   }
+      // }
     }
 
     const { userid, username } = user!;
