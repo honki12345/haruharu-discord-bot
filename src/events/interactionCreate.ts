@@ -8,7 +8,7 @@ const {
   vacancesRegisterChannelId,
   checkChannelId,
   testChannelId,
-  camStudyRegisterChannelId,
+  logChannelId,
 } = jsonRequire('../../config.json');
 
 export const event = {
@@ -24,7 +24,7 @@ export const event = {
     }
 
     const firedChannelId = interaction.channel?.id;
-    const isValidChannelId = firedChannelId === noticeChannelId || firedChannelId === checkChannelId || firedChannelId === testChannelId || firedChannelId === camStudyRegisterChannelId || firedChannelId === vacancesRegisterChannelId;
+    const isValidChannelId = firedChannelId === noticeChannelId || firedChannelId === checkChannelId || firedChannelId === testChannelId || firedChannelId === vacancesRegisterChannelId || firedChannelId === logChannelId;
     if (!isValidChannelId) {
       await interaction.reply({ content: 'no valid channel for command', ephemeral: true });
       return;
