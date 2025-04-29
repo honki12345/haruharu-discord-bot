@@ -98,17 +98,17 @@ export const event = {
           if (voiceChannel && 'send' in voiceChannel) {
             await voiceChannel.send(`${username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`);
           }
-          if (logChannel && 'send' in logChannel) {
-            await logChannel.send(`${username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`);
-          }
+          // if (logChannel && 'send' in logChannel) {
+          //   await logChannel.send(`${username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`);
+          // }
           return;
         }
 
         // 1.2 없다면 비정상 공부종료
         logger.info('비정상 공부 종료', { oldState }, { newState });
-        if (logChannel && 'send' in logChannel) {
-          await logChannel.send(`${username}님 study end: 공부시간 정상 입력안됨`);
-        }
+        // if (logChannel && 'send' in logChannel) {
+        //   await logChannel.send(`${username}님 study end: 공부시간 정상 입력안됨`);
+        // }
         if (voiceChannel && 'send' in voiceChannel) {
           await voiceChannel.send(`${username}님 study end: 공부시간 정상 입력안됨`);
         }
@@ -129,9 +129,9 @@ export const event = {
         if (voiceChannel && 'send' in voiceChannel) {
           await voiceChannel.send(`${username}님 study end: 5분 이내 입력안됨`);
         }
-        if (logChannel && 'send' in logChannel) {
-          await logChannel.send(`${username}님 study end: 5분 이내 입력안됨`);
-        }
+        // if (logChannel && 'send' in logChannel) {
+        //   await logChannel.send(`${username}님 study end: 5분 이내 입력안됨`);
+        // }
         return;
       }
 
@@ -144,9 +144,9 @@ export const event = {
       if (voiceChannel && 'send' in voiceChannel) {
         await voiceChannel.send(`${username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`);
       }
-      if (logChannel && 'send' in logChannel) {
-        await logChannel.send(`${username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`);
-      }
+      // if (logChannel && 'send' in logChannel) {
+      //   await logChannel.send(`${username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`);
+      // }
     }
 
     // 2 study start
@@ -171,9 +171,9 @@ export const event = {
         await voiceChannel.send(`${username}님 study start`);
       }
       const channelLog = newState.guild.channels.cache.get(logChannelId);
-      if (channelLog && 'send' in channelLog) {
-        await channelLog.send(`${username}님 study start`);
-      }
+      // if (channelLog && 'send' in channelLog) {
+      //   await channelLog.send(`${username}님 study start`);
+      // }
     }
   },
 };
