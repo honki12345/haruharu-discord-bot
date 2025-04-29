@@ -4,7 +4,7 @@ import { Users } from '../../repository/Users.js';
 import { PERMISSION_NUM_ADMIN } from '../../utils.js';
 
 export const command = {
-  cooldown: 30,
+  cooldown: 5,
   data: new SlashCommandBuilder()
     .setName('add-vacances')
     .setDescription('add the vacances of the member of challenge')

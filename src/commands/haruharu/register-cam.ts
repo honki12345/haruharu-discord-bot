@@ -4,7 +4,7 @@ import { logger } from '../../logger.js';
 import { CamStudyUsers } from '../../repository/CamStudyUsers.js';
 
 export const command = {
-  cooldown: 30,
+  cooldown: 5,
   data: new SlashCommandBuilder()
     .setName('register-cam')
     .setDescription('register the member of cam study')

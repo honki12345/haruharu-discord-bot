@@ -4,7 +4,7 @@ import { DEFAULT_VACANCES_COUNT, PERMISSION_NUM_ADMIN } from '../../utils.js';
 import { logger } from '../../logger.js';
 
 export const command = {
-  cooldown: 30,
+  cooldown: 5,
   data: new SlashCommandBuilder()
     .setName('register')
     .setDescription('register time of member')
