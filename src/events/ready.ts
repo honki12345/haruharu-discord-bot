@@ -29,6 +29,27 @@ const printChallengeInterval = async (client: Client) => {
   logger.info('print challenge start');
   const { year, month, date, day } = getYearMonthDate();
 
+  // 월말 명예의 전당
+  if (isLastDayOfMonth(Number(year), Number(month), Number(date))) {
+    const yearmonth = year + '' + month;
+    const channel = client.channels.cache.get(resultChannelId);
+    const users = await Users.findAll({
+      where: {
+        yearmonth,
+        absencecount: {
+          [Op.lte]: sequelize.col('vacances'),
+        },
+      },
+    });
+    let string = `### ${year}${month} 생존명단\n`;
+    users.forEach((user) => {
+      string += `- ${user.username}\n`;
+    })
+    if (channel && 'send' in channel) {
+      await channel.send(string);
+    }
+  }
+
   // 주말 제외
   if (day === SATURDAY || day === SUNDAY) {
     return;
@@ -102,26 +123,6 @@ const printChallengeInterval = async (client: Client) => {
     await channel.send(string);
   }
 
-  // 월말 명예의 전당
-  if (isLastDayOfMonth(Number(year), Number(month), Number(date))) {
-    const yearmonth = year + '' + month;
-    const channel = client.channels.cache.get(resultChannelId);
-    const users = await Users.findAll({
-      where: {
-        yearmonth,
-        absencecount: {
-          [Op.lte]: sequelize.col('vacances'),
-        },
-      },
-    });
-    let string = `### ${year}${month} 생존명단\n`;
-    users.forEach((user) => {
-      string += `- ${user.username}\n`;
-    })
-    if (channel && 'send' in channel) {
-      await channel.send(string);
-    }
-  }
 };
 
 const printCamStudyInterval = async (client: Client) => {
