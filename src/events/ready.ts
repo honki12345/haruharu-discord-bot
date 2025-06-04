@@ -50,14 +50,9 @@ const printChallengeInterval = async (client: Client) => {
     }
   }
 
-  // 주말 제외
-  if (day === SATURDAY || day === SUNDAY) {
-    return;
-  }
-
-  // 공휴일 제외
+  // 주말 및 공휴일 제외
   const monthdate = month + date;
-  if (PUBLIC_HOLIDAYS_2025.includes(monthdate)) {
+  if (day === SATURDAY || day === SUNDAY || PUBLIC_HOLIDAYS_2025.includes(monthdate)) {
     return;
   }
 
