@@ -25,34 +25,39 @@ const jsonRequire = createRequire(import.meta.url);
 const { checkChannelId, logChannelId, resultChannelId } = jsonRequire('../../config.json');
 
 
+const printMonthlyHallOfFameIfNeeded = async (client: Client, year: string, month: string, date: string) => {
+  if (!isLastDayOfMonth(Number(year), Number(month), Number(date))) {
+    return;
+  }
+  const yearmonth = year + '' + month;
+  const channel = client.channels.cache.get(resultChannelId);
+  const users = await Users.findAll({
+    where: {
+      yearmonth,
+      absencecount: {
+        [Op.lte]: sequelize.col('vacances'),
+      },
+    },
+  });
+  let string = `### ${year}${month} 생존명단\n`;
+  users.forEach((user) => {
+    string += `- ${user.username}\n`;
+  });
+  if (channel && 'send' in channel) {
+    await channel.send(string);
+  }
+};
+
 const printChallengeInterval = async (client: Client) => {
   logger.info('print challenge start');
   const { year, month, date, day } = getYearMonthDate();
 
   // 월말 명예의 전당
-  if (isLastDayOfMonth(Number(year), Number(month), Number(date))) {
-    const yearmonth = year + '' + month;
-    const channel = client.channels.cache.get(resultChannelId);
-    const users = await Users.findAll({
-      where: {
-        yearmonth,
-        absencecount: {
-          [Op.lte]: sequelize.col('vacances'),
-        },
-      },
-    });
-    let string = `### ${year}${month} 생존명단\n`;
-    users.forEach((user) => {
-      string += `- ${user.username}\n`;
-    })
-    if (channel && 'send' in channel) {
-      await channel.send(string);
-    }
-  }
 
   // 주말 및 공휴일 제외
   const monthdate = month + date;
   if (day === SATURDAY || day === SUNDAY || PUBLIC_HOLIDAYS_2025.includes(monthdate)) {
+    await printMonthlyHallOfFameIfNeeded(client, year, month, date);
     return;
   }
 
@@ -117,7 +122,8 @@ const printChallengeInterval = async (client: Client) => {
   if (channel && 'send' in channel) {
     await channel.send(string);
   }
-
+  
+  await printMonthlyHallOfFameIfNeeded(client, year, month, date);
 };
 
 const printCamStudyInterval = async (client: Client) => {
