@@ -25,7 +25,7 @@ const jsonRequire = createRequire(import.meta.url);
 const { checkChannelId, logChannelId, resultChannelId } = jsonRequire('../../config.json');
 
 
-const printMonthlyHallOfFameIfNeeded = async (client: Client, year: string, month: string, date: string) => {
+const printMonthlyHallOfFameIfNeeded = async (client: Client, year: number, month: string, date: string) => {
   if (!isLastDayOfMonth(Number(year), Number(month), Number(date))) {
     return;
   }
