@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "tsc && node \"dist/index.js\"",
-    "pm2": "tsc && NODE_ENV=production pm2 start \"dist/index.js\"",
+    "pm2": "tsc && NODE_ENV=production pm2 start dist/index.js --name haruharu-bot",
+    "deploy": "git pull && tsc && pm2 reload haruharu-bot",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write src",
