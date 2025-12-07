@@ -8,7 +8,7 @@ import {
   TestTimeLog,
   TestCamStudyUsers,
   TestCamStudyTimeLog,
-} from './setup.js';
+} from './test-setup.js';
 
 describe('Repository 모델 테스트 (인메모리 DB)', () => {
   beforeAll(async () => {
