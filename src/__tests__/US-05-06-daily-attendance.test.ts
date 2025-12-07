@@ -7,7 +7,6 @@
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { testSequelize, TestUsers, TestTimeLog, clearAllTables } from './test-setup.js';
-import { Op } from 'sequelize';
 
 // 파일 레벨에서 한 번만 설정
 beforeAll(async () => {
@@ -29,7 +28,6 @@ afterEach(() => {
 });
 
 describe('US-05: 일일 출석 리포트', () => {
-
   describe('TC-DR01: 출석자 분류', () => {
     it('체크인/체크아웃 모두 정시인 사용자는 출석으로 분류된다', async () => {
       await TestUsers.create({
@@ -182,10 +180,7 @@ describe('US-05: 일일 출석 리포트', () => {
 
       // 지각 처리 시뮬레이션
       const user = await TestUsers.findOne({ where: { userid: 'user1' } });
-      await TestUsers.update(
-        { latecount: user!.latecount + 1 },
-        { where: { userid: 'user1', yearmonth: '202512' } },
-      );
+      await TestUsers.update({ latecount: user!.latecount + 1 }, { where: { userid: 'user1', yearmonth: '202512' } });
 
       const updated = await TestUsers.findOne({ where: { userid: 'user1' } });
       expect(updated?.latecount).toBe(1);

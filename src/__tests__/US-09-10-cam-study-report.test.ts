@@ -35,7 +35,6 @@ afterEach(() => {
 });
 
 describe('US-09: 일간 캠스터디 리포트', () => {
-
   describe('TC-CDR01: 일간 공부시간 조회', () => {
     it('특정 날짜의 모든 사용자 공부시간을 조회할 수 있다', async () => {
       await TestCamStudyUsers.bulkCreate([
