@@ -24,8 +24,6 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
     client = new Client({
       intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildVoiceStates,
       ],
     });
@@ -118,20 +116,90 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
 
       const commands = await guild!.commands.fetch();
       expect(commands).toBeDefined();
-      // 커맨드가 등록되어 있으면 size > 0
-      // 등록된 커맨드가 없을 수도 있으므로 존재 여부만 확인
     });
 
-    it('ping 커맨드가 등록되어 있어야 한다 (선택적)', async () => {
+    it('ping 커맨드가 등록되어 있어야 한다', async () => {
       const guild = client.guilds.cache.get(TEST_GUILD_ID!);
       const commands = await guild!.commands.fetch();
 
-      const pingCommand = commands.find(cmd => cmd.name === 'ping');
-      // ping 커맨드가 있으면 확인, 없으면 스킵
-      if (pingCommand) {
-        expect(pingCommand.name).toBe('ping');
-        expect(pingCommand.description).toBe('Replies with Pong!');
-      }
+      const command = commands.find(cmd => cmd.name === 'ping');
+      expect(command).toBeDefined();
+      expect(command?.description).toBe('Replies with Pong!');
+    });
+
+    it('register 커맨드가 등록되어 있어야 한다', async () => {
+      const guild = client.guilds.cache.get(TEST_GUILD_ID!);
+      const commands = await guild!.commands.fetch();
+
+      const command = commands.find(cmd => cmd.name === 'register');
+      expect(command).toBeDefined();
+      expect(command?.description).toBe('register time of member');
+      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'yearmonth')).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'waketime')).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'username')).toBeDefined();
+    });
+
+    it('check-in 커맨드가 등록되어 있어야 한다', async () => {
+      const guild = client.guilds.cache.get(TEST_GUILD_ID!);
+      const commands = await guild!.commands.fetch();
+
+      const command = commands.find(cmd => cmd.name === 'check-in');
+      expect(command).toBeDefined();
+      expect(command?.description).toBe('check-in in the world');
+      expect(command?.options.find(opt => opt.name === 'image')).toBeDefined();
+    });
+
+    it('check-out 커맨드가 등록되어 있어야 한다', async () => {
+      const guild = client.guilds.cache.get(TEST_GUILD_ID!);
+      const commands = await guild!.commands.fetch();
+
+      const command = commands.find(cmd => cmd.name === 'check-out');
+      expect(command).toBeDefined();
+      expect(command?.description).toBe('check-out in the world');
+      expect(command?.options.find(opt => opt.name === 'image')).toBeDefined();
+    });
+
+    it('delete 커맨드가 등록되어 있어야 한다', async () => {
+      const guild = client.guilds.cache.get(TEST_GUILD_ID!);
+      const commands = await guild!.commands.fetch();
+
+      const command = commands.find(cmd => cmd.name === 'delete');
+      expect(command).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'yearmonth')).toBeDefined();
+    });
+
+    it('add-vacances 커맨드가 등록되어 있어야 한다', async () => {
+      const guild = client.guilds.cache.get(TEST_GUILD_ID!);
+      const commands = await guild!.commands.fetch();
+
+      const command = commands.find(cmd => cmd.name === 'add-vacances');
+      expect(command).toBeDefined();
+      expect(command?.description).toBe('add the vacances of the member of challenge');
+      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'yearmonth')).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'count')).toBeDefined();
+    });
+
+    it('register-cam 커맨드가 등록되어 있어야 한다', async () => {
+      const guild = client.guilds.cache.get(TEST_GUILD_ID!);
+      const commands = await guild!.commands.fetch();
+
+      const command = commands.find(cmd => cmd.name === 'register-cam');
+      expect(command).toBeDefined();
+      expect(command?.description).toBe('register the member of cam study');
+      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'username')).toBeDefined();
+    });
+
+    it('delete-cam 커맨드가 등록되어 있어야 한다', async () => {
+      const guild = client.guilds.cache.get(TEST_GUILD_ID!);
+      const commands = await guild!.commands.fetch();
+
+      const command = commands.find(cmd => cmd.name === 'delete-cam');
+      expect(command).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
     });
   });
 });
