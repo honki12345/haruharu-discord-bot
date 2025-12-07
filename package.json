@@ -9,9 +9,10 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write src",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test": "vitest run --exclude 'src/test/integration/**'",
+    "test:watch": "vitest --exclude 'src/test/integration/**'",
+    "test:coverage": "vitest run --coverage --exclude 'src/test/integration/**'",
+    "test:integration": "vitest run src/test/integration/"
   },
   "keywords": [],
   "author": "",
