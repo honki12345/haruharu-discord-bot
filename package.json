@@ -12,7 +12,7 @@
     "test": "vitest run --exclude 'src/test/integration/**'",
     "test:watch": "vitest --exclude 'src/test/integration/**'",
     "test:coverage": "vitest run --coverage --exclude 'src/test/integration/**'",
-    "test:integration": "vitest run --include 'src/test/integration/**'"
+    "test:integration": "vitest run src/test/integration/"
   },
   "keywords": [],
   "author": "",
