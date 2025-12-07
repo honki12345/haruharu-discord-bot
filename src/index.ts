@@ -1,15 +1,30 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Client, ClientOptions, Collection, GatewayIntentBits } from 'discord.js';
+import {
+  Client,
+  ClientOptions,
+  Collection,
+  GatewayIntentBits,
+  ChatInputCommandInteraction,
+  SlashCommandBuilder,
+  SlashCommandOptionsOnlyBuilder,
+  SlashCommandSubcommandsOnlyBuilder,
+} from 'discord.js';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'node:module';
 
 const jsonRequire = createRequire(import.meta.url);
 const config = jsonRequire('../config.json');
 
+export interface Command {
+  data: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder | SlashCommandSubcommandsOnlyBuilder;
+  execute: (interaction: ChatInputCommandInteraction) => Promise<unknown>;
+  cooldown?: number;
+}
+
 export class MyClient extends Client {
   cooldowns: Collection<string, Collection<string, number>>;
-  commands: Collection<string, unknown>;
+  commands: Collection<string, Command>;
 
   constructor(options: ClientOptions) {
     super(options);

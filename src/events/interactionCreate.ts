@@ -41,8 +41,10 @@ export const event = {
     const defaultCooldownDuration = 3;
     const cooldownAmount = (command.cooldown ?? defaultCooldownDuration) * 1_000;
 
+    if (!timestamps) return;
+
     if (timestamps.has(interaction.user.id)) {
-      const expirationTime = timestamps.get(interaction.user.id) + cooldownAmount;
+      const expirationTime = (timestamps.get(interaction.user.id) ?? 0) + cooldownAmount;
 
       if (now < expirationTime) {
         const expiredTimestamp = Math.round(expirationTime / 1_000);
