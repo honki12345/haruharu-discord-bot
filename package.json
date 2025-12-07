@@ -5,7 +5,10 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "tsc && node \"dist/index.js\"",
-    "pm2": "tsc && NODE_ENV=production pm2 start \"dist/index.js\""
+    "pm2": "tsc && NODE_ENV=production pm2 start \"dist/index.js\"",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write src"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +23,10 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
-    "eslint": "^9.0.0"
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.0.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.7.4",
+    "typescript-eslint": "^8.48.1"
   }
 }
