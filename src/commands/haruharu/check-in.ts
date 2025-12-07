@@ -88,11 +88,13 @@ export const command = {
     await TimeLog.create({ userid, username, yearmonthday, checkintime, checkouttime: null, isintime });
     isintime ? await interaction.reply(`${username}님 check-in에 성공하셨습니다: ${checkintime}`)
       : await interaction.reply(`${username}님 check-in에 성공하셨습니다 (지각): ${checkintime}`);
-    await interaction.channel?.send({
-      files: [{
-        attachment: attachment?.url,
-        name: `${attachment.name}`,
-      }],
-    });
+    if (interaction.channel && 'send' in interaction.channel) {
+      await interaction.channel.send({
+        files: [{
+          attachment: attachment?.url,
+          name: `${attachment.name}`,
+        }],
+      });
+    }
   },
 };
