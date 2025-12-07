@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import {logger} from '../../logger.js';
-import {Users} from '../../repository/Users.js';
+import { logger } from '../../logger.js';
+import { Users } from '../../repository/Users.js';
 import { PERMISSION_NUM_ADMIN } from '../../utils.js';
 
 export const command = {
@@ -9,16 +9,8 @@ export const command = {
     .setName('delete')
     .setDescription('register the member of challenge')
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
-    .addStringOption(option =>
-      option.setName('userid')
-        .setDescription('set userid')
-        .setRequired(true),
-    )
-    .addStringOption(option =>
-      option.setName('yearmonth')
-        .setDescription('set year-month yyyymm')
-        .setRequired(true),
-    ),
+    .addStringOption(option => option.setName('userid').setDescription('set userid').setRequired(true))
+    .addStringOption(option => option.setName('yearmonth').setDescription('set year-month yyyymm').setRequired(true)),
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userid = interaction.options.getString('userid')!;

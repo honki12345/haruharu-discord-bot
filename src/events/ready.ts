@@ -24,7 +24,6 @@ import { sequelize } from '../repository/config.js';
 const jsonRequire = createRequire(import.meta.url);
 const { checkChannelId, logChannelId, resultChannelId } = jsonRequire('../../config.json');
 
-
 const printMonthlyHallOfFameIfNeeded = async (client: Client, year: number, month: string, date: string) => {
   if (!isLastDayOfMonth(Number(year), Number(month), Number(date))) {
     return;
@@ -40,7 +39,7 @@ const printMonthlyHallOfFameIfNeeded = async (client: Client, year: number, mont
     },
   });
   let string = `### ${year}${month} 생존명단\n`;
-  users.forEach((user) => {
+  users.forEach(user => {
     string += `- ${user.username}\n`;
   });
   if (channel && 'send' in channel) {
@@ -80,11 +79,10 @@ const printChallengeInterval = async (client: Client) => {
     p[c.userid] = [];
     return p;
   }, {});
-  const timelogsGroupById = timelogs.reduce(
-    (p, timelog) => {
-      p[timelog.userid]?.push(timelog);
-      return p;
-    }, userids);
+  const timelogsGroupById = timelogs.reduce((p, timelog) => {
+    p[timelog.userid]?.push(timelog);
+    return p;
+  }, userids);
   logger.info(`user id 로 그룹핑한 timelog 인스턴스들: `, { timelogsGroupById });
 
   // 출력할 string 생성
@@ -115,14 +113,14 @@ const printChallengeInterval = async (client: Client) => {
     attendees += `- ${value[0].username}: 출석\n`;
   }
 
-  (attendees) ? string += attendees : '';
-  (latecomers) ? string += latecomers : '';
-  (absentees) ? string += absentees : '';
+  if (attendees) string += attendees;
+  if (latecomers) string += latecomers;
+  if (absentees) string += absentees;
   logger.info(`alarm final string`, { string });
   if (channel && 'send' in channel) {
     await channel.send(string);
   }
-  
+
   await printMonthlyHallOfFameIfNeeded(client, year, month, date);
 };
 
@@ -144,16 +142,15 @@ const printCamStudyInterval = async (client: Client) => {
     p[c.userid] = [c.username, 0];
     return p;
   }, {});
-  const objWithNameAndMinutes = camStudyTimelogs.reduce(
-    (p, timelog) => {
-      if (!timelog.totalminutes) {
-        return p;
-      }
-      if (Array.isArray(p[timelog.userid])) {
-        p[timelog.userid][1] = Number(timelog.totalminutes);
-      }
+  const objWithNameAndMinutes = camStudyTimelogs.reduce((p, timelog) => {
+    if (!timelog.totalminutes) {
       return p;
-    }, objWithName);
+    }
+    if (Array.isArray(p[timelog.userid])) {
+      p[timelog.userid][1] = Number(timelog.totalminutes);
+    }
+    return p;
+  }, objWithName);
   // totalminutes 기준으로 내림차순
   const timelogsGroupById = Object.entries(objWithNameAndMinutes).sort(([, [, a]], [, [, b]]) => b - a);
   logger.info(`user id 로 그룹핑한 cam-study timelog 인스턴스들: `, { timelogsGroupById });
@@ -162,7 +159,7 @@ const printCamStudyInterval = async (client: Client) => {
   // array => 0: userid, 1.1: username, 1.2: totalminutes
   for (const array of timelogsGroupById) {
     const username = array[1][0];
-    let totalminutes = array[1][1];
+    const totalminutes = array[1][1];
     dailyTotalString += `- ${username}님의 공부시간: ${formatFromMinutesToHours(Number(totalminutes))}\n`;
   }
   logger.info(`cam study final string`, { string: dailyTotalString });
@@ -180,25 +177,25 @@ const printCamStudyInterval = async (client: Client) => {
     const weekTimeLog = await CamStudyWeeklyTimeLog.findOne({ where: { userid, weektimes } });
     if (weekTimeLog) {
       const updatedTotalminutes = Number(weekTimeLog.totalminutes) + totalminutes;
-      await CamStudyWeeklyTimeLog.update({ totalminutes: updatedTotalminutes }, {
-        where: {
-          userid,
-          weektimes,
+      await CamStudyWeeklyTimeLog.update(
+        { totalminutes: updatedTotalminutes },
+        {
+          where: {
+            userid,
+            weektimes,
+          },
         },
-      });
+      );
     } else {
       await CamStudyWeeklyTimeLog.create({ userid, username, weektimes, totalminutes });
     }
   }
 
-
   // weekly time log string generator
   let weeklyString = `### 주간 타임리스트 (${year}${month}: ${weektimes}번째 주)\n`;
   const weeklyTimeLogs = await CamStudyWeeklyTimeLog.findAll({
     where: { weektimes },
-    order: [
-      ['totalminutes', 'DESC'],
-    ],
+    order: [['totalminutes', 'DESC']],
   });
   for (const weeklyTimeLog of weeklyTimeLogs) {
     weeklyString += `- ${weeklyTimeLog.username}님의 공부시간: ${formatFromMinutesToHours(Number(weeklyTimeLog.totalminutes))}\n`;
@@ -209,7 +206,6 @@ const printCamStudyInterval = async (client: Client) => {
     channel.send(weeklyString);
   }
 };
-
 
 export const event = {
   name: Events.ClientReady,
@@ -233,7 +229,6 @@ export const event = {
     setTimeout(() => {
       printChallengeInterval(client);
       setInterval(printChallengeInterval, ONE_DAY_MILLISECONDS, client);
-
     }, remainingTimeChallenge);
 
     // set cam_study print

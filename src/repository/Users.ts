@@ -53,6 +53,4 @@ Users.init(
   },
 );
 
-export {
-  Users,
-};
+export { Users };

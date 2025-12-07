@@ -11,7 +11,8 @@ class CamStudyTimeLog extends Model<InferAttributes<CamStudyTimeLog>, InferCreat
 }
 
 // 'cam_study_time_log'
-CamStudyTimeLog.init({
+CamStudyTimeLog.init(
+  {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -40,6 +41,4 @@ CamStudyTimeLog.init({
   },
 );
 
-export {
-  CamStudyTimeLog,
-};
+export { CamStudyTimeLog };

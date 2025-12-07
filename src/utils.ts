@@ -2,14 +2,14 @@ import { logger } from './logger.js';
 
 const getYearMonthDate = () => {
   const now = new Date();
-  return ({
+  return {
     year: now.getFullYear(),
     month: ('0' + (now.getMonth() + 1)).slice(-2),
     date: ('0' + now.getDate()).slice(-2),
     day: now.getDay(),
     hours: ('0' + now.getHours()).slice(-2),
     minutes: ('0' + now.getMinutes()).slice(-2),
-  });
+  };
 };
 
 const isLastDayOfMonth = (year: number, month: number, date: number): boolean => {
@@ -18,7 +18,7 @@ const isLastDayOfMonth = (year: number, month: number, date: number): boolean =>
 
   // 주어진 날짜(date)가 그 달의 마지막 날짜와 같은지 확인
   return date === lastDateOfMonth;
-}
+};
 
 const getFormattedYesterday = () => {
   const now = new Date();
@@ -87,12 +87,11 @@ const formatFromMinutesToHours = (minutes: number) => {
   return `${remainderByHour}분`;
 };
 
-
 // cam study 관련 상수들
 const LEAST_TIME_LIMIT = 5;
 const PRINT_HOURS_CAM_STUDY = 23;
 const PRINT_MINUTES_CAM_STUDY = 59;
-const HARUHARU_TIMES = new Date('2024-04-06');  // 토요일
+const HARUHARU_TIMES = new Date('2024-04-06'); // 토요일
 
 // challenge 관련 상수들
 const PRINT_HOURS_CHALLENGE = 13;
@@ -106,7 +105,26 @@ const SUNDAY = 0;
 const FRIDAY = 5; // TODO FRIDAY = 5 이지만 테스트를 위해 목요일 4 로 수정해놓는다
 const SATURDAY = 6;
 // const PUBLIC_HOLIDAYS_2024 = ['0410', '0505', '0506', '0515', '0606', '0815', '0916', '0917', '0918', '1001', '1003', '1009', '1225'];
-const PUBLIC_HOLIDAYS_2025 = ['0101', '0127', '0128', '0129', '0130', '0301', '0303', '0505', '0506', '0606', '0815', '1003', '1005', '1006', '1007', '1008', '1009', '1225'];
+const PUBLIC_HOLIDAYS_2025 = [
+  '0101',
+  '0127',
+  '0128',
+  '0129',
+  '0130',
+  '0301',
+  '0303',
+  '0505',
+  '0506',
+  '0606',
+  '0815',
+  '1003',
+  '1005',
+  '1006',
+  '1007',
+  '1008',
+  '1009',
+  '1225',
+];
 
 export {
   getYearMonthDate,
@@ -118,7 +136,6 @@ export {
   getFormattedYesterday,
   getTimeDiffFromNowInMinutes,
   isLastDayOfMonth,
-
   LEAST_TIME_LIMIT,
   LATE_RANGE_TIME,
   ABSENCE_RANGE_TIME,
@@ -128,6 +145,5 @@ export {
   SUNDAY,
   FRIDAY,
   SATURDAY,
-
   PUBLIC_HOLIDAYS_2025,
 };

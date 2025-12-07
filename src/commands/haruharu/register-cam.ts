@@ -9,16 +9,8 @@ export const command = {
     .setName('register-cam')
     .setDescription('register the member of cam study')
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
-    .addStringOption(option =>
-      option.setName('userid')
-        .setDescription('set userid')
-        .setRequired(true),
-    )
-    .addStringOption(option =>
-      option.setName('username')
-        .setDescription('username')
-        .setRequired(true),
-    ),
+    .addStringOption(option => option.setName('userid').setDescription('set userid').setRequired(true))
+    .addStringOption(option => option.setName('username').setDescription('username').setRequired(true)),
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userid = interaction.options.getString('userid')!;
@@ -33,7 +25,7 @@ export const command = {
       const username = interaction.options.getString('username') ?? 'null';
       logger.info(`register-cam 명령행에 입력한 값: userid: ${userid}, username: ${username}`);
 
-      const user = await CamStudyUsers.create({
+      await CamStudyUsers.create({
         userid,
         username,
       });

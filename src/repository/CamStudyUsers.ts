@@ -28,6 +28,4 @@ CamStudyUsers.init(
   },
 );
 
-export {
-  CamStudyUsers,
-};
+export { CamStudyUsers };

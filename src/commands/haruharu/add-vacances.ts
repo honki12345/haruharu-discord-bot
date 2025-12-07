@@ -9,20 +9,10 @@ export const command = {
     .setName('add-vacances')
     .setDescription('add the vacances of the member of challenge')
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
+    .addStringOption(option => option.setName('userid').setDescription('set userid').setRequired(true))
+    .addStringOption(option => option.setName('yearmonth').setDescription('set year-month yyyymm').setRequired(true))
     .addStringOption(option =>
-      option.setName('userid')
-        .setDescription('set userid')
-        .setRequired(true),
-    )
-    .addStringOption(option =>
-      option.setName('yearmonth')
-        .setDescription('set year-month yyyymm')
-        .setRequired(true),
-    )
-    .addStringOption(option =>
-      option.setName('count')
-        .setDescription('count of vacances for adding')
-        .setRequired(true),
+      option.setName('count').setDescription('count of vacances for adding').setRequired(true),
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
@@ -39,13 +29,14 @@ export const command = {
       return await interaction.reply(`추가하려는 휴가 카운트 값을 잘못 입력했습니다`);
     }
 
-
     // add logic
     try {
       logger.info(`add-vacances 명령행에 입력한 값: userid: ${userid}, yearmonth: ${yearmonth}, count: ${count}`);
       await Users.update({ vacances: foundUser.vacances + count }, { where: { userid, yearmonth } });
       const updatedUser = await Users.findOne({ where: { userid, yearmonth } });
-      await interaction.reply(`${foundUser.username}님 ${yearmonth} 휴가 카운트가 총 ${updatedUser?.vacances}가 되었습니다 `);
+      await interaction.reply(
+        `${foundUser.username}님 ${yearmonth} 휴가 카운트가 총 ${updatedUser?.vacances}가 되었습니다 `,
+      );
     } catch (e) {
       logger.error(`challenge 휴가카운트 업데이트 실패`, { e });
       await interaction.reply(`challenge 휴가카운트 업데이트 실패`);

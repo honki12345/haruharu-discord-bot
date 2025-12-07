@@ -1,7 +1,10 @@
 import { sequelize } from './config.js';
 import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model } from 'sequelize';
 
-class CamStudyWeeklyTimeLog extends Model<InferAttributes<CamStudyWeeklyTimeLog>, InferCreationAttributes<CamStudyWeeklyTimeLog>> {
+class CamStudyWeeklyTimeLog extends Model<
+  InferAttributes<CamStudyWeeklyTimeLog>,
+  InferCreationAttributes<CamStudyWeeklyTimeLog>
+> {
   declare id: CreationOptional<number>;
   declare userid: string;
   declare username: string;
@@ -10,7 +13,8 @@ class CamStudyWeeklyTimeLog extends Model<InferAttributes<CamStudyWeeklyTimeLog>
 }
 
 // 'cam_study_weekly_time_log'
-CamStudyWeeklyTimeLog.init({
+CamStudyWeeklyTimeLog.init(
+  {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -33,8 +37,7 @@ CamStudyWeeklyTimeLog.init({
   {
     sequelize,
     tableName: 'cam_study_weekly_time_logs',
-  });
+  },
+);
 
-export {
-  CamStudyWeeklyTimeLog,
-};
+export { CamStudyWeeklyTimeLog };

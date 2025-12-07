@@ -3,13 +3,8 @@ import { createRequire } from 'node:module';
 import { MyClient } from '../index.js';
 
 const jsonRequire = createRequire(import.meta.url);
-const {
-  noticeChannelId,
-  vacancesRegisterChannelId,
-  checkChannelId,
-  testChannelId,
-  logChannelId,
-} = jsonRequire('../../config.json');
+const { noticeChannelId, vacancesRegisterChannelId, checkChannelId, testChannelId, logChannelId } =
+  jsonRequire('../../config.json');
 
 export const event = {
   name: Events.InteractionCreate,
@@ -24,14 +19,18 @@ export const event = {
     }
 
     const firedChannelId = interaction.channel?.id;
-    const isValidChannelId = firedChannelId === noticeChannelId || firedChannelId === checkChannelId || firedChannelId === testChannelId || firedChannelId === vacancesRegisterChannelId || firedChannelId === logChannelId;
+    const isValidChannelId =
+      firedChannelId === noticeChannelId ||
+      firedChannelId === checkChannelId ||
+      firedChannelId === testChannelId ||
+      firedChannelId === vacancesRegisterChannelId ||
+      firedChannelId === logChannelId;
     if (!isValidChannelId) {
       await interaction.reply({ content: 'no valid channel for command', ephemeral: true });
       return;
     }
 
-
-    const { cooldowns } = (interaction.client as MyClient);
+    const { cooldowns } = interaction.client as MyClient;
 
     if (!cooldowns.has(command.data.name)) {
       cooldowns.set(command.data.name, new Collection());

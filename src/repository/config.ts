@@ -14,8 +14,4 @@ const sequelize = new Sequelize('haruharu-database', config.databaseUser, config
   query: { raw: true },
 });
 
-export {
-  sequelize,
-  Sequelize,
-  DataType,
-};
+export { sequelize, Sequelize, DataType };

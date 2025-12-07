@@ -8,8 +8,8 @@ const jsonRequire = createRequire(import.meta.url);
 const config = jsonRequire('../config.json');
 
 export class MyClient extends Client {
-  cooldowns: Collection<any, any>;
-  commands: Collection<any, any>;
+  cooldowns: Collection<string, Collection<string, number>>;
+  commands: Collection<string, unknown>;
 
   constructor(options: ClientOptions) {
     super(options);

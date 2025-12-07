@@ -29,11 +29,11 @@ TimeLog.init(
     },
     checkintime: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: true,
     },
     checkouttime: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: true,
     },
     isintime: {
       type: DataTypes.BOOLEAN,
@@ -45,6 +45,4 @@ TimeLog.init(
   },
 );
 
-export {
-  TimeLog,
-};
+export { TimeLog };

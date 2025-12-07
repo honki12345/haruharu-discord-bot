@@ -9,30 +9,11 @@ export const command = {
     .setName('register')
     .setDescription('register time of member')
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
-    .addStringOption(option =>
-      option.setName('userid')
-        .setDescription('set userid')
-        .setRequired(true),
-    )
-    .addStringOption(option =>
-      option.setName('yearmonth')
-        .setDescription('set year-month yyyymm')
-        .setRequired(true),
-    )
-    .addStringOption(option =>
-      option.setName('waketime')
-        .setDescription('set waketime HHmm')
-        .setRequired(true),
-    )
-    .addStringOption(option =>
-      option.setName('username')
-        .setDescription('set username')
-        .setRequired(true),
-    )
-    .addStringOption(option =>
-      option.setName('vacances')
-        .setDescription('set vacances count'),
-    ),
+    .addStringOption(option => option.setName('userid').setDescription('set userid').setRequired(true))
+    .addStringOption(option => option.setName('yearmonth').setDescription('set year-month yyyymm').setRequired(true))
+    .addStringOption(option => option.setName('waketime').setDescription('set waketime HHmm').setRequired(true))
+    .addStringOption(option => option.setName('username').setDescription('set username').setRequired(true))
+    .addStringOption(option => option.setName('vacances').setDescription('set vacances count')),
   async execute(interaction: ChatInputCommandInteraction) {
     const userid = interaction.options.getString('userid') ?? '';
     const yearmonth = interaction.options.getString('yearmonth')!;
@@ -47,11 +28,16 @@ export const command = {
       const username = interaction.options.getString('username') ?? user.username;
       const vacances = interaction.options.getString('vacances') ?? user.vacances;
 
-      const affectedRows = await Users.update({ username, yearmonth, waketime, vacances: Number(vacances) }, {
-        where: { userid, yearmonth },
-      });
+      const affectedRows = await Users.update(
+        { username, yearmonth, waketime, vacances: Number(vacances) },
+        {
+          where: { userid, yearmonth },
+        },
+      );
       if (affectedRows[0] > 0) {
-        return await interaction.reply(`${username} update success => yearmonth: ${yearmonth}, waketime: ${waketime}, vacances: ${vacances}`);
+        return await interaction.reply(
+          `${username} update success => yearmonth: ${yearmonth}, waketime: ${waketime}, vacances: ${vacances}`,
+        );
       }
       return await interaction.reply(`register 업데이트 실패`);
     }
@@ -62,9 +48,11 @@ export const command = {
       const yearmonth = interaction.options.getString('yearmonth')!;
       const waketime = interaction.options.getString('waketime')!;
       const vacances = DEFAULT_VACANCES_COUNT;
-      logger.info(`register model: username: ${username}, yearmonth: ${yearmonth}, waketime: ${waketime}, vacances: ${vacances}`);
+      logger.info(
+        `register model: username: ${username}, yearmonth: ${yearmonth}, waketime: ${waketime}, vacances: ${vacances}`,
+      );
 
-      const user = await Users.create({
+      await Users.create({
         userid,
         username,
         yearmonth,

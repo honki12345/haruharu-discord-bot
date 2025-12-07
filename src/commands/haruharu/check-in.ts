@@ -15,9 +15,7 @@ export const command = {
     .setName('check-in')
     .setDescription('check-in in the world')
     .addAttachmentOption(option =>
-      option.setName('image')
-        .setDescription('upload the image with timestamp')
-        .setRequired(true),
+      option.setName('image').setDescription('upload the image with timestamp').setRequired(true),
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
@@ -81,19 +79,23 @@ export const command = {
       return await interaction.reply(`please upload image file`);
     }
 
-
     // add
     const username = user.username;
     const checkintime = hours + '' + minutes;
     await TimeLog.create({ userid, username, yearmonthday, checkintime, checkouttime: null, isintime });
-    isintime ? await interaction.reply(`${username}님 check-in에 성공하셨습니다: ${checkintime}`)
-      : await interaction.reply(`${username}님 check-in에 성공하셨습니다 (지각): ${checkintime}`);
+    if (isintime) {
+      await interaction.reply(`${username}님 check-in에 성공하셨습니다: ${checkintime}`);
+    } else {
+      await interaction.reply(`${username}님 check-in에 성공하셨습니다 (지각): ${checkintime}`);
+    }
     if (interaction.channel && 'send' in interaction.channel) {
       await interaction.channel.send({
-        files: [{
-          attachment: attachment?.url,
-          name: `${attachment.name}`,
-        }],
+        files: [
+          {
+            attachment: attachment?.url,
+            name: `${attachment.name}`,
+          },
+        ],
       });
     }
   },

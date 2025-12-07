@@ -9,11 +9,7 @@ export const command = {
     .setName('delete-cam')
     .setDescription('register the member of cam study')
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
-    .addStringOption(option =>
-      option.setName('userid')
-        .setDescription('set userid')
-        .setRequired(true),
-    ),
+    .addStringOption(option => option.setName('userid').setDescription('set userid').setRequired(true)),
 
   async execute(interaction: ChatInputCommandInteraction) {
     const userid = interaction.options.getString('userid')!;
