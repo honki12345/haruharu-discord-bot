@@ -22,10 +22,7 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
 
   beforeAll(async () => {
     client = new Client({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildVoiceStates,
-      ],
+      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
     });
 
     await client.login(DISCORD_TOKEN);
