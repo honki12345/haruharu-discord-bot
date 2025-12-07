@@ -41,3 +41,26 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, test]
+    # main 브랜치 푸시 또는 수동 실행시에만 통합 테스트 실행
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          TEST_CHANNEL_ID: ${{ vars.TEST_CHANNEL_ID }}
+          TEST_GUILD_ID: ${{ vars.TEST_GUILD_ID }}
