@@ -18,7 +18,7 @@ import {
   calculateWeekTimes,
   LATE_RANGE_TIME,
   ABSENCE_RANGE_TIME,
-  PUBLIC_HOLIDAYS_2025,
+  PUBLIC_HOLIDAYS_2026,
 } from '../utils.js';
 
 describe('utils.ts', () => {
@@ -214,12 +214,12 @@ describe('utils.ts', () => {
       expect(ABSENCE_RANGE_TIME).toBe(30);
     });
 
-    it('2025년 공휴일에 1월 1일이 포함되어 있다', () => {
-      expect(PUBLIC_HOLIDAYS_2025).toContain('0101');
+    it('2026년 공휴일에 1월 1일이 포함되어 있다', () => {
+      expect(PUBLIC_HOLIDAYS_2026).toContain('0101');
     });
 
-    it('2025년 공휴일에 크리스마스가 포함되어 있다', () => {
-      expect(PUBLIC_HOLIDAYS_2025).toContain('1225');
+    it('2026년 공휴일에 크리스마스가 포함되어 있다', () => {
+      expect(PUBLIC_HOLIDAYS_2026).toContain('1225');
     });
   });
 });

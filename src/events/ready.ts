@@ -13,7 +13,7 @@ import {
   calculateRemainingTimeCamStudy,
   formatFromMinutesToHours,
   isLastDayOfMonth,
-  PUBLIC_HOLIDAYS_2025,
+  PUBLIC_HOLIDAYS_2026,
   SUNDAY,
   SATURDAY,
   ONE_DAY_MILLISECONDS,
@@ -55,7 +55,7 @@ const printChallengeInterval = async (client: Client) => {
 
   // 주말 및 공휴일 제외
   const monthdate = month + date;
-  if (day === SATURDAY || day === SUNDAY || PUBLIC_HOLIDAYS_2025.includes(monthdate)) {
+  if (day === SATURDAY || day === SUNDAY || PUBLIC_HOLIDAYS_2026.includes(monthdate)) {
     await printMonthlyHallOfFameIfNeeded(client, year, month, date);
     return;
   }
