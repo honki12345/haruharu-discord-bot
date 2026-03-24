@@ -29,6 +29,7 @@ haruharu-discord-bot/
 ├── src/
 │   ├── index.ts                 # 봇 진입점, 커맨드/이벤트 로더
 │   ├── logger.ts                # Winston 로깅 설정
+│   ├── attendance.ts            # 출석 판정 및 이모지 유틸리티
 │   ├── utils.ts                 # 유틸리티 함수 및 상수
 │   ├── deploy-commands.ts       # 슬래시 커맨드 등록
 │   │
@@ -41,11 +42,13 @@ haruharu-discord-bot/
 │   │       ├── delete.ts        # 챌린저 삭제
 │   │       ├── register-cam.ts  # 캠스터디 등록
 │   │       ├── delete-cam.ts    # 캠스터디 삭제
+│   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
 │   │       └── ping.ts          # 헬스체크
 │   │
 │   ├── events/
 │   │   ├── ready.ts             # 봇 시작, DB 동기화, 스케줄러
 │   │   ├── interactionCreate.ts # 슬래시 커맨드 핸들러
+│   │   ├── messageCreate.ts     # 출석 demo thread 댓글 감지
 │   │   └── camStudyHandler.ts   # 음성 채널 상태 감지
 │   │
 │   └── repository/
@@ -59,6 +62,7 @@ haruharu-discord-bot/
 ├── docs/
 │   ├── PROJECT.md               # 프로젝트 문서 (현재 파일)
 │   ├── USER_STORIES.md          # 사용자 스토리 및 시퀀스 다이어그램
+│   ├── plan/                    # 이슈별 구현 계획 문서
 │   └── COMMIT_CONVENTION.md     # 커밋 컨벤션
 │
 ├── .github/
@@ -103,6 +107,7 @@ haruharu-discord-bot/
 | 커맨드 | 권한 | 설명 |
 |--------|------|------|
 | `/ping` | 관리자 | 봇 상태 확인 |
+| `/demo-daily-message` | 관리자 | 테스트 채널에 daily message + 출석 demo thread 생성 |
 
 ---
 
@@ -170,6 +175,12 @@ haruharu-discord-bot/
 |------|------|
 | 트리거 | 음성 채널 상태 변경 |
 | 기능 | 카메라 ON/OFF 감지, 학습 시간 기록 |
+
+#### messageCreate.ts
+| 항목 | 내용 |
+|------|------|
+| 트리거 | 일반 메시지 생성 |
+| 기능 | 테스트 채널의 출석 demo thread에서 첫 댓글을 감지하고 출석 상태 이모지 반응 |
 
 ---
 
