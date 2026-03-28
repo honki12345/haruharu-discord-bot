@@ -442,6 +442,20 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
         }),
       ).rejects.toThrow();
     });
+
+    it('canonical yyyymmdd 형식이 아닌 yearmonthday는 저장할 수 없다', async () => {
+      await expect(
+        TestAttendanceLog.create({
+          userid: 'user123',
+          username: '홍길동',
+          yearmonthday: '2025-12-07',
+          threadid: 'thread-123',
+          messageid: 'message-123',
+          commentedat: '2025-12-07T07:05:00.000Z',
+          status: 'attended',
+        }),
+      ).rejects.toThrow();
+    });
   });
 
   describe('CamStudyUsers 모델', () => {

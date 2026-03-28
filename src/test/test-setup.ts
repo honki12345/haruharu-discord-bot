@@ -2,6 +2,7 @@ import { vi } from 'vitest';
 import { Sequelize, DataTypes, Model, CreationOptional, InferAttributes, InferCreationAttributes } from 'sequelize';
 
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+const YEAR_MONTH_DAY_PATTERN = /^\d{8}$/;
 const isValidIsoTimestamp = (value: string) => {
   if (!ISO_TIMESTAMP_PATTERN.test(value)) {
     return false;
@@ -14,6 +15,18 @@ const isValidIsoTimestamp = (value: string) => {
 
   const canonical = parsed.toISOString();
   return value === canonical || value === canonical.replace('.000Z', 'Z');
+};
+const isValidYearMonthDay = (value: string) => {
+  if (!YEAR_MONTH_DAY_PATTERN.test(value)) {
+    return false;
+  }
+
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(4, 6));
+  const date = Number(value.slice(6, 8));
+  const parsed = new Date(Date.UTC(year, month - 1, date));
+
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() + 1 === month && parsed.getUTCDate() === date;
 };
 
 // ============ 인메모리 DB 설정 ============
@@ -95,7 +108,17 @@ TestAttendanceLog.init(
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     userid: { type: DataTypes.STRING(128), allowNull: false },
     username: { type: DataTypes.STRING(128), allowNull: false },
-    yearmonthday: { type: DataTypes.STRING(8), allowNull: false },
+    yearmonthday: {
+      type: DataTypes.STRING(8),
+      allowNull: false,
+      validate: {
+        isCanonicalYearMonthDay(value: string) {
+          if (!isValidYearMonthDay(value)) {
+            throw new Error('yearmonthday must be a canonical yyyymmdd date');
+          }
+        },
+      },
+    },
     threadid: { type: DataTypes.STRING(128), allowNull: false },
     messageid: { type: DataTypes.STRING(128), allowNull: false },
     commentedat: {
