@@ -28,6 +28,8 @@
 haruharu-discord-bot/
 ├── src/
 │   ├── index.ts                 # 봇 진입점, 커맨드/이벤트 로더
+│   ├── config.ts                # 런타임 설정 로더
+│   ├── deployConfig.ts          # 슬래시 커맨드 배포용 최소 설정 로더
 │   ├── logger.ts                # Winston 로깅 설정
 │   ├── attendance.ts            # 출석 판정 및 이모지 유틸리티
 │   ├── daily-message.ts         # daily message 질문 풀과 랜덤 선택 유틸리티
@@ -323,6 +325,10 @@ haruharu-discord-bot/
   "testChannelId": "테스트 채널 ID"
 }
 ```
+
+비고:
+- `src/index.ts` 같은 런타임 진입점은 채널 ID를 포함한 런타임 설정을 사용한다.
+- `src/deploy-commands.ts`는 slash command 등록만 수행하므로 `token`, `clientId`, `guildId`만 요구한다.
 
 ### package.json 스크립트
 

@@ -1,5 +1,4 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import { executeAttendance } from '../../services/attendance.js';
 
 export const command = {
   cooldown: 30,
@@ -12,6 +11,7 @@ export const command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
+    const { executeAttendance } = await import('../../services/attendance.js');
     const result = await executeAttendance({
       action: 'check-in',
       attachment: interaction.options.getAttachment('image'),

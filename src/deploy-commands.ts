@@ -2,7 +2,7 @@ import { REST, Routes } from 'discord.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
-import { clientId, guildId, token } from './config.js';
+import { clientId, guildId, token } from './deployConfig.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const commands = [];
