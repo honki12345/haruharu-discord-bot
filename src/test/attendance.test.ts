@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  classifyAttendanceStatus,
-  getAttendanceStatusEmoji,
-  getAttendanceStatusLabel,
-} from '../attendance.js';
+import { classifyAttendanceStatus, getAttendanceStatusEmoji, getAttendanceStatusLabel } from '../attendance.js';
 
 describe('attendance helper', () => {
   it('등록 시간 10분 전보다 이르면 too-early를 반환한다', () => {

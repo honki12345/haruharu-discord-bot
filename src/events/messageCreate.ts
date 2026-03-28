@@ -1,13 +1,8 @@
 import { Events, Message } from 'discord.js';
 import { createRequire } from 'node:module';
-import {
-  classifyAttendanceStatus,
-  getAttendanceStatusEmoji,
-  getAttendanceStatusLabel,
-} from '../attendance.js';
+import { classifyAttendanceStatus, getAttendanceStatusEmoji, getAttendanceStatusLabel } from '../attendance.js';
 import { logger } from '../logger.js';
 import { Users } from '../repository/Users.js';
-import { getYearMonthDate } from '../utils.js';
 
 const jsonRequire = createRequire(import.meta.url);
 const { testChannelId } = jsonRequire('../../config.json');
@@ -50,7 +45,9 @@ export const event = {
       return;
     }
 
-    const { year, month } = getYearMonthDate();
+    const createdAt = new Date(message.createdTimestamp);
+    const year = createdAt.getFullYear();
+    const month = String(createdAt.getMonth() + 1).padStart(2, '0');
     const user = await Users.findOne({
       where: {
         userid: message.author.id,

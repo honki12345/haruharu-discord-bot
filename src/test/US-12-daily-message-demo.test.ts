@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Collection } from 'discord.js';
+import { Collection, PermissionFlagsBits } from 'discord.js';
 
 const mockUsers = {
   findOne: vi.fn(),
@@ -56,6 +56,7 @@ describe('US-12: daily message 데모', () => {
   });
 
   it('demo-daily-message 커맨드는 테스트 채널에 메시지와 쓰레드를 생성한다', async () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
     const threadSend = vi.fn();
     const startThread = vi.fn().mockResolvedValue({
       id: 'demo-thread',
@@ -73,6 +74,9 @@ describe('US-12: daily message 데모', () => {
         fetchActive: vi.fn().mockResolvedValue({
           threads: new Collection(),
         }),
+        fetchArchived: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
       },
     });
     const interaction = createDemoInteraction(fetch);
@@ -82,9 +86,53 @@ describe('US-12: daily message 데모', () => {
 
     expect(fetch).toHaveBeenCalledWith('valid-test-channel-id');
     expect(send).toHaveBeenCalledOnce();
+    expect(send.mock.calls[0]?.[0]).toContain('📝 오늘의 질문: 오늘 꼭 이루고 싶은 한 가지는 무엇인가요?');
     expect(startThread).toHaveBeenCalledOnce();
     expect(threadSend).toHaveBeenCalledOnce();
     expect(interaction.getLastReply()).toContain('데모 daily message와 쓰레드를 생성했습니다');
+    randomSpy.mockRestore();
+  });
+
+  it('demo-daily-message 커맨드는 관리자 권한 비트를 사용한다', async () => {
+    const { command } = await import('../commands/haruharu/demo-daily-message.js');
+
+    expect(command.data.toJSON().default_member_permissions).toBe(PermissionFlagsBits.Administrator.toString());
+  });
+
+  it('이미 archive된 같은 날짜 쓰레드가 있으면 새 쓰레드를 만들지 않는다', async () => {
+    const send = vi.fn();
+    const fetchActive = vi.fn().mockResolvedValue({
+      threads: new Collection(),
+    });
+    const fetchArchived = vi.fn().mockResolvedValue({
+      threads: new Collection([
+        [
+          'archived-thread',
+          {
+            id: 'archived-thread',
+            name: '2026-03-24 출석-demo',
+            toString: () => '<#archived-thread>',
+          },
+        ],
+      ]),
+    });
+    const fetch = vi.fn().mockResolvedValue({
+      type: 0,
+      send,
+      threads: {
+        fetchActive,
+        fetchArchived,
+      },
+    });
+    const interaction = createDemoInteraction(fetch);
+
+    const { command } = await import('../commands/haruharu/demo-daily-message.js');
+    await command.execute(interaction as never);
+
+    expect(fetchActive).toHaveBeenCalledOnce();
+    expect(fetchArchived).toHaveBeenCalledOnce();
+    expect(send).not.toHaveBeenCalled();
+    expect(interaction.getLastReply()).toContain('이미 데모 출석 쓰레드가 있습니다');
   });
 
   it('등록된 사용자의 첫 댓글에는 출석 이모지를 단다', async () => {
@@ -306,5 +354,55 @@ describe('US-12: daily message 데모', () => {
     await event.execute(message as never);
 
     expect(react).toHaveBeenCalledWith('❓');
+  });
+
+  it('월 경계에서는 현재 시각이 아니라 댓글 시각 기준 yearmonth로 사용자를 조회한다', async () => {
+    vi.setSystemTime(new Date('2026-02-01T00:05:00'));
+    mockUsers.findOne.mockResolvedValue(null);
+
+    const react = vi.fn();
+    const message = {
+      id: 'message-month-boundary',
+      createdTimestamp: new Date('2026-01-31T23:59:00').getTime(),
+      author: {
+        id: 'demo-user',
+        bot: false,
+      },
+      inGuild: () => true,
+      react,
+      channel: {
+        id: 'thread-1',
+        parentId: 'valid-test-channel-id',
+        name: '2026-01-31 출석-demo',
+        isThread: () => true,
+        messages: {
+          fetch: vi.fn().mockResolvedValue(
+            new Collection([
+              [
+                'message-month-boundary',
+                {
+                  id: 'message-month-boundary',
+                  author: { id: 'demo-user', bot: false },
+                  createdTimestamp: new Date('2026-01-31T23:59:00').getTime(),
+                  reactions: {
+                    cache: new Collection(),
+                  },
+                },
+              ],
+            ]),
+          ),
+        },
+      },
+    };
+
+    const { event } = await import('../events/messageCreate.js');
+    await event.execute(message as never);
+
+    expect(mockUsers.findOne).toHaveBeenCalledWith({
+      where: {
+        userid: 'demo-user',
+        yearmonth: '202601',
+      },
+    });
   });
 });
