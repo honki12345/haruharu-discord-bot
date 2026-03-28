@@ -136,6 +136,62 @@ describe('US-12: daily message 데모', () => {
     expect(interaction.getLastReply()).toContain('이미 데모 출석 쓰레드가 있습니다');
   });
 
+  it('거의 동시에 두 번 실행되어도 같은 날짜 데모 쓰레드는 한 번만 생성한다', async () => {
+    let resolveActiveThreads: ((value: { threads: Collection<string, unknown> }) => void) | null = null;
+    const threadSend = vi.fn();
+    const startThread = vi.fn().mockResolvedValue({
+      id: 'demo-thread',
+      send: threadSend,
+      toString: () => '<#demo-thread>',
+    });
+    const send = vi.fn().mockResolvedValue({
+      id: 'demo-message',
+      startThread,
+    });
+    const fetchActive = vi.fn().mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveActiveThreads = resolve;
+        }),
+    );
+    const fetchArchived = vi.fn().mockResolvedValue({
+      threads: new Collection(),
+    });
+    const fetch = vi.fn().mockResolvedValue({
+      type: 0,
+      send,
+      threads: {
+        fetchActive,
+        fetchArchived,
+      },
+    });
+    const firstInteraction = createDemoInteraction(fetch);
+    const secondInteraction = createDemoInteraction(fetch);
+
+    const { command } = await import('../commands/haruharu/demo-daily-message.js');
+    const firstExecution = command.execute(firstInteraction as never);
+    const secondExecution = command.execute(secondInteraction as never);
+
+    for (let index = 0; index < 5 && !resolveActiveThreads; index += 1) {
+      await Promise.resolve();
+    }
+    expect(resolveActiveThreads).not.toBeNull();
+
+    resolveActiveThreads?.({
+      threads: new Collection(),
+    });
+    await Promise.all([firstExecution, secondExecution]);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(startThread).toHaveBeenCalledTimes(1);
+    expect(firstInteraction.getLastReply() ?? secondInteraction.getLastReply()).toContain(
+      '데모 daily message와 쓰레드를 생성했습니다',
+    );
+    expect(firstInteraction.getLastReply() ?? secondInteraction.getLastReply()).not.toContain(
+      '이미 데모 출석 쓰레드가 있습니다',
+    );
+  });
+
   it('등록된 사용자의 첫 댓글에는 출석 이모지를 단다', async () => {
     mockUsers.findOne.mockResolvedValue({
       userid: 'demo-user',

@@ -3,6 +3,7 @@ import {
   ChatInputCommandInteraction,
   SlashCommandBuilder,
   TextChannel,
+  ThreadChannel,
   ThreadAutoArchiveDuration,
 } from 'discord.js';
 import { createRequire } from 'node:module';
@@ -12,6 +13,7 @@ import { getYearMonthDate, PERMISSION_NUM_ADMIN } from '../../utils.js';
 
 const jsonRequire = createRequire(import.meta.url);
 const { testChannelId } = jsonRequire('../../../config.json');
+const pendingDemoThreadCreations = new Map<string, Promise<{ thread: ThreadChannel; created: boolean }>>();
 
 const findExistingThread = async (channel: TextChannel, threadName: string) => {
   const activeThreads = await channel.threads.fetchActive();
@@ -58,35 +60,60 @@ export const command = {
     }
 
     const testChannel = channel as TextChannel;
-    const existingThread = await findExistingThread(testChannel, threadName);
-
-    if (existingThread) {
+    const pendingThreadCreation = pendingDemoThreadCreations.get(threadName);
+    if (pendingThreadCreation) {
+      const pendingThread = await pendingThreadCreation;
       return await interaction.reply({
-        content: `이미 데모 출석 쓰레드가 있습니다: ${existingThread.toString()}`,
+        content: `이미 데모 출석 쓰레드가 있습니다: ${pendingThread.thread.toString()}`,
         ephemeral: true,
       });
     }
 
-    const dailyMessage = await testChannel.send(buildDailyMessageContent(year, month, date, question));
-    const thread = await dailyMessage.startThread({
-      name: threadName,
-      autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
-      reason: 'daily attendance thread demo',
-    });
+    const threadCreation = (async () => {
+      const existingThread = await findExistingThread(testChannel, threadName);
 
-    await thread.send(
-      [
-        '출석 안내',
-        '- ⏰ 대기: 출석 가능 시간 전',
-        '- ✅ 출석: 등록 시간 ±10분',
-        '- 🟡 지각: 등록 시간 +11~30분',
-        '- ❌ 결석: 등록 시간 +30분 초과',
-        '- ❓ 미등록: 등록되지 않은 사용자',
-      ].join('\n'),
-    );
+      if (existingThread) {
+        return {
+          thread: existingThread as ThreadChannel,
+          created: false,
+        };
+      }
+
+      const dailyMessage = await testChannel.send(buildDailyMessageContent(year, month, date, question));
+      const thread = await dailyMessage.startThread({
+        name: threadName,
+        autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
+        reason: 'daily attendance thread demo',
+      });
+
+      await thread.send(
+        [
+          '출석 안내',
+          '- ⏰ 대기: 출석 가능 시간 전',
+          '- ✅ 출석: 등록 시간 ±10분',
+          '- 🟡 지각: 등록 시간 +11~30분',
+          '- ❌ 결석: 등록 시간 +30분 초과',
+          '- ❓ 미등록: 등록되지 않은 사용자',
+        ].join('\n'),
+      );
+
+      return {
+        thread,
+        created: true,
+      };
+    })();
+
+    pendingDemoThreadCreations.set(threadName, threadCreation);
+
+    let result: { thread: ThreadChannel; created: boolean };
+    try {
+      result = await threadCreation;
+    } finally {
+      pendingDemoThreadCreations.delete(threadName);
+    }
 
     await interaction.reply({
-      content: `데모 daily message와 쓰레드를 생성했습니다: ${thread.toString()}`,
+      content: `${result.created ? '데모 daily message와 쓰레드를 생성했습니다' : '이미 데모 출석 쓰레드가 있습니다'}: ${result.thread.toString()}`,
       ephemeral: true,
     });
   },
