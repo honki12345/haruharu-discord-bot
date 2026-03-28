@@ -196,6 +196,11 @@ describe('US-12: daily message 데모', () => {
         id: 'demo-user',
         bot: false,
       },
+      client: {
+        user: {
+          id: 'bot-user',
+        },
+      },
       inGuild: () => true,
       react,
       channel: {
@@ -218,6 +223,16 @@ describe('US-12: daily message 데모', () => {
                         '✅',
                         {
                           emoji: { name: '✅' },
+                          users: {
+                            cache: new Collection([
+                              [
+                                'bot-user',
+                                {
+                                  id: 'bot-user',
+                                },
+                              ],
+                            ]),
+                          },
                         },
                       ],
                     ]),
@@ -247,6 +262,87 @@ describe('US-12: daily message 데모', () => {
     expect(react).not.toHaveBeenCalled();
   });
 
+  it('사용자가 직접 단 최종 이모지는 이전 공식 판정으로 간주하지 않는다', async () => {
+    mockUsers.findOne.mockResolvedValue({
+      userid: 'demo-user',
+      username: '데모유저',
+      waketime: '0700',
+    });
+
+    const react = vi.fn();
+    const message = {
+      id: 'message-2',
+      createdTimestamp: new Date('2026-03-24T07:06:00').getTime(),
+      author: {
+        id: 'demo-user',
+        bot: false,
+      },
+      client: {
+        user: {
+          id: 'bot-user',
+        },
+      },
+      inGuild: () => true,
+      react,
+      channel: {
+        id: 'thread-1',
+        parentId: 'valid-test-channel-id',
+        name: '2026-03-24 출석-demo',
+        isThread: () => true,
+        messages: {
+          fetch: vi.fn().mockResolvedValue(
+            new Collection([
+              [
+                'message-1',
+                {
+                  id: 'message-1',
+                  author: { id: 'demo-user', bot: false },
+                  createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+                  reactions: {
+                    cache: new Collection([
+                      [
+                        '✅',
+                        {
+                          emoji: { name: '✅' },
+                          users: {
+                            cache: new Collection([
+                              [
+                                'other-user',
+                                {
+                                  id: 'other-user',
+                                },
+                              ],
+                            ]),
+                          },
+                        },
+                      ],
+                    ]),
+                  },
+                },
+              ],
+              [
+                'message-2',
+                {
+                  id: 'message-2',
+                  author: { id: 'demo-user', bot: false },
+                  createdTimestamp: new Date('2026-03-24T07:06:00').getTime(),
+                  reactions: {
+                    cache: new Collection(),
+                  },
+                },
+              ],
+            ]),
+          ),
+        },
+      },
+    };
+
+    const { event } = await import('../events/messageCreate.js');
+    await event.execute(message as never);
+
+    expect(react).toHaveBeenCalledWith('✅');
+  });
+
   it('미등록 또는 too-early 반응만 있던 이전 댓글은 이후 공식 판정을 막지 않는다', async () => {
     mockUsers.findOne.mockResolvedValue({
       userid: 'demo-user',
@@ -261,6 +357,11 @@ describe('US-12: daily message 데모', () => {
       author: {
         id: 'demo-user',
         bot: false,
+      },
+      client: {
+        user: {
+          id: 'bot-user',
+        },
       },
       inGuild: () => true,
       react,
@@ -446,6 +547,16 @@ describe('US-12: daily message 데모', () => {
                     '✅',
                     {
                       emoji: { name: '✅' },
+                      users: {
+                        cache: new Collection([
+                          [
+                            'bot-user',
+                            {
+                              id: 'bot-user',
+                            },
+                          ],
+                        ]),
+                      },
                     },
                   ],
                 ]),
@@ -461,6 +572,11 @@ describe('US-12: daily message 데모', () => {
       author: {
         id: 'demo-user',
         bot: false,
+      },
+      client: {
+        user: {
+          id: 'bot-user',
+        },
       },
       inGuild: () => true,
       react,
@@ -569,5 +685,110 @@ describe('US-12: daily message 데모', () => {
     expect(mockUsers.findOne).toHaveBeenCalledTimes(1);
     expect(reactFirst).toHaveBeenCalledWith('✅');
     expect(reactSecond).not.toHaveBeenCalled();
+  });
+
+  it('임시 상태로 끝난 첫 댓글이 있으면 대기 중이던 재시도 댓글을 다시 처리한다', async () => {
+    let resolveUser: ((value: { userid: string; username: string; waketime: string } | null) => void) | null = null;
+    mockUsers.findOne
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveUser = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({
+        userid: 'demo-user',
+        username: '데모유저',
+        waketime: '0700',
+      });
+
+    const reactFirst = vi.fn();
+    const reactSecond = vi.fn();
+    const fetchMessages = vi.fn().mockResolvedValue(
+      new Collection([
+        [
+          'message-1',
+          {
+            id: 'message-1',
+            author: { id: 'demo-user', bot: false },
+            createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+            reactions: {
+              cache: new Collection(),
+            },
+          },
+        ],
+        [
+          'message-2',
+          {
+            id: 'message-2',
+            author: { id: 'demo-user', bot: false },
+            createdTimestamp: new Date('2026-03-24T07:05:01').getTime(),
+            reactions: {
+              cache: new Collection(),
+            },
+          },
+        ],
+      ]),
+    );
+
+    const baseChannel = {
+      id: 'thread-1',
+      parentId: 'valid-test-channel-id',
+      name: '2026-03-24 출석-demo',
+      isThread: () => true,
+      messages: {
+        fetch: fetchMessages,
+      },
+    };
+
+    const firstMessage = {
+      id: 'message-1',
+      createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+      author: {
+        id: 'demo-user',
+        bot: false,
+      },
+      client: {
+        user: {
+          id: 'bot-user',
+        },
+      },
+      inGuild: () => true,
+      react: reactFirst,
+      channel: baseChannel,
+    };
+
+    const secondMessage = {
+      id: 'message-2',
+      createdTimestamp: new Date('2026-03-24T07:05:01').getTime(),
+      author: {
+        id: 'demo-user',
+        bot: false,
+      },
+      client: {
+        user: {
+          id: 'bot-user',
+        },
+      },
+      inGuild: () => true,
+      react: reactSecond,
+      channel: baseChannel,
+    };
+
+    const { event } = await import('../events/messageCreate.js');
+    const firstExecution = event.execute(firstMessage as never);
+    for (let index = 0; index < 5 && !resolveUser; index += 1) {
+      await Promise.resolve();
+    }
+    expect(resolveUser).not.toBeNull();
+    const secondExecution = event.execute(secondMessage as never);
+
+    resolveUser?.(null);
+    await firstExecution;
+    await secondExecution;
+
+    expect(mockUsers.findOne).toHaveBeenCalledTimes(2);
+    expect(reactFirst).toHaveBeenCalledWith('❓');
+    expect(reactSecond).toHaveBeenCalledWith('✅');
   });
 });

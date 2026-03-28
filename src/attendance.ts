@@ -17,7 +17,22 @@ const ATTENDANCE_STATUS_EMOJIS: Record<AttendanceStatus, string> = {
   absent: '❌',
 };
 
+const isValidWakeTime = (waketime: string) => {
+  if (!/^\d{4}$/.test(waketime)) {
+    return false;
+  }
+
+  const hours = Number(waketime.slice(0, 2));
+  const minutes = Number(waketime.slice(2));
+
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+};
+
 const getAttendanceTimeDifferenceInMinutes = (waketime: string, at: Date = new Date()) => {
+  if (!isValidWakeTime(waketime)) {
+    throw new Error('Invalid waketime');
+  }
+
   const hours = Number(waketime.slice(0, 2));
   const minutes = Number(waketime.slice(2));
   const waketimeInMinutes = hours * 60 + minutes;
@@ -55,4 +70,5 @@ export {
   getAttendanceTimeDifferenceInMinutes,
   getAttendanceStatusLabel,
   getAttendanceStatusEmoji,
+  isValidWakeTime,
 };

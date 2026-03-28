@@ -25,4 +25,9 @@ describe('attendance helper', () => {
     expect(status).toBe('absent');
     expect(getAttendanceStatusLabel(status)).toBe('결석');
   });
+
+  it('잘못된 waketime 형식이면 명시적으로 예외를 던진다', () => {
+    expect(() => classifyAttendanceStatus('7am', new Date('2026-03-24T07:31:00'))).toThrow('Invalid waketime');
+    expect(() => classifyAttendanceStatus('2460', new Date('2026-03-24T07:31:00'))).toThrow('Invalid waketime');
+  });
 });

@@ -11,11 +11,33 @@ const DEMO_THREAD_SUFFIX = '출석-demo';
 const FINAL_ATTENDANCE_EMOJIS = new Set(['✅', '🟡', '❌']);
 const finalizedAttendanceCache = new Map<string, Set<string>>();
 const inFlightAttendanceKeys = new Set<string>();
+const pendingAttendanceMessages = new Map<string, Message>();
 
 const getAttendanceCacheKey = (threadId: string, userId: string) => `${threadId}:${userId}`;
 
-const hasFinalAttendanceReaction = (message: Message) => {
-  return message.reactions.cache.some(reaction => FINAL_ATTENDANCE_EMOJIS.has(reaction.emoji.name ?? ''));
+const hasBotFinalAttendanceReaction = async (message: Message, botUserId?: string) => {
+  if (!botUserId) {
+    return false;
+  }
+
+  for (const reaction of message.reactions.cache.values()) {
+    if (!FINAL_ATTENDANCE_EMOJIS.has(reaction.emoji.name ?? '')) {
+      continue;
+    }
+
+    if (reaction.users.cache.has(botUserId)) {
+      return true;
+    }
+
+    if (typeof reaction.users.fetch === 'function') {
+      const users = await reaction.users.fetch();
+      if (users.has(botUserId)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 };
 
 const rememberFinalAttendance = (threadId: string, userId: string) => {
@@ -29,6 +51,7 @@ const hasRememberedFinalAttendance = (threadId: string, userId: string) => {
 };
 
 const findPriorFinalAttendance = async (message: Message) => {
+  const botUserId = message.client?.user?.id;
   let before: string | undefined;
   let hasMoreMessages = true;
 
@@ -38,22 +61,20 @@ const findPriorFinalAttendance = async (message: Message) => {
       return false;
     }
 
-    const found = messages.some(candidate => {
+    for (const candidate of messages.values()) {
       if (candidate.id === message.id) {
-        return false;
+        continue;
       }
 
-      return (
+      if (
         !candidate.author.bot &&
         candidate.author.id === message.author.id &&
         candidate.createdTimestamp <= message.createdTimestamp &&
-        hasFinalAttendanceReaction(candidate)
-      );
-    });
-
-    if (found) {
-      rememberFinalAttendance(message.channel.id, message.author.id);
-      return true;
+        (await hasBotFinalAttendanceReaction(candidate, botUserId))
+      ) {
+        rememberFinalAttendance(message.channel.id, message.author.id);
+        return true;
+      }
     }
 
     if (messages.size < 100) {
@@ -69,6 +90,83 @@ const findPriorFinalAttendance = async (message: Message) => {
   return false;
 };
 
+const processAttendanceMessage = async (message: Message, attendanceKey: string) => {
+  inFlightAttendanceKeys.add(attendanceKey);
+
+  try {
+    if (await findPriorFinalAttendance(message)) {
+      return;
+    }
+
+    const createdAt = new Date(message.createdTimestamp);
+    const year = createdAt.getFullYear();
+    const month = String(createdAt.getMonth() + 1).padStart(2, '0');
+    const user = await Users.findOne({
+      where: {
+        userid: message.author.id,
+        yearmonth: `${year}${month}`,
+      },
+    });
+
+    if (!user) {
+      logger.info('attendance demo ignored for unregistered user', {
+        userid: message.author.id,
+        threadId: message.channel.id,
+      });
+      await message.react('❓');
+      return;
+    }
+
+    let status;
+    try {
+      status = classifyAttendanceStatus(user.waketime, createdAt);
+    } catch (error) {
+      logger.warn('attendance demo ignored for invalid waketime', {
+        userid: user.userid,
+        username: user.username,
+        waketime: user.waketime,
+        threadId: message.channel.id,
+        messageId: message.id,
+        error,
+      });
+      await message.react('❓');
+      return;
+    }
+
+    const emoji = getAttendanceStatusEmoji(status);
+    await message.react(emoji);
+
+    if (FINAL_ATTENDANCE_EMOJIS.has(emoji)) {
+      rememberFinalAttendance(message.channel.id, message.author.id);
+    }
+
+    logger.info('attendance demo recognized', {
+      userid: user.userid,
+      username: user.username,
+      status,
+      label: getAttendanceStatusLabel(status),
+      threadId: message.channel.id,
+      messageId: message.id,
+    });
+  } finally {
+    inFlightAttendanceKeys.delete(attendanceKey);
+
+    const pendingMessage = pendingAttendanceMessages.get(attendanceKey);
+    const shouldProcessPending =
+      pendingMessage &&
+      pendingMessage.id !== message.id &&
+      !hasRememberedFinalAttendance(message.channel.id, message.author.id);
+
+    if (shouldProcessPending || pendingMessage?.id === message.id) {
+      pendingAttendanceMessages.delete(attendanceKey);
+    }
+
+    if (shouldProcessPending && pendingMessage) {
+      await processAttendanceMessage(pendingMessage, attendanceKey);
+    }
+  }
+};
+
 export const event = {
   name: Events.MessageCreate,
   async execute(message: Message) {
@@ -81,57 +179,15 @@ export const event = {
     }
 
     const attendanceKey = getAttendanceCacheKey(message.channel.id, message.author.id);
-    if (
-      inFlightAttendanceKeys.has(attendanceKey) ||
-      hasRememberedFinalAttendance(message.channel.id, message.author.id)
-    ) {
+    if (hasRememberedFinalAttendance(message.channel.id, message.author.id)) {
       return;
     }
 
-    inFlightAttendanceKeys.add(attendanceKey);
-
-    try {
-      if (await findPriorFinalAttendance(message)) {
-        return;
-      }
-
-      const createdAt = new Date(message.createdTimestamp);
-      const year = createdAt.getFullYear();
-      const month = String(createdAt.getMonth() + 1).padStart(2, '0');
-      const user = await Users.findOne({
-        where: {
-          userid: message.author.id,
-          yearmonth: `${year}${month}`,
-        },
-      });
-
-      if (!user) {
-        logger.info('attendance demo ignored for unregistered user', {
-          userid: message.author.id,
-          threadId: message.channel.id,
-        });
-        await message.react('❓');
-        return;
-      }
-
-      const status = classifyAttendanceStatus(user.waketime, new Date(message.createdTimestamp));
-      const emoji = getAttendanceStatusEmoji(status);
-      await message.react(emoji);
-
-      if (FINAL_ATTENDANCE_EMOJIS.has(emoji)) {
-        rememberFinalAttendance(message.channel.id, message.author.id);
-      }
-
-      logger.info('attendance demo recognized', {
-        userid: user.userid,
-        username: user.username,
-        status,
-        label: getAttendanceStatusLabel(status),
-        threadId: message.channel.id,
-        messageId: message.id,
-      });
-    } finally {
-      inFlightAttendanceKeys.delete(attendanceKey);
+    if (inFlightAttendanceKeys.has(attendanceKey)) {
+      pendingAttendanceMessages.set(attendanceKey, message);
+      return;
     }
+
+    await processAttendanceMessage(message, attendanceKey);
   },
 };
