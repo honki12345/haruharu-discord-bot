@@ -17,6 +17,7 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write src",
+    "local:ci": "npm run lint && npx prettier --check src && npm test",
     "test": "vitest run --exclude 'src/test/integration/**'",
     "test:watch": "vitest --exclude 'src/test/integration/**'",
     "test:coverage": "vitest run --coverage --exclude 'src/test/integration/**'",

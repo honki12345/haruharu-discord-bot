@@ -29,6 +29,8 @@ haruharu-discord-bot/
 ├── src/
 │   ├── index.ts                 # 봇 진입점, 커맨드/이벤트 로더
 │   ├── logger.ts                # Winston 로깅 설정
+│   ├── attendance.ts            # 출석 판정 및 이모지 유틸리티
+│   ├── daily-message.ts         # daily message 질문 풀과 랜덤 선택 유틸리티
 │   ├── utils.ts                 # 유틸리티 함수 및 상수
 │   ├── deploy-commands.ts       # 슬래시 커맨드 등록
 │   │
@@ -41,11 +43,13 @@ haruharu-discord-bot/
 │   │       ├── delete.ts        # 챌린저 삭제
 │   │       ├── register-cam.ts  # 캠스터디 등록
 │   │       ├── delete-cam.ts    # 캠스터디 삭제
+│   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
 │   │       └── ping.ts          # 헬스체크
 │   │
 │   ├── events/
 │   │   ├── ready.ts             # 봇 시작, DB 동기화, 스케줄러
 │   │   ├── interactionCreate.ts # 슬래시 커맨드 핸들러
+│   │   ├── messageCreate.ts     # 출석 demo thread 댓글 감지
 │   │   └── camStudyHandler.ts   # 음성 채널 상태 감지
 │   │
 │   └── repository/
@@ -59,6 +63,7 @@ haruharu-discord-bot/
 ├── docs/
 │   ├── PROJECT.md               # 프로젝트 문서 (현재 파일)
 │   ├── USER_STORIES.md          # 사용자 스토리 및 시퀀스 다이어그램
+│   ├── plan/                    # 이슈별 구현 계획 문서
 │   └── COMMIT_CONVENTION.md     # 커밋 컨벤션
 │
 ├── .github/
@@ -109,6 +114,7 @@ haruharu-discord-bot/
 | 커맨드 | 권한 | 설명 |
 |--------|------|------|
 | `/ping` | 관리자 | 봇 상태 확인 |
+| `/demo-daily-message` | 관리자 | 테스트 채널에 랜덤 질문이 포함된 daily message + 출석 demo thread 생성 |
 
 ---
 
@@ -176,6 +182,18 @@ haruharu-discord-bot/
 |------|------|
 | 트리거 | 음성 채널 상태 변경 |
 | 기능 | 카메라 ON/OFF 감지, 학습 시간 기록 |
+
+#### messageCreate.ts
+| 항목 | 내용 |
+|------|------|
+| 트리거 | 일반 메시지 생성 |
+| 기능 | 테스트 채널의 출석 demo thread에서 첫 댓글을 감지하고 출석 상태 이모지 반응 |
+
+#### daily-message.ts
+| 항목 | 내용 |
+|------|------|
+| 역할 | daily message에 넣을 질문 100개를 보관하고 랜덤으로 하나를 선택 |
+| 사용처 | `/demo-daily-message` 커맨드 |
 
 ---
 
@@ -299,6 +317,7 @@ haruharu-discord-bot/
 
 | 스크립트 | 설명 |
 |----------|------|
+| `npm start` | TypeScript 컴파일 후 기본 개발 환경(`APP_ENV=dev`)으로 봇 실행 |
 | `npm run start:dev` | 개발 환경 설정으로 봇 실행 |
 | `npm run start:prod` | 운영 환경 설정으로 봇 실행 |
 | `npm run deploy-commands:dev` | 개발 Discord guild에 슬래시 커맨드 등록 |
@@ -307,6 +326,7 @@ haruharu-discord-bot/
 | `npm run pm2:prod` | PM2로 운영 환경 봇 실행 |
 | `npm run pm2:reload:dev` | PM2 개발 프로세스 재기동 |
 | `npm run pm2:reload:prod` | PM2 운영 프로세스 재기동 |
+| `npm run local:ci` | GitHub Actions CI와 같은 로컬 검증 실행 (`lint` + `prettier --check` + `test`) |
 | `npm run lint` | ESLint 검사 |
 | `npm run lint:fix` | ESLint 자동 수정 |
 | `npm run format` | Prettier 포맷팅 |

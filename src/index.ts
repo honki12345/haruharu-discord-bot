@@ -30,7 +30,9 @@ export class MyClient extends Client {
   }
 }
 
-const client = new MyClient({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
+const client = new MyClient({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMessages],
+});
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 client.cooldowns = new Collection();
