@@ -1,10 +1,7 @@
 import { Sequelize, DataType } from 'sequelize';
-import { createRequire } from 'node:module';
+import { databaseUser, password } from '../config.js';
 
-const jsonRequire = createRequire(import.meta.url);
-const config = jsonRequire('../../config.json');
-
-const sequelize = new Sequelize('haruharu-database', config.databaseUser, config.password, {
+const sequelize = new Sequelize('haruharu-database', databaseUser, password, {
   host: 'localhost',
   dialect: 'sqlite',
   // logging: console.log,

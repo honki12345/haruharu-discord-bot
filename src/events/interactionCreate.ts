@@ -1,10 +1,6 @@
 import { Events, Collection, ChatInputCommandInteraction } from 'discord.js';
-import { createRequire } from 'node:module';
+import { commandChannelIds } from '../config.js';
 import { MyClient } from '../index.js';
-
-const jsonRequire = createRequire(import.meta.url);
-const { noticeChannelId, vacancesRegisterChannelId, checkChannelId, testChannelId, logChannelId } =
-  jsonRequire('../../config.json');
 
 export const event = {
   name: Events.InteractionCreate,
@@ -19,12 +15,7 @@ export const event = {
     }
 
     const firedChannelId = interaction.channel?.id;
-    const isValidChannelId =
-      firedChannelId === noticeChannelId ||
-      firedChannelId === checkChannelId ||
-      firedChannelId === testChannelId ||
-      firedChannelId === vacancesRegisterChannelId ||
-      firedChannelId === logChannelId;
+    const isValidChannelId = firedChannelId ? commandChannelIds.has(firedChannelId) : false;
     if (!isValidChannelId) {
       await interaction.reply({ content: 'no valid channel for command', ephemeral: true });
       return;
