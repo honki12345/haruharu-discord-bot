@@ -11,10 +11,7 @@ import {
   SlashCommandSubcommandsOnlyBuilder,
 } from 'discord.js';
 import { fileURLToPath } from 'url';
-import { createRequire } from 'node:module';
-
-const jsonRequire = createRequire(import.meta.url);
-const config = jsonRequire('../config.json');
+import { token } from './config.js';
 
 export interface Command {
   data: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder | SlashCommandSubcommandsOnlyBuilder;
@@ -79,4 +76,4 @@ for (const file of eventFiles) {
   }
 }
 
-client.login(config.token);
+client.login(token);
