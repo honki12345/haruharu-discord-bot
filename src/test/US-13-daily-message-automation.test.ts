@@ -322,6 +322,49 @@ describe('US-13: 운영 daily message 자동화', () => {
     expect(hasDailyScheduler).toBe(true);
   });
 
+  it('06시 이후에 부팅되면 오늘 운영 daily message 생성을 즉시 시도한다', async () => {
+    vi.setSystemTime(new Date('2026-03-29T07:30:00'));
+    const startThread = vi.fn().mockResolvedValue({
+      id: 'attendance-thread',
+      send: vi.fn(),
+      toString: () => '<#attendance-thread>',
+    });
+    const send = vi.fn().mockResolvedValue({
+      id: 'daily-message',
+      startThread,
+    });
+    const fetch = vi.fn().mockResolvedValue({
+      type: 0,
+      id: 'valid-channel-id',
+      send,
+      threads: {
+        fetchActive: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+        fetchArchived: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+      },
+    });
+
+    const { event } = await import('../events/ready.js');
+
+    await event.execute({
+      channels: {
+        fetch,
+        cache: {
+          get: vi.fn(),
+        },
+      },
+      user: {
+        tag: 'haruharu#0001',
+      },
+    } as never);
+
+    expect(fetch).toHaveBeenCalledWith('valid-channel-id');
+    expect(send).toHaveBeenCalledOnce();
+  });
+
   it('운영 daily message 생성 실패는 로그로 남긴다', async () => {
     const send = vi.fn().mockRejectedValue(new Error('send failed'));
     const fetch = vi.fn().mockResolvedValue({
@@ -353,5 +396,39 @@ describe('US-13: 운영 daily message 자동화', () => {
     ).rejects.toThrow('send failed');
 
     expect(logger.error).toHaveBeenCalled();
+  });
+
+  it('06시 이후 즉시 생성이 실패해도 중복 에러 로그를 남기지 않는다', async () => {
+    vi.setSystemTime(new Date('2026-03-29T07:30:00'));
+    const fetch = vi.fn().mockResolvedValue({
+      type: 0,
+      id: 'valid-channel-id',
+      send: vi.fn().mockRejectedValue(new Error('send failed')),
+      threads: {
+        fetchActive: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+        fetchArchived: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+      },
+    });
+
+    const { logger } = await import('../logger.js');
+    const { event } = await import('../events/ready.js');
+
+    await event.execute({
+      channels: {
+        fetch,
+        cache: {
+          get: vi.fn(),
+        },
+      },
+      user: {
+        tag: 'haruharu#0001',
+      },
+    } as never);
+
+    expect(logger.error).toHaveBeenCalledTimes(1);
   });
 });

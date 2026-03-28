@@ -30,8 +30,8 @@ const { checkChannelId, logChannelId, resultChannelId } = jsonRequire('../../con
 const ensureDailyAttendanceThreadInterval = async (client: Client) => {
   try {
     await ensureTodayAttendanceThread(client, checkChannelId);
-  } catch (error) {
-    logger.error('failed to schedule daily attendance thread', { channelId: checkChannelId, error });
+  } catch {
+    // ensureTodayAttendanceThread logs failures itself; swallow here to keep scheduling alive.
   }
 };
 
@@ -222,6 +222,7 @@ export const event = {
   name: Events.ClientReady,
   once: true,
   async execute(client: Client) {
+    const { hours } = getYearMonthDate();
     // test
     // await Users.sync({ force: true });
     // await TimeLog.sync({ force: true });
@@ -236,6 +237,10 @@ export const event = {
     await CamStudyUsers.sync();
     await CamStudyTimeLog.sync();
     await CamStudyWeeklyTimeLog.sync();
+
+    if (Number(hours) >= 6) {
+      await ensureDailyAttendanceThreadInterval(client);
+    }
 
     // set daily attendance thread
     const remainingTimeDailyMessage = calculateRemainingTimeDailyMessage();

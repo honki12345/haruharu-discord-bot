@@ -2,7 +2,7 @@
 
 ## 기상 챌린지 (Morning Challenge)
 
-### US-DM: 운영 daily message 자동 생성
+### US-13: 운영 daily message 자동 생성
 
 ```
 AS A 챌린저

@@ -110,8 +110,10 @@ const PRINT_HOURS_CAM_STUDY = 23;
 const PRINT_MINUTES_CAM_STUDY = 59;
 const HARUHARU_TIMES = new Date('2024-04-06'); // 토요일
 
-// challenge 관련 상수들
+// daily message 관련 상수들
 const PRINT_HOURS_DAILY_MESSAGE = 6;
+
+// challenge 관련 상수들
 const PRINT_HOURS_CHALLENGE = 13;
 const LATE_RANGE_TIME = 10;
 const ABSENCE_RANGE_TIME = 30;
