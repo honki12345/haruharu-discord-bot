@@ -1,10 +1,5 @@
 import { logger } from '../logger.js';
-import {
-  HARUHARU_TIMES,
-  PRINT_HOURS_CAM_STUDY,
-  PRINT_HOURS_CHALLENGE,
-  PRINT_MINUTES_CAM_STUDY,
-} from './constants.js';
+import { HARUHARU_TIMES, PRINT_HOURS_CAM_STUDY, PRINT_HOURS_CHALLENGE, PRINT_MINUTES_CAM_STUDY } from './constants.js';
 
 const padTwoDigits = (value: number) => value.toString().padStart(2, '0');
 

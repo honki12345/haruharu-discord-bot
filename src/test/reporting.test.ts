@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import './test-setup.js';
 import { logger } from '../logger.js';
-import { buildChallengeReport, scheduleDailyReports } from '../services/reporting.js';
+import { buildChallengeReport, scheduleDailyReports, syncModels } from '../services/reporting.js';
 import { ONE_DAY_MILLISECONDS } from '../utils.js';
-import { TestTimeLog, TestUsers, clearAllTables, testSequelize } from './test-setup.js';
+import { TestAttendanceLog, TestTimeLog, TestUsers, clearAllTables, testSequelize } from './test-setup.js';
 
 describe('reporting service', () => {
   beforeEach(async () => {
@@ -102,8 +102,14 @@ describe('reporting service', () => {
     await vi.advanceTimersByTimeAsync(ONE_DAY_MILLISECONDS);
 
     expect(challengeReport).toHaveBeenCalledTimes(1);
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Skipping challenge report run because previous run is still in progress',
-    );
+    expect(logger.warn).toHaveBeenCalledWith('Skipping challenge report run because previous run is still in progress');
+  });
+
+  it('syncModels는 AttendanceLog 모델도 함께 동기화한다', async () => {
+    const attendanceLogSyncSpy = vi.spyOn(TestAttendanceLog, 'sync').mockResolvedValue(TestAttendanceLog);
+
+    await syncModels();
+
+    expect(attendanceLogSyncSpy).toHaveBeenCalledTimes(1);
   });
 });

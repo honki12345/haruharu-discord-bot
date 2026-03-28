@@ -15,6 +15,7 @@ import {
 import { CamStudyTimeLog } from '../repository/CamStudyTimeLog.js';
 import { CamStudyUsers } from '../repository/CamStudyUsers.js';
 import { CamStudyWeeklyTimeLog } from '../repository/CamStudyWeeklyTimeLog.js';
+import { AttendanceLog } from '../repository/AttendanceLog.js';
 import { TimeLog } from '../repository/TimeLog.js';
 import { Users } from '../repository/Users.js';
 import { logger } from '../logger.js';
@@ -33,6 +34,7 @@ import {
 const syncModels = async () => {
   await Users.sync();
   await TimeLog.sync();
+  await AttendanceLog.sync();
   await CamStudyUsers.sync();
   await CamStudyTimeLog.sync();
   await CamStudyWeeklyTimeLog.sync();
@@ -166,10 +168,7 @@ const buildCamStudyReports = async () => {
   return { dailyMessage, weeklyMessage };
 };
 
-const scheduleDailyReports = (
-  onChallengeReport: () => Promise<void>,
-  onCamStudyReport: () => Promise<void>,
-) => {
+const scheduleDailyReports = (onChallengeReport: () => Promise<void>, onCamStudyReport: () => Promise<void>) => {
   let challengeReportInFlight = false;
   const runChallengeReport = async () => {
     if (challengeReportInFlight) {

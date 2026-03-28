@@ -6,7 +6,12 @@ import {
   updateCamStudyTimeLog,
 } from '../repository/camStudyRepository.js';
 import { LEAST_TIME_LIMIT } from '../utils/constants.js';
-import { getFormattedYesterday, getTimeDiffFromNowInMinutes, getYearMonthDay, getYearMonthDate } from '../utils/date.js';
+import {
+  getFormattedYesterday,
+  getTimeDiffFromNowInMinutes,
+  getYearMonthDay,
+  getYearMonthDate,
+} from '../utils/date.js';
 
 interface VoiceStateSnapshot {
   channelId: string | null;
@@ -19,7 +24,11 @@ interface CamStudyEventResult {
   message: string;
 }
 
-const resolveCamStudyTransition = (oldState: VoiceStateSnapshot, newState: VoiceStateSnapshot, configuredChannelId: string) => {
+const resolveCamStudyTransition = (
+  oldState: VoiceStateSnapshot,
+  newState: VoiceStateSnapshot,
+  configuredChannelId: string,
+) => {
   const wasOldStateInChannel = oldState.channelId === configuredChannelId;
   const wasOldStateVideoOn = oldState.streaming;
   const wasOldStateVideoOff = !oldState.streaming;

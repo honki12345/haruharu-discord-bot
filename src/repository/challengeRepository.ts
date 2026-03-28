@@ -9,7 +9,8 @@ const listChallengeUsers = (yearmonth: string) => Users.findAll({ where: { yearm
 
 const listChallengeLogs = (yearmonthday: string) => TimeLog.findAll({ where: { yearmonthday } });
 
-const listUserChallengeLogs = (userid: string, yearmonthday: string) => TimeLog.findAll({ where: { userid, yearmonthday } });
+const listUserChallengeLogs = (userid: string, yearmonthday: string) =>
+  TimeLog.findAll({ where: { userid, yearmonthday } });
 
 const createChallengeLog = (payload: {
   userid: string;
@@ -24,8 +25,7 @@ const updateChallengeUser = (
   userid: string,
   yearmonth: string,
   values: Partial<Pick<Users, 'absencecount' | 'latecount' | 'username' | 'waketime' | 'vacances'>>,
-) =>
-  Users.update(values, { where: { userid, yearmonth } });
+) => Users.update(values, { where: { userid, yearmonth } });
 
 const listMonthlySurvivors = (yearmonth: string) =>
   Users.findAll({

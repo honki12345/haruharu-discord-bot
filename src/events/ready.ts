@@ -8,7 +8,6 @@ export const event = {
   once: true,
   async execute(client: Client) {
     await syncModels();
-
     scheduleDailyReports(
       async () => {
         const { attendanceMessage, hallOfFameMessage } = await buildChallengeReport();

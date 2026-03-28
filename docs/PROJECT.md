@@ -29,6 +29,8 @@ haruharu-discord-bot/
 ├── src/
 │   ├── index.ts                 # 봇 진입점, 커맨드/이벤트 로더
 │   ├── logger.ts                # Winston 로깅 설정
+│   ├── attendance.ts            # 출석 판정 및 이모지 유틸리티
+│   ├── daily-message.ts         # daily message 질문 풀과 랜덤 선택 유틸리티
 │   ├── utils.ts                 # 유틸리티 함수 및 상수
 │   ├── deploy-commands.ts       # 슬래시 커맨드 등록
 │   │
@@ -41,16 +43,19 @@ haruharu-discord-bot/
 │   │       ├── delete.ts        # 챌린저 삭제
 │   │       ├── register-cam.ts  # 캠스터디 등록
 │   │       ├── delete-cam.ts    # 캠스터디 삭제
+│   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
 │   │       └── ping.ts          # 헬스체크
 │   │
 │   ├── events/
 │   │   ├── ready.ts             # 봇 시작, DB 동기화, 스케줄러
 │   │   ├── interactionCreate.ts # 슬래시 커맨드 핸들러
+│   │   ├── messageCreate.ts     # 출석 demo thread 댓글 감지
 │   │   └── camStudyHandler.ts   # 음성 채널 상태 감지
 │   │
 │   └── repository/
 │       ├── config.ts            # Sequelize 설정
 │       ├── Users.ts             # 챌린저 모델
+│       ├── AttendanceLog.ts     # thread 기반 하루 1회 출석 로그 모델
 │       ├── TimeLog.ts           # 출석 로그 모델
 │       ├── CamStudyUsers.ts     # 캠스터디 참가자 모델
 │       ├── CamStudyTimeLog.ts   # 일간 학습 로그 모델
@@ -59,6 +64,7 @@ haruharu-discord-bot/
 ├── docs/
 │   ├── PROJECT.md               # 프로젝트 문서 (현재 파일)
 │   ├── USER_STORIES.md          # 사용자 스토리 및 시퀀스 다이어그램
+│   ├── plan/                    # 이슈별 구현 계획 문서
 │   └── COMMIT_CONVENTION.md     # 커밋 컨벤션
 │
 ├── .github/
@@ -103,6 +109,7 @@ haruharu-discord-bot/
 | 커맨드 | 권한 | 설명 |
 |--------|------|------|
 | `/ping` | 관리자 | 봇 상태 확인 |
+| `/demo-daily-message` | 관리자 | 테스트 채널에 랜덤 질문이 포함된 daily message + 출석 demo thread 생성 |
 
 ---
 
@@ -148,7 +155,7 @@ haruharu-discord-bot/
 | 항목 | 내용 |
 |------|------|
 | 트리거 | 봇 Discord 연결 완료 |
-| 기능 | DB 테이블 동기화, 스케줄러 등록 |
+| 기능 | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `CamStudy*`), 스케줄러 등록 |
 
 **스케줄러:**
 - 기상 챌린지 리포트: 매일 13:00
@@ -170,6 +177,18 @@ haruharu-discord-bot/
 |------|------|
 | 트리거 | 음성 채널 상태 변경 |
 | 기능 | 카메라 ON/OFF 감지, 학습 시간 기록 |
+
+#### messageCreate.ts
+| 항목 | 내용 |
+|------|------|
+| 트리거 | 일반 메시지 생성 |
+| 기능 | 테스트 채널의 출석 demo thread에서 첫 댓글을 감지하고 출석 상태 이모지 반응 |
+
+#### daily-message.ts
+| 항목 | 내용 |
+|------|------|
+| 역할 | daily message에 넣을 질문 100개를 보관하고 랜덤으로 하나를 선택 |
+| 사용처 | `/demo-daily-message` 커맨드 |
 
 ---
 
@@ -199,6 +218,30 @@ haruharu-discord-bot/
 | checkintime | STRING | 체크인 시간 (HHmm) |
 | checkouttime | STRING | 체크아웃 시간 (HHmm) |
 | isintime | BOOLEAN | 정시 출석 여부 |
+
+비고:
+- 레거시 `/check-in`, `/check-out` 2건 구조 전용 테이블이다.
+- thread 기반 하루 1회 출석 전환과 별도로 유지된다.
+
+#### AttendanceLog (thread 출석 로그)
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | INTEGER | PK, Auto Increment |
+| userid | STRING | Discord 사용자 ID |
+| username | STRING | 표시 이름 |
+| yearmonthday | STRING | 날짜 (yyyymmdd) |
+| threadid | STRING | daily message thread ID |
+| messageid | STRING | 공식 출석으로 인정된 댓글 메시지 ID |
+| commentedat | STRING | 댓글 시각 ISO 문자열 |
+| status | STRING | `attended` / `late` / `absent` |
+| createdAt | DATE | 생성 시각 |
+| updatedAt | DATE | 수정 시각 |
+
+비고:
+- `(userid, yearmonthday)` 조합은 UNIQUE이며 하루 1건만 저장한다.
+- `too-early`는 공식 출석 로그에 저장하지 않는다.
+- 이 테이블은 phase 1 저장 구조 도입용이며, 기존 일일 리포트는 아직 `TimeLog`를 기준으로 동작한다.
 
 #### CamStudyUsers (캠스터디 참가자)
 
@@ -287,6 +330,7 @@ haruharu-discord-bot/
 |----------|------|
 | `npm start` | TypeScript 컴파일 후 봇 실행 |
 | `npm run pm2` | PM2로 프로덕션 배포 |
+| `npm run local:ci` | GitHub Actions CI와 같은 로컬 검증 실행 (`lint` + `prettier --check` + `test`) |
 | `npm run lint` | ESLint 검사 |
 | `npm run lint:fix` | ESLint 자동 수정 |
 | `npm run format` | Prettier 포맷팅 |

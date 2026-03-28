@@ -1,3 +1,5 @@
+import { PermissionFlagsBits } from 'discord.js';
+
 const LEAST_TIME_LIMIT = 5;
 const PRINT_HOURS_CAM_STUDY = 23;
 const PRINT_MINUTES_CAM_STUDY = 59;
@@ -8,7 +10,7 @@ const LATE_RANGE_TIME = 10;
 const ABSENCE_RANGE_TIME = 30;
 const DEFAULT_VACANCES_COUNT = 5;
 
-const PERMISSION_NUM_ADMIN = 0;
+const PERMISSION_NUM_ADMIN = PermissionFlagsBits.Administrator;
 const ONE_DAY_MILLISECONDS = 86400000;
 const SUNDAY = 0;
 const FRIDAY = 5;
