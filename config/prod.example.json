@@ -1,0 +1,15 @@
+{
+  "environment": "prod",
+  "token": "DISCORD_BOT_TOKEN_FOR_PROD",
+  "clientId": "DISCORD_APP_CLIENT_ID_FOR_PROD",
+  "guildId": "DISCORD_GUILD_ID_FOR_PROD",
+  "checkChannelId": "DISCORD_CHECK_CHANNEL_ID_FOR_PROD",
+  "logChannelId": "DISCORD_LOG_CHANNEL_ID_FOR_PROD",
+  "resultChannelId": "DISCORD_RESULT_CHANNEL_ID_FOR_PROD",
+  "voiceChannelId": "DISCORD_VOICE_CHANNEL_ID_FOR_PROD",
+  "noticeChannelId": "DISCORD_NOTICE_CHANNEL_ID_FOR_PROD",
+  "vacancesRegisterChannelId": "DISCORD_VACANCES_REGISTER_CHANNEL_ID_FOR_PROD",
+  "testChannelId": "DISCORD_TEST_CHANNEL_ID_FOR_PROD",
+  "databasePath": "data/prod.sqlite",
+  "pm2AppName": "haruharu-bot-prod"
+}

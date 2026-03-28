@@ -1,5 +1,33 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { vi } from 'vitest';
 import { Sequelize, DataTypes, Model, CreationOptional, InferAttributes, InferCreationAttributes } from 'sequelize';
+
+const testConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'haruharu-config-'));
+const testConfigPath = path.join(testConfigDir, 'dev.test.json');
+
+fs.writeFileSync(
+  testConfigPath,
+  JSON.stringify({
+    environment: 'dev',
+    token: 'test-token',
+    clientId: 'test-client-id',
+    guildId: 'test-guild-id',
+    checkChannelId: 'valid-channel-id',
+    logChannelId: 'valid-log-channel-id',
+    resultChannelId: 'valid-result-channel-id',
+    voiceChannelId: 'valid-voice-channel-id',
+    noticeChannelId: 'valid-notice-channel-id',
+    vacancesRegisterChannelId: 'valid-vacances-channel-id',
+    testChannelId: 'valid-test-channel-id',
+    databasePath: ':memory:',
+    pm2AppName: 'haruharu-bot-test',
+  }),
+);
+
+process.env.APP_ENV = 'dev';
+process.env.HARUHARU_CONFIG_PATH = testConfigPath;
 
 // ============ 인메모리 DB 설정 ============
 export const testSequelize = new Sequelize({
@@ -134,25 +162,6 @@ vi.mock('../repository/CamStudyWeeklyTimeLog.js', () => ({ CamStudyWeeklyTimeLog
 vi.mock('../logger.js', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
-
-// config.json 모킹
-vi.mock('node:module', async importOriginal => {
-  const original = await importOriginal<typeof import('node:module')>();
-  return {
-    ...original,
-    createRequire: () => (path: string) => {
-      if (path.includes('config.json')) {
-        return {
-          checkChannelId: 'valid-channel-id',
-          voiceChannelId: 'valid-voice-channel-id',
-          logChannelId: 'valid-log-channel-id',
-          resultChannelId: 'valid-result-channel-id',
-        };
-      }
-      return original.createRequire(import.meta.url)(path);
-    },
-  };
-});
 
 // ============ 헬퍼 함수 ============
 export async function setupTestDB() {

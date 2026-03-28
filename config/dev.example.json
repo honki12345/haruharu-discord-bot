@@ -1,0 +1,15 @@
+{
+  "environment": "dev",
+  "token": "DISCORD_BOT_TOKEN_FOR_DEV",
+  "clientId": "DISCORD_APP_CLIENT_ID_FOR_DEV",
+  "guildId": "DISCORD_GUILD_ID_FOR_DEV",
+  "checkChannelId": "DISCORD_CHECK_CHANNEL_ID_FOR_DEV",
+  "logChannelId": "DISCORD_LOG_CHANNEL_ID_FOR_DEV",
+  "resultChannelId": "DISCORD_RESULT_CHANNEL_ID_FOR_DEV",
+  "voiceChannelId": "DISCORD_VOICE_CHANNEL_ID_FOR_DEV",
+  "noticeChannelId": "DISCORD_NOTICE_CHANNEL_ID_FOR_DEV",
+  "vacancesRegisterChannelId": "DISCORD_VACANCES_REGISTER_CHANNEL_ID_FOR_DEV",
+  "testChannelId": "DISCORD_TEST_CHANNEL_ID_FOR_DEV",
+  "databasePath": "data/dev.sqlite",
+  "pm2AppName": "haruharu-bot-dev"
+}

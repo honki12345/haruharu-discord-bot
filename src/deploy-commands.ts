@@ -1,11 +1,9 @@
 import { REST, Routes } from 'discord.js';
-import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
+import { appConfig } from './config.js';
 
-const jsonRequire = createRequire(import.meta.url);
-const { clientId, guildId, token } = jsonRequire('../config.json');
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const commands = [];
 const foldersPath = path.join(__dirname, 'commands');
@@ -31,7 +29,7 @@ for (const folder of commandFolders) {
 }
 
 // Construct and prepare an instance of the REST module
-const rest = new REST().setToken(token);
+const rest = new REST().setToken(appConfig.token);
 
 // and deploy your commands
 (async () => {
@@ -39,7 +37,9 @@ const rest = new REST().setToken(token);
     console.log(`Started refreshing ${commands.length} application (/) commands`);
 
     // The put method is used to fully refresh all commands in the guild with the current set
-    const data = await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
+    const data = await rest.put(Routes.applicationGuildCommands(appConfig.clientId, appConfig.guildId), {
+      body: commands,
+    });
 
     if (data !== null && typeof data === 'object' && 'length' in data) {
       console.log(`Successfully reloaded ${data.length} application (/) commands`);

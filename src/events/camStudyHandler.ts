@@ -1,12 +1,9 @@
-import { createRequire } from 'node:module';
 import { CamStudyUsers } from '../repository/CamStudyUsers.js';
 import { CamStudyTimeLog } from '../repository/CamStudyTimeLog.js';
 import { getYearMonthDate, getFormattedYesterday, getTimeDiffFromNowInMinutes, LEAST_TIME_LIMIT } from '../utils.js';
 import { logger } from '../logger.js';
 import { VoiceState } from 'discord.js';
-
-const jsonRequire = createRequire(import.meta.url);
-const { voiceChannelId } = jsonRequire('../../config.json');
+import { appConfig } from '../config.js';
 
 /*
  * 시스템은 동일하게
@@ -27,11 +24,11 @@ export const event = {
     // const isNewStateVideoOff = newState.selfVideo === false;
     // const isNewStateVideoOn = newState.selfVideo === true;
 
-    const wasOldStateInChannel = oldState.channelId === voiceChannelId;
+    const wasOldStateInChannel = oldState.channelId === appConfig.voiceChannelId;
     const wasOldStateVideoOn = oldState.streaming === true;
     const wasOldStateVideoOff = oldState.streaming === false;
-    const isNotNewStateInChannel = newState.channelId !== voiceChannelId;
-    const isNewStateInChannel = newState.channelId === voiceChannelId;
+    const isNotNewStateInChannel = newState.channelId !== appConfig.voiceChannelId;
+    const isNewStateInChannel = newState.channelId === appConfig.voiceChannelId;
     const isNewStateVideoOff = newState.streaming === false;
     const isNewStateVideoOn = newState.streaming === true;
     // newState: 공부실을 떠났을 때, oldState: 공부실 채널에 접속한 상태 && 비디오를 킨 상태
@@ -44,7 +41,7 @@ export const event = {
     const today = year + month + date; // yyyymmdd
     const timestampNowString = Date.now().toString();
 
-    const voiceChannel = newState.guild.channels.cache.get(voiceChannelId);
+    const voiceChannel = newState.guild.channels.cache.get(appConfig.voiceChannelId);
 
     // 0. 등록된 회원 아니면 알람 이후 return
     const user = await CamStudyUsers.findOne({ where: { userid: newState.id } });

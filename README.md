@@ -59,6 +59,12 @@
 
 ## 시스템
 
+- 설정 파일
+    - `config/dev.json`, `config/prod.json`
+    - 예시 파일: `config/dev.example.json`, `config/prod.example.json`
+- 데이터 파일
+    - `data/dev.sqlite`
+    - `data/prod.sqlite`
 - 배포
     - Amazon EC2
     - pm2
@@ -67,3 +73,18 @@
 - 라이브러리
     - sequelize (데이터 접근 기술, ORM)
     - winston, winston-daily-rotate-file (logging)
+
+## 실행
+
+- 개발 실행
+    - `cp config/dev.example.json config/dev.json`
+    - `npm run start:dev`
+- 운영 실행
+    - `cp config/prod.example.json config/prod.json`
+    - `npm run start:prod`
+- 슬래시 커맨드 등록
+    - dev: `npm run deploy-commands:dev`
+    - prod: `npm run deploy-commands:prod`
+- pm2 실행
+    - dev: `npm run pm2:dev`
+    - prod: `npm run pm2:prod`

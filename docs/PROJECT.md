@@ -67,8 +67,14 @@ haruharu-discord-bot/
 │
 ├── logs/                        # 일별 로테이션 로그
 ├── dist/                        # 컴파일된 JavaScript
-├── database.sqlite              # SQLite 데이터베이스
-├── config.json                  # 봇 설정 (토큰, 채널 ID 등)
+├── config/
+│   ├── dev.json                 # 개발 환경 설정 (git ignored)
+│   ├── prod.json                # 운영 환경 설정 (git ignored)
+│   ├── dev.example.json         # 개발 환경 설정 예시
+│   └── prod.example.json        # 운영 환경 설정 예시
+├── data/
+│   ├── dev.sqlite               # 개발 환경 SQLite 데이터베이스
+│   └── prod.sqlite              # 운영 환경 SQLite 데이터베이스
 ├── package.json                 # 의존성 및 스크립트
 ├── tsconfig.json                # TypeScript 설정
 ├── eslint.config.js             # ESLint 설정
@@ -264,10 +270,11 @@ haruharu-discord-bot/
 
 ## 설정 파일
 
-### config.json
+### config/dev.json, config/prod.json
 
 ```json
 {
+  "environment": "dev | prod",
   "token": "Discord 봇 토큰",
   "clientId": "봇 애플리케이션 ID",
   "guildId": "대상 Discord 서버 ID",
@@ -277,16 +284,28 @@ haruharu-discord-bot/
   "voiceChannelId": "캠스터디 음성 채널 ID",
   "noticeChannelId": "공지 채널 ID",
   "vacancesRegisterChannelId": "휴가 등록 채널 ID",
-  "testChannelId": "테스트 채널 ID"
+  "testChannelId": "테스트 채널 ID",
+  "databasePath": "data/dev.sqlite 또는 data/prod.sqlite",
+  "pm2AppName": "haruharu-bot-dev 또는 haruharu-bot-prod"
 }
 ```
+
+- `APP_ENV=dev`면 기본적으로 `config/dev.json`을 읽습니다.
+- `APP_ENV=prod`면 기본적으로 `config/prod.json`을 읽습니다.
+- `HARUHARU_CONFIG_PATH`를 지정하면 해당 경로를 우선 사용합니다.
 
 ### package.json 스크립트
 
 | 스크립트 | 설명 |
 |----------|------|
-| `npm start` | TypeScript 컴파일 후 봇 실행 |
-| `npm run pm2` | PM2로 프로덕션 배포 |
+| `npm run start:dev` | 개발 환경 설정으로 봇 실행 |
+| `npm run start:prod` | 운영 환경 설정으로 봇 실행 |
+| `npm run deploy-commands:dev` | 개발 Discord guild에 슬래시 커맨드 등록 |
+| `npm run deploy-commands:prod` | 운영 Discord guild에 슬래시 커맨드 등록 |
+| `npm run pm2:dev` | PM2로 개발 환경 봇 실행 |
+| `npm run pm2:prod` | PM2로 운영 환경 봇 실행 |
+| `npm run pm2:reload:dev` | PM2 개발 프로세스 재기동 |
+| `npm run pm2:reload:prod` | PM2 운영 프로세스 재기동 |
 | `npm run lint` | ESLint 검사 |
 | `npm run lint:fix` | ESLint 자동 수정 |
 | `npm run format` | Prettier 포맷팅 |

@@ -4,7 +4,6 @@ import { TimeLog } from '../repository/TimeLog.js';
 import { CamStudyUsers } from '../repository/CamStudyUsers.js';
 import { CamStudyTimeLog } from '../repository/CamStudyTimeLog.js';
 import { CamStudyWeeklyTimeLog } from '../repository/CamStudyWeeklyTimeLog.js';
-import { createRequire } from 'node:module';
 import { logger } from '../logger.js';
 import {
   getYearMonthDate,
@@ -20,16 +19,14 @@ import {
 } from '../utils.js';
 import { Op } from 'sequelize';
 import { sequelize } from '../repository/config.js';
-
-const jsonRequire = createRequire(import.meta.url);
-const { checkChannelId, logChannelId, resultChannelId } = jsonRequire('../../config.json');
+import { appConfig } from '../config.js';
 
 const printMonthlyHallOfFameIfNeeded = async (client: Client, year: number, month: string, date: string) => {
   if (!isLastDayOfMonth(Number(year), Number(month), Number(date))) {
     return;
   }
   const yearmonth = year + '' + month;
-  const channel = client.channels.cache.get(resultChannelId);
+  const channel = client.channels.cache.get(appConfig.resultChannelId);
   const users = await Users.findAll({
     where: {
       yearmonth,
@@ -60,7 +57,7 @@ const printChallengeInterval = async (client: Client) => {
     return;
   }
 
-  const channel = client.channels.cache.get(checkChannelId);
+  const channel = client.channels.cache.get(appConfig.checkChannelId);
   let string = `### ${year}${month}${date} 출석표\n`;
   let attendees = '';
   let latecomers = '';
@@ -128,7 +125,7 @@ const printCamStudyInterval = async (client: Client) => {
   logger.info('print cam_study start');
   const { year, month, date } = getYearMonthDate();
 
-  const channel = client.channels.cache.get(logChannelId);
+  const channel = client.channels.cache.get(appConfig.logChannelId);
   let dailyTotalString = `### 일일 타임리스트 (${year}${month}${date})\n`;
   const yearmonthday = year + '' + month + date;
   const camStudyUsers = await CamStudyUsers.findAll();
