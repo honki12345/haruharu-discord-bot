@@ -9,25 +9,64 @@ const { testChannelId } = jsonRequire('../../config.json');
 
 const DEMO_THREAD_SUFFIX = '출석-demo';
 const FINAL_ATTENDANCE_EMOJIS = new Set(['✅', '🟡', '❌']);
+const finalizedAttendanceCache = new Map<string, Set<string>>();
+const inFlightAttendanceKeys = new Set<string>();
+
+const getAttendanceCacheKey = (threadId: string, userId: string) => `${threadId}:${userId}`;
 
 const hasFinalAttendanceReaction = (message: Message) => {
   return message.reactions.cache.some(reaction => FINAL_ATTENDANCE_EMOJIS.has(reaction.emoji.name ?? ''));
 };
 
-const isDuplicateAttendanceMessage = async (message: Message) => {
-  const messages = await message.channel.messages.fetch({ limit: 100 });
-  return messages.some(candidate => {
-    if (candidate.id === message.id) {
+const rememberFinalAttendance = (threadId: string, userId: string) => {
+  const users = finalizedAttendanceCache.get(threadId) ?? new Set<string>();
+  users.add(userId);
+  finalizedAttendanceCache.set(threadId, users);
+};
+
+const hasRememberedFinalAttendance = (threadId: string, userId: string) => {
+  return finalizedAttendanceCache.get(threadId)?.has(userId) ?? false;
+};
+
+const findPriorFinalAttendance = async (message: Message) => {
+  let before: string | undefined;
+  let hasMoreMessages = true;
+
+  while (hasMoreMessages) {
+    const messages = await message.channel.messages.fetch(before ? { before, limit: 100 } : { limit: 100 });
+    if (messages.size === 0) {
       return false;
     }
 
-    return (
-      !candidate.author.bot &&
-      candidate.author.id === message.author.id &&
-      candidate.createdTimestamp <= message.createdTimestamp &&
-      hasFinalAttendanceReaction(candidate)
-    );
-  });
+    const found = messages.some(candidate => {
+      if (candidate.id === message.id) {
+        return false;
+      }
+
+      return (
+        !candidate.author.bot &&
+        candidate.author.id === message.author.id &&
+        candidate.createdTimestamp <= message.createdTimestamp &&
+        hasFinalAttendanceReaction(candidate)
+      );
+    });
+
+    if (found) {
+      rememberFinalAttendance(message.channel.id, message.author.id);
+      return true;
+    }
+
+    if (messages.size < 100) {
+      return false;
+    }
+
+    before = messages.lastKey();
+    if (!before) {
+      hasMoreMessages = false;
+    }
+  }
+
+  return false;
 };
 
 export const event = {
@@ -41,40 +80,58 @@ export const event = {
       return;
     }
 
-    if (await isDuplicateAttendanceMessage(message)) {
+    const attendanceKey = getAttendanceCacheKey(message.channel.id, message.author.id);
+    if (
+      inFlightAttendanceKeys.has(attendanceKey) ||
+      hasRememberedFinalAttendance(message.channel.id, message.author.id)
+    ) {
       return;
     }
 
-    const createdAt = new Date(message.createdTimestamp);
-    const year = createdAt.getFullYear();
-    const month = String(createdAt.getMonth() + 1).padStart(2, '0');
-    const user = await Users.findOne({
-      where: {
-        userid: message.author.id,
-        yearmonth: `${year}${month}`,
-      },
-    });
+    inFlightAttendanceKeys.add(attendanceKey);
 
-    if (!user) {
-      logger.info('attendance demo ignored for unregistered user', {
-        userid: message.author.id,
-        threadId: message.channel.id,
+    try {
+      if (await findPriorFinalAttendance(message)) {
+        return;
+      }
+
+      const createdAt = new Date(message.createdTimestamp);
+      const year = createdAt.getFullYear();
+      const month = String(createdAt.getMonth() + 1).padStart(2, '0');
+      const user = await Users.findOne({
+        where: {
+          userid: message.author.id,
+          yearmonth: `${year}${month}`,
+        },
       });
-      await message.react('❓');
-      return;
+
+      if (!user) {
+        logger.info('attendance demo ignored for unregistered user', {
+          userid: message.author.id,
+          threadId: message.channel.id,
+        });
+        await message.react('❓');
+        return;
+      }
+
+      const status = classifyAttendanceStatus(user.waketime, new Date(message.createdTimestamp));
+      const emoji = getAttendanceStatusEmoji(status);
+      await message.react(emoji);
+
+      if (FINAL_ATTENDANCE_EMOJIS.has(emoji)) {
+        rememberFinalAttendance(message.channel.id, message.author.id);
+      }
+
+      logger.info('attendance demo recognized', {
+        userid: user.userid,
+        username: user.username,
+        status,
+        label: getAttendanceStatusLabel(status),
+        threadId: message.channel.id,
+        messageId: message.id,
+      });
+    } finally {
+      inFlightAttendanceKeys.delete(attendanceKey);
     }
-
-    const status = classifyAttendanceStatus(user.waketime, new Date(message.createdTimestamp));
-    const emoji = getAttendanceStatusEmoji(status);
-    await message.react(emoji);
-
-    logger.info('attendance demo recognized', {
-      userid: user.userid,
-      username: user.username,
-      status,
-      label: getAttendanceStatusLabel(status),
-      threadId: message.channel.id,
-      messageId: message.id,
-    });
   },
 };
