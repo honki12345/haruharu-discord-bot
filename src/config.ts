@@ -109,6 +109,10 @@ const requiredValues = REQUIRED_KEYS.reduce<Record<string, string>>((acc, key) =
 }, {});
 
 function resolveProjectPath(relativeOrAbsolutePath: string) {
+  if (relativeOrAbsolutePath === ':memory:' || relativeOrAbsolutePath.startsWith('file:')) {
+    return relativeOrAbsolutePath;
+  }
+
   return path.isAbsolute(relativeOrAbsolutePath)
     ? relativeOrAbsolutePath
     : path.resolve(projectRoot, relativeOrAbsolutePath);

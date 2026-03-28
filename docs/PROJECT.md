@@ -274,7 +274,7 @@ haruharu-discord-bot/
 
 ```json
 {
-  "environment": "dev | prod",
+  "environment": "dev",
   "token": "Discord 봇 토큰",
   "clientId": "봇 애플리케이션 ID",
   "guildId": "대상 Discord 서버 ID",
@@ -290,6 +290,7 @@ haruharu-discord-bot/
 }
 ```
 
+- `environment`에는 `dev` 또는 `prod`만 사용할 수 있습니다.
 - `APP_ENV=dev`면 기본적으로 `config/dev.json`을 읽습니다.
 - `APP_ENV=prod`면 기본적으로 `config/prod.json`을 읽습니다.
 - `HARUHARU_CONFIG_PATH`를 지정하면 해당 경로를 우선 사용합니다.

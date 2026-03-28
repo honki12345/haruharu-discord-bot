@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { vi } from 'vitest';
+import { afterAll, vi } from 'vitest';
 import { Sequelize, DataTypes, Model, CreationOptional, InferAttributes, InferCreationAttributes } from 'sequelize';
 
 const testConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'haruharu-config-'));
@@ -28,6 +28,12 @@ fs.writeFileSync(
 
 process.env.APP_ENV = 'dev';
 process.env.HARUHARU_CONFIG_PATH = testConfigPath;
+
+afterAll(() => {
+  delete process.env.APP_ENV;
+  delete process.env.HARUHARU_CONFIG_PATH;
+  fs.rmSync(testConfigDir, { recursive: true, force: true });
+});
 
 // ============ 인메모리 DB 설정 ============
 export const testSequelize = new Sequelize({
