@@ -36,6 +36,21 @@ body:
       required: true
 
   - type: textarea
+    id: docs_impact
+    attributes:
+      label: 문서 영향
+      description: 어떤 문서를 업데이트해야 하는지 적고, 없으면 왜 없는지 적는다.
+      placeholder: |
+        업데이트 필요:
+        - docs/PROJECT.md: ...
+        - docs/USER_STORIES.md: ...
+
+        업데이트 불필요:
+        - 이유: ...
+    validations:
+      required: true
+
+  - type: textarea
     id: acceptance_criteria
     attributes:
       label: 완료조건
