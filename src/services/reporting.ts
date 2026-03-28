@@ -57,10 +57,10 @@ const buildMonthlyHallOfFameMessage = async (year: number, month: string, date: 
 const buildChallengeReport = async () => {
   logger.info('print challenge start');
   const { year, month, date, day } = getYearMonthDate();
-  const hallOfFameMessage = await buildMonthlyHallOfFameMessage(year, month, date);
   const monthdate = `${month}${date}`;
 
   if (day === SATURDAY || day === SUNDAY || PUBLIC_HOLIDAYS_2026.includes(monthdate)) {
+    const hallOfFameMessage = await buildMonthlyHallOfFameMessage(year, month, date);
     return { attendanceMessage: null, hallOfFameMessage };
   }
 
@@ -111,6 +111,7 @@ const buildChallengeReport = async () => {
   if (latecomers) attendanceMessage += latecomers;
   if (absentees) attendanceMessage += absentees;
 
+  const hallOfFameMessage = await buildMonthlyHallOfFameMessage(year, month, date);
   logger.info(`alarm final string`, { string: attendanceMessage });
   return { attendanceMessage, hallOfFameMessage };
 };

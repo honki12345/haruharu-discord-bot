@@ -77,6 +77,27 @@ describe('reporting service', () => {
     expect(attendanceMessage).not.toContain('NaN');
   });
 
+  it('월말 생존명단은 당일 출석 집계 반영 후 생성한다', async () => {
+    vi.setSystemTime(new Date('2026-12-31T13:00:00'));
+
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202612',
+      waketime: '0700',
+      vacances: 0,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    const { attendanceMessage, hallOfFameMessage } = await buildChallengeReport();
+    const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202612' } });
+
+    expect(updatedUser?.absencecount).toBe(1);
+    expect(attendanceMessage).toContain('결석 (1/0)');
+    expect(hallOfFameMessage).not.toContain('홍길동');
+  });
+
   it('스케줄 리포트 실행이 실패해도 에러를 로깅하고 다음 실행으로 죽지 않는다', async () => {
     vi.setSystemTime(new Date('2025-12-08T12:59:00'));
 
