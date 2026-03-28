@@ -1,6 +1,7 @@
 import { Client, Events } from 'discord.js';
 import { Users } from '../repository/Users.js';
 import { TimeLog } from '../repository/TimeLog.js';
+import { AttendanceLog } from '../repository/AttendanceLog.js';
 import { CamStudyUsers } from '../repository/CamStudyUsers.js';
 import { CamStudyTimeLog } from '../repository/CamStudyTimeLog.js';
 import { CamStudyWeeklyTimeLog } from '../repository/CamStudyWeeklyTimeLog.js';
@@ -214,12 +215,14 @@ export const event = {
     // test
     // await Users.sync({ force: true });
     // await TimeLog.sync({ force: true });
+    // await AttendanceLog.sync({ force: true });
     // await CamStudyUsers.sync({ force : true});
     // await CamStudyTimeLog.sync({force: true});
 
     // database synchronous
     await Users.sync();
     await TimeLog.sync();
+    await AttendanceLog.sync();
     await CamStudyUsers.sync();
     await CamStudyTimeLog.sync();
     await CamStudyWeeklyTimeLog.sync();

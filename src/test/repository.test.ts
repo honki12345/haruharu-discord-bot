@@ -6,6 +6,7 @@ import {
   clearAllTables,
   TestUsers,
   TestTimeLog,
+  TestAttendanceLog,
   TestCamStudyUsers,
   TestCamStudyTimeLog,
 } from './test-setup.js';
@@ -352,6 +353,108 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
         expect(onTime[0].username).toBe('출석자');
         expect(late[0].username).toBe('지각자');
       });
+    });
+  });
+
+  describe('AttendanceLog 모델', () => {
+    it('thread 기반 공식 출석 기록을 생성할 수 있다', async () => {
+      const log = await TestAttendanceLog.create({
+        userid: 'user123',
+        username: '홍길동',
+        yearmonthday: '20251207',
+        threadid: 'thread-123',
+        messageid: 'message-123',
+        commentedat: '2025-12-07T07:05:00.000Z',
+        status: 'attended',
+      });
+
+      expect(log.id).toBeDefined();
+      expect(log.threadid).toBe('thread-123');
+      expect(log.messageid).toBe('message-123');
+      expect(log.commentedat).toBe('2025-12-07T07:05:00.000Z');
+      expect(log.status).toBe('attended');
+      expect(log.createdAt).toBeDefined();
+      expect(log.updatedAt).toBeDefined();
+    });
+
+    it('같은 사용자에 대해 하루 1건만 공식 출석 기록을 저장할 수 있다', async () => {
+      await TestAttendanceLog.create({
+        userid: 'user123',
+        username: '홍길동',
+        yearmonthday: '20251207',
+        threadid: 'thread-123',
+        messageid: 'message-123',
+        commentedat: '2025-12-07T07:05:00.000Z',
+        status: 'attended',
+      });
+
+      await expect(
+        TestAttendanceLog.create({
+          userid: 'user123',
+          username: '홍길동',
+          yearmonthday: '20251207',
+          threadid: 'thread-123',
+          messageid: 'message-456',
+          commentedat: '2025-12-07T07:15:00.000Z',
+          status: 'late',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('too-early 상태는 공식 출석 기록으로 저장할 수 없다', async () => {
+      await expect(
+        TestAttendanceLog.create({
+          userid: 'user123',
+          username: '홍길동',
+          yearmonthday: '20251207',
+          threadid: 'thread-123',
+          messageid: 'message-123',
+          commentedat: '2025-12-07T06:45:00.000Z',
+          status: 'too-early',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('ISO 형식이 아닌 commentedat은 저장할 수 없다', async () => {
+      await expect(
+        TestAttendanceLog.create({
+          userid: 'user123',
+          username: '홍길동',
+          yearmonthday: '20251207',
+          threadid: 'thread-123',
+          messageid: 'message-123',
+          commentedat: 'not-a-date',
+          status: 'attended',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('달력상 존재하지 않는 ISO 날짜 commentedat은 저장할 수 없다', async () => {
+      await expect(
+        TestAttendanceLog.create({
+          userid: 'user123',
+          username: '홍길동',
+          yearmonthday: '20251207',
+          threadid: 'thread-123',
+          messageid: 'message-123',
+          commentedat: '2025-02-30T07:05:00.000Z',
+          status: 'attended',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('canonical yyyymmdd 형식이 아닌 yearmonthday는 저장할 수 없다', async () => {
+      await expect(
+        TestAttendanceLog.create({
+          userid: 'user123',
+          username: '홍길동',
+          yearmonthday: '2025-12-07',
+          threadid: 'thread-123',
+          messageid: 'message-123',
+          commentedat: '2025-12-07T07:05:00.000Z',
+          status: 'attended',
+        }),
+      ).rejects.toThrow();
     });
   });
 
