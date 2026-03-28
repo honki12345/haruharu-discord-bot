@@ -36,4 +36,37 @@ describe('config.ts', () => {
 
     await expect(import('../config.js')).rejects.toThrow('Missing required configuration value for "token"');
   });
+
+  it('sqlite 환경처럼 DB 자격정보가 없어도 import 시점에 실패하지 않는다', async () => {
+    vi.doMock('node:module', async importOriginal => {
+      const original = await importOriginal<typeof import('node:module')>();
+      return {
+        ...original,
+        createRequire: () => (path: string) => {
+          if (path.includes('config.json')) {
+            return {
+              token: 'token',
+              clientId: 'client-id',
+              guildId: 'guild-id',
+              noticeChannelId: 'notice-channel',
+              vacancesRegisterChannelId: 'vacances-channel',
+              checkChannelId: 'check-channel',
+              testChannelId: 'test-channel',
+              logChannelId: 'log-channel',
+              resultChannelId: 'result-channel',
+              voiceChannelId: 'voice-channel',
+            };
+          }
+
+          return original.createRequire(import.meta.url)(path);
+        },
+      };
+    });
+
+    await expect(import('../config.js')).resolves.toMatchObject({
+      databaseUser: '',
+      password: '',
+      token: 'token',
+    });
+  });
 });

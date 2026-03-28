@@ -26,11 +26,16 @@ const getRequiredConfig = (key: keyof AppConfig) => {
   return value;
 };
 
+const getOptionalConfig = (key: keyof AppConfig) => {
+  const value = config[key];
+  return typeof value === 'string' ? value : '';
+};
+
 export const token = getRequiredConfig('token');
 export const clientId = getRequiredConfig('clientId');
 export const guildId = getRequiredConfig('guildId');
-export const databaseUser = getRequiredConfig('databaseUser');
-export const password = getRequiredConfig('password');
+export const databaseUser = getOptionalConfig('databaseUser');
+export const password = getOptionalConfig('password');
 export const noticeChannelId = getRequiredConfig('noticeChannelId');
 export const vacancesRegisterChannelId = getRequiredConfig('vacancesRegisterChannelId');
 export const checkChannelId = getRequiredConfig('checkChannelId');
