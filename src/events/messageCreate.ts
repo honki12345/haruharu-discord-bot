@@ -13,6 +13,11 @@ const jsonRequire = createRequire(import.meta.url);
 const { testChannelId } = jsonRequire('../../config.json');
 
 const DEMO_THREAD_SUFFIX = '출석-demo';
+const FINAL_ATTENDANCE_EMOJIS = new Set(['✅', '🟡', '❌']);
+
+const hasFinalAttendanceReaction = (message: Message) => {
+  return message.reactions.cache.some(reaction => FINAL_ATTENDANCE_EMOJIS.has(reaction.emoji.name ?? ''));
+};
 
 const isDuplicateAttendanceMessage = async (message: Message) => {
   const messages = await message.channel.messages.fetch({ limit: 100 });
@@ -21,7 +26,12 @@ const isDuplicateAttendanceMessage = async (message: Message) => {
       return false;
     }
 
-    return !candidate.author.bot && candidate.author.id === message.author.id && candidate.createdTimestamp <= message.createdTimestamp;
+    return (
+      !candidate.author.bot &&
+      candidate.author.id === message.author.id &&
+      candidate.createdTimestamp <= message.createdTimestamp &&
+      hasFinalAttendanceReaction(candidate)
+    );
   });
 };
 

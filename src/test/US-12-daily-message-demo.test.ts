@@ -163,6 +163,16 @@ describe('US-12: daily message 데모', () => {
                   id: 'message-1',
                   author: { id: 'demo-user', bot: false },
                   createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+                  reactions: {
+                    cache: new Collection([
+                      [
+                        '✅',
+                        {
+                          emoji: { name: '✅' },
+                        },
+                      ],
+                    ]),
+                  },
                 },
               ],
               [
@@ -171,6 +181,9 @@ describe('US-12: daily message 데모', () => {
                   id: 'message-2',
                   author: { id: 'demo-user', bot: false },
                   createdTimestamp: new Date('2026-03-24T07:06:00').getTime(),
+                  reactions: {
+                    cache: new Collection(),
+                  },
                 },
               ],
             ]),
@@ -183,6 +196,72 @@ describe('US-12: daily message 데모', () => {
     await event.execute(message as never);
 
     expect(react).not.toHaveBeenCalled();
+  });
+
+  it('미등록 또는 too-early 반응만 있던 이전 댓글은 이후 공식 판정을 막지 않는다', async () => {
+    mockUsers.findOne.mockResolvedValue({
+      userid: 'demo-user',
+      username: '데모유저',
+      waketime: '0700',
+    });
+
+    const react = vi.fn();
+    const message = {
+      id: 'message-2',
+      createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+      author: {
+        id: 'demo-user',
+        bot: false,
+      },
+      inGuild: () => true,
+      react,
+      channel: {
+        id: 'thread-1',
+        parentId: 'valid-test-channel-id',
+        name: '2026-03-24 출석-demo',
+        isThread: () => true,
+        messages: {
+          fetch: vi.fn().mockResolvedValue(
+            new Collection([
+              [
+                'message-1',
+                {
+                  id: 'message-1',
+                  author: { id: 'demo-user', bot: false },
+                  createdTimestamp: new Date('2026-03-24T07:00:00').getTime(),
+                  reactions: {
+                    cache: new Collection([
+                      [
+                        '❓',
+                        {
+                          emoji: { name: '❓' },
+                        },
+                      ],
+                    ]),
+                  },
+                },
+              ],
+              [
+                'message-2',
+                {
+                  id: 'message-2',
+                  author: { id: 'demo-user', bot: false },
+                  createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+                  reactions: {
+                    cache: new Collection(),
+                  },
+                },
+              ],
+            ]),
+          ),
+        },
+      },
+    };
+
+    const { event } = await import('../events/messageCreate.js');
+    await event.execute(message as never);
+
+    expect(react).toHaveBeenCalledWith('✅');
   });
 
   it('등록되지 않은 사용자의 댓글에는 물음표 이모지를 단다', async () => {
@@ -212,6 +291,9 @@ describe('US-12: daily message 데모', () => {
                   id: 'message-3',
                   author: { id: 'unknown-user', bot: false },
                   createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+                  reactions: {
+                    cache: new Collection(),
+                  },
                 },
               ],
             ]),
