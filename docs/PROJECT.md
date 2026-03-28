@@ -55,6 +55,7 @@ haruharu-discord-bot/
 │   └── repository/
 │       ├── config.ts            # Sequelize 설정
 │       ├── Users.ts             # 챌린저 모델
+│       ├── AttendanceLog.ts     # thread 기반 하루 1회 출석 로그 모델
 │       ├── TimeLog.ts           # 출석 로그 모델
 │       ├── CamStudyUsers.ts     # 캠스터디 참가자 모델
 │       ├── CamStudyTimeLog.ts   # 일간 학습 로그 모델
@@ -154,7 +155,7 @@ haruharu-discord-bot/
 | 항목 | 내용 |
 |------|------|
 | 트리거 | 봇 Discord 연결 완료 |
-| 기능 | DB 테이블 동기화, 스케줄러 등록 |
+| 기능 | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `CamStudy*`), 스케줄러 등록 |
 
 **스케줄러:**
 - 기상 챌린지 리포트: 매일 13:00
@@ -217,6 +218,30 @@ haruharu-discord-bot/
 | checkintime | STRING | 체크인 시간 (HHmm) |
 | checkouttime | STRING | 체크아웃 시간 (HHmm) |
 | isintime | BOOLEAN | 정시 출석 여부 |
+
+비고:
+- 레거시 `/check-in`, `/check-out` 2건 구조 전용 테이블이다.
+- thread 기반 하루 1회 출석 전환과 별도로 유지된다.
+
+#### AttendanceLog (thread 출석 로그)
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | INTEGER | PK, Auto Increment |
+| userid | STRING | Discord 사용자 ID |
+| username | STRING | 표시 이름 |
+| yearmonthday | STRING | 날짜 (yyyymmdd) |
+| threadid | STRING | daily message thread ID |
+| messageid | STRING | 공식 출석으로 인정된 댓글 메시지 ID |
+| commentedat | STRING | 댓글 시각 ISO 문자열 |
+| status | STRING | `attended` / `late` / `absent` |
+| createdAt | DATE | 생성 시각 |
+| updatedAt | DATE | 수정 시각 |
+
+비고:
+- `(userid, yearmonthday)` 조합은 UNIQUE이며 하루 1건만 저장한다.
+- `too-early`는 공식 출석 로그에 저장하지 않는다.
+- 이 테이블은 phase 1 저장 구조 도입용이며, 기존 일일 리포트는 아직 `TimeLog`를 기준으로 동작한다.
 
 #### CamStudyUsers (캠스터디 참가자)
 

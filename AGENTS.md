@@ -84,6 +84,7 @@
 
 - Sequelize 모델은 파일당 모델 하나를 유지한다.
 - 모델 클래스명과 export 이름은 PascalCase를 사용한다.
+- thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 레거시 `/check-in`, `/check-out` 기록용으로 유지한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
   - `docs/PROJECT.md`의 테이블 설명
@@ -230,6 +231,7 @@
 - `src/events/ready.ts`
 - `src/repository/config.ts`
 - `src/repository/Users.ts`
+- `src/repository/AttendanceLog.ts`
 - `src/commands/haruharu/register.ts`
 - `src/test/US-01-register.test.ts`
 - `vitest.config.ts`

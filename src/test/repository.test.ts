@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import {
   testSequelize,
   setupTestDB,
@@ -352,6 +352,81 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
         expect(onTime[0].username).toBe('출석자');
         expect(late[0].username).toBe('지각자');
       });
+    });
+  });
+
+  describe('AttendanceLog 모델', () => {
+    let AttendanceLog: Awaited<typeof import('../repository/AttendanceLog.js')>['AttendanceLog'];
+
+    beforeAll(async () => {
+      vi.doMock('../repository/config.js', () => ({ sequelize: testSequelize }));
+      const module = await import('../repository/AttendanceLog.js');
+      AttendanceLog = module.AttendanceLog;
+      await AttendanceLog.sync({ force: true });
+    });
+
+    beforeEach(async () => {
+      if (AttendanceLog) {
+        await AttendanceLog.destroy({ where: {} });
+      }
+    });
+
+    it('thread 기반 공식 출석 기록을 생성할 수 있다', async () => {
+      const log = await AttendanceLog.create({
+        userid: 'user123',
+        username: '홍길동',
+        yearmonthday: '20251207',
+        threadid: 'thread-123',
+        messageid: 'message-123',
+        commentedat: '2025-12-07T07:05:00.000Z',
+        status: 'attended',
+      });
+
+      expect(log.id).toBeDefined();
+      expect(log.threadid).toBe('thread-123');
+      expect(log.messageid).toBe('message-123');
+      expect(log.commentedat).toBe('2025-12-07T07:05:00.000Z');
+      expect(log.status).toBe('attended');
+      expect(log.createdAt).toBeDefined();
+      expect(log.updatedAt).toBeDefined();
+    });
+
+    it('같은 사용자에 대해 하루 1건만 공식 출석 기록을 저장할 수 있다', async () => {
+      await AttendanceLog.create({
+        userid: 'user123',
+        username: '홍길동',
+        yearmonthday: '20251207',
+        threadid: 'thread-123',
+        messageid: 'message-123',
+        commentedat: '2025-12-07T07:05:00.000Z',
+        status: 'attended',
+      });
+
+      await expect(
+        AttendanceLog.create({
+          userid: 'user123',
+          username: '홍길동',
+          yearmonthday: '20251207',
+          threadid: 'thread-123',
+          messageid: 'message-456',
+          commentedat: '2025-12-07T07:15:00.000Z',
+          status: 'late',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('too-early 상태는 공식 출석 기록으로 저장할 수 없다', async () => {
+      await expect(
+        AttendanceLog.create({
+          userid: 'user123',
+          username: '홍길동',
+          yearmonthday: '20251207',
+          threadid: 'thread-123',
+          messageid: 'message-123',
+          commentedat: '2025-12-07T06:45:00.000Z',
+          status: 'too-early',
+        }),
+      ).rejects.toThrow();
     });
   });
 
