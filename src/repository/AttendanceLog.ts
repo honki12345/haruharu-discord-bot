@@ -3,6 +3,19 @@ import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, 
 
 const ATTENDANCE_LOG_STATUSES = ['attended', 'late', 'absent'] as const;
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+const isValidIsoTimestamp = (value: string) => {
+  if (!ISO_TIMESTAMP_PATTERN.test(value)) {
+    return false;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  const canonical = parsed.toISOString();
+  return value === canonical || value === canonical.replace('.000Z', 'Z');
+};
 
 class AttendanceLog extends Model<InferAttributes<AttendanceLog>, InferCreationAttributes<AttendanceLog>> {
   declare id: CreationOptional<number>;
@@ -49,7 +62,7 @@ AttendanceLog.init(
       allowNull: false,
       validate: {
         isIsoTimestamp(value: string) {
-          if (!ISO_TIMESTAMP_PATTERN.test(value) || Number.isNaN(Date.parse(value))) {
+          if (!isValidIsoTimestamp(value)) {
             throw new Error('commentedat must be an ISO-8601 UTC timestamp');
           }
         },

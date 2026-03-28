@@ -428,6 +428,20 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
         }),
       ).rejects.toThrow();
     });
+
+    it('달력상 존재하지 않는 ISO 날짜 commentedat은 저장할 수 없다', async () => {
+      await expect(
+        TestAttendanceLog.create({
+          userid: 'user123',
+          username: '홍길동',
+          yearmonthday: '20251207',
+          threadid: 'thread-123',
+          messageid: 'message-123',
+          commentedat: '2025-02-30T07:05:00.000Z',
+          status: 'attended',
+        }),
+      ).rejects.toThrow();
+    });
   });
 
   describe('CamStudyUsers 모델', () => {
