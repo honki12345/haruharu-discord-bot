@@ -9,6 +9,15 @@ const originalConfigPath = process.env.HARUHARU_CONFIG_PATH;
 
 const cleanupPaths = new Set<string>();
 
+function restoreEnvValue(key: 'APP_ENV' | 'NODE_ENV' | 'HARUHARU_CONFIG_PATH', value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
+}
+
 function writeConfig(databasePath: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'haruharu-config-loader-'));
   const configPath = path.join(dir, 'dev.test.json');
@@ -44,9 +53,9 @@ async function loadFreshConfigModule() {
 }
 
 afterEach(() => {
-  process.env.APP_ENV = originalAppEnv;
-  process.env.NODE_ENV = originalNodeEnv;
-  process.env.HARUHARU_CONFIG_PATH = originalConfigPath;
+  restoreEnvValue('APP_ENV', originalAppEnv);
+  restoreEnvValue('NODE_ENV', originalNodeEnv);
+  restoreEnvValue('HARUHARU_CONFIG_PATH', originalConfigPath);
 
   for (const cleanupPath of cleanupPaths) {
     fs.rmSync(cleanupPath, { recursive: true, force: true });
@@ -55,6 +64,17 @@ afterEach(() => {
 });
 
 describe('config loader', () => {
+  it('deletes env vars that were originally unset', () => {
+    process.env.APP_ENV = 'dev';
+    delete process.env.HARUHARU_CONFIG_PATH;
+
+    restoreEnvValue('APP_ENV', undefined);
+    restoreEnvValue('HARUHARU_CONFIG_PATH', undefined);
+
+    expect('APP_ENV' in process.env).toBe(false);
+    expect('HARUHARU_CONFIG_PATH' in process.env).toBe(false);
+  });
+
   it('preserves sqlite :memory: paths', async () => {
     writeConfig(':memory:');
 
