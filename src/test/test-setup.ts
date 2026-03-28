@@ -144,6 +144,7 @@ vi.mock('node:module', async importOriginal => {
       if (path.includes('config.json')) {
         return {
           checkChannelId: 'valid-channel-id',
+          testChannelId: 'valid-test-channel-id',
           voiceChannelId: 'valid-voice-channel-id',
           logChannelId: 'valid-log-channel-id',
           resultChannelId: 'valid-result-channel-id',
@@ -178,6 +179,11 @@ interface MockInteractionOptions {
   globalName?: string;
   options?: Record<string, string | null>;
   attachment?: { url: string; name: string; contentType: string } | null;
+  client?: {
+    channels: {
+      fetch: ReturnType<typeof vi.fn>;
+    };
+  };
 }
 
 export function createMockInteraction(opts: MockInteractionOptions = {}) {
@@ -192,6 +198,11 @@ export function createMockInteraction(opts: MockInteractionOptions = {}) {
     options: {
       getString: (name: string) => opts.options?.[name] ?? null,
       getAttachment: () => opts.attachment ?? null,
+    },
+    client: opts.client ?? {
+      channels: {
+        fetch: vi.fn(),
+      },
     },
     reply: async (content: string | { content: string; ephemeral?: boolean }) => {
       replies.push(content);
