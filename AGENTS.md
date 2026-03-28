@@ -30,6 +30,7 @@
 │   ├── index.ts                  # 봇 런타임 진입점
 │   ├── deploy-commands.ts        # Discord 슬래시 커맨드 등록
 │   ├── attendance.ts             # 출석 판정/이모지 유틸리티
+│   ├── daily-attendance.ts       # 운영 daily message/thread 생성 및 재탐색 유틸리티
 │   ├── daily-message.ts          # daily message 질문 풀/랜덤 선택
 │   ├── logger.ts                 # Winston 로거 설정
 │   ├── utils.ts                  # 날짜/시간/상수 유틸리티
@@ -75,10 +76,16 @@
 ### `src/events`
 
 - Discord 이벤트당 파일 하나를 유지한다.
-- `ready.ts`는 부팅, 테이블 sync, 스케줄러 등록을 담당한다.
+- `ready.ts`는 부팅, 테이블 sync, 운영 daily message/thread 생성 스케줄, 집계 스케줄 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅을 담당한다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
+
+### `src/daily-attendance.ts`
+
+- 운영 채널의 daily message 본문 생성, thread 이름 규칙, thread 재탐색/중복 방지 로직을 한곳에 모은다.
+- 운영 자동화와 테스트 채널 demo 흐름이 서로 다른 채널/이름 규칙을 쓰도록 분리 기준을 유지한다.
+- 오늘 thread를 재사용하는 기준이 바뀌면 `docs/PROJECT.md`, `docs/USER_STORIES.md`도 함께 갱신한다.
 
 ### `src/repository`
 
@@ -118,7 +125,7 @@
 - 설정값은 `config.json`에서 읽으며, 현재 패턴대로 `createRequire(import.meta.url)` 사용을 우선한다.
 - 로깅은 `console.log`보다 `src/logger.ts`의 `logger` 사용을 우선한다. 단, 부팅 로더 수준의 단순 진단 출력은 기존 패턴을 따른다.
 - 날짜/시간 계산과 상수는 가능한 한 `src/utils.ts`에 모은다.
-- daily message 본문/질문 정책은 가능한 한 `src/daily-message.ts` 같은 전용 모듈에 모은다.
+- daily message 질문 정책은 `src/daily-message.ts`, 운영 daily message/thread 생성 규칙은 `src/daily-attendance.ts`에 모은다.
 - 비즈니스 규칙은 하드코딩을 흩뿌리지 말고 상수 또는 유틸 함수로 끌어올린다.
 - 기존 파일 스타일을 존중한다. 이 저장소는 한국어 설명과 영어 식별자가 혼용된다.
 

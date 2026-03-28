@@ -62,6 +62,22 @@ const calculateRemainingTimeChallenge = () => {
   return target.getTime() - now.getTime();
 };
 
+const calculateRemainingTimeDailyMessage = () => {
+  const now = new Date();
+  const target = new Date();
+  target.setHours(PRINT_HOURS_DAILY_MESSAGE);
+  target.setMinutes(0);
+  target.setSeconds(0);
+  target.setMilliseconds(0);
+
+  if (now > target) {
+    target.setDate(now.getDate() + 1);
+  }
+  logger.info(`remaining daily message print time: target - now: ${target.getTime() - now.getTime()}`);
+
+  return target.getTime() - now.getTime();
+};
+
 const calculateRemainingTimeCamStudy = () => {
   const now = new Date();
   const target = new Date();
@@ -95,6 +111,7 @@ const PRINT_MINUTES_CAM_STUDY = 59;
 const HARUHARU_TIMES = new Date('2024-04-06'); // 토요일
 
 // challenge 관련 상수들
+const PRINT_HOURS_DAILY_MESSAGE = 6;
 const PRINT_HOURS_CHALLENGE = 13;
 const LATE_RANGE_TIME = 10;
 const ABSENCE_RANGE_TIME = 30;
@@ -134,6 +151,7 @@ export {
   getYearMonthDate,
   getFileName,
   calculateRemainingTimeChallenge,
+  calculateRemainingTimeDailyMessage,
   calculateRemainingTimeCamStudy,
   calculateWeekTimes,
   formatFromMinutesToHours,

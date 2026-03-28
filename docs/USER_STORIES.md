@@ -2,6 +2,44 @@
 
 ## 기상 챌린지 (Morning Challenge)
 
+### US-DM: 운영 daily message 자동 생성
+
+```
+AS A 챌린저
+I WANT TO 매일 아침 운영 채널에 오늘의 daily message와 출석 thread가 열리길 원한다
+SO THAT 그날의 출석 진입점이 하나로 유지된다
+```
+
+**인수 조건:**
+- 운영 채널에 매일 오전 06:00 daily message와 출석 thread를 생성한다
+- 같은 날짜에는 daily message/thread를 한 번만 생성한다
+- 봇 재시작 후에도 오늘 thread를 다시 찾아 재사용할 수 있다
+- 테스트 채널 demo thread와 운영 thread는 다른 채널/이름 규칙을 사용한다
+
+```mermaid
+sequenceDiagram
+    participant S as Scheduler
+    participant B as Bot
+    participant D as Discord
+    participant C as Check Channel
+
+    Note over S: 매일 06:00 트리거
+    S->>B: ensureTodayAttendanceThread()
+    B->>C: 오늘 날짜 thread 조회
+
+    alt 오늘 thread가 이미 존재
+        C-->>B: 기존 thread 반환
+        B->>B: 기존 thread 재사용
+    else 오늘 thread가 없음
+        B->>C: daily message 전송
+        C-->>B: messageId
+        B->>D: 출석 thread 생성
+        B->>D: 안내 메시지 전송
+    end
+```
+
+---
+
 ### US-1: 챌린저 등록
 
 ```

@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 import { logger } from '../logger.js';
 import {
   getYearMonthDate,
+  calculateRemainingTimeDailyMessage,
   calculateRemainingTimeChallenge,
   calculateWeekTimes,
   calculateRemainingTimeCamStudy,
@@ -21,9 +22,18 @@ import {
 } from '../utils.js';
 import { Op } from 'sequelize';
 import { sequelize } from '../repository/config.js';
+import { ensureTodayAttendanceThread } from '../daily-attendance.js';
 
 const jsonRequire = createRequire(import.meta.url);
 const { checkChannelId, logChannelId, resultChannelId } = jsonRequire('../../config.json');
+
+const ensureDailyAttendanceThreadInterval = async (client: Client) => {
+  try {
+    await ensureTodayAttendanceThread(client, checkChannelId);
+  } catch (error) {
+    logger.error('failed to schedule daily attendance thread', { channelId: checkChannelId, error });
+  }
+};
 
 const printMonthlyHallOfFameIfNeeded = async (client: Client, year: number, month: string, date: string) => {
   if (!isLastDayOfMonth(Number(year), Number(month), Number(date))) {
@@ -226,6 +236,15 @@ export const event = {
     await CamStudyUsers.sync();
     await CamStudyTimeLog.sync();
     await CamStudyWeeklyTimeLog.sync();
+
+    // set daily attendance thread
+    const remainingTimeDailyMessage = calculateRemainingTimeDailyMessage();
+    setTimeout(() => {
+      void ensureDailyAttendanceThreadInterval(client);
+      setInterval(() => {
+        void ensureDailyAttendanceThreadInterval(client);
+      }, ONE_DAY_MILLISECONDS);
+    }, remainingTimeDailyMessage);
 
     // set challenge print
     const remainingTimeChallenge = calculateRemainingTimeChallenge();
