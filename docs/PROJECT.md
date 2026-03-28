@@ -28,11 +28,13 @@
 haruharu-discord-bot/
 ├── src/
 │   ├── index.ts                 # 봇 진입점, 커맨드/이벤트 로더
+│   ├── config.ts                # 런타임 설정 로더
+│   ├── deployConfig.ts          # 슬래시 커맨드 배포용 최소 설정 로더
 │   ├── logger.ts                # Winston 로깅 설정
 │   ├── attendance.ts            # 출석 판정 및 이모지 유틸리티
 │   ├── daily-attendance.ts      # 운영 daily message/thread 생성 및 재탐색 유틸리티
 │   ├── daily-message.ts         # daily message 질문 풀과 랜덤 선택 유틸리티
-│   ├── utils.ts                 # 유틸리티 함수 및 상수
+│   ├── utils.ts                 # 분리된 유틸 모듈 배럴 export
 │   ├── deploy-commands.ts       # 슬래시 커맨드 등록
 │   │
 │   ├── commands/
@@ -48,10 +50,15 @@ haruharu-discord-bot/
 │   │       └── ping.ts          # 헬스체크
 │   │
 │   ├── events/
-│   │   ├── ready.ts             # 봇 시작, DB 동기화, 스케줄러
+│   │   ├── ready.ts             # 봇 시작, DB 동기화, 리포트 스케줄러 등록
 │   │   ├── interactionCreate.ts # 슬래시 커맨드 핸들러
 │   │   ├── messageCreate.ts     # 출석 demo thread 댓글 감지
-│   │   └── camStudyHandler.ts   # 음성 채널 상태 감지
+│   │   └── camStudyHandler.ts   # 음성 채널 상태 감지 및 캠스터디 서비스 위임
+│   │
+│   ├── services/
+│   │   ├── attendance.ts        # check-in/check-out 공통 처리
+│   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
+│   │   └── reporting.ts         # 일일/주간 리포트 생성 및 스케줄링
 │   │
 │   └── repository/
 │       ├── config.ts            # Sequelize 설정
@@ -60,7 +67,9 @@ haruharu-discord-bot/
 │       ├── TimeLog.ts           # 출석 로그 모델
 │       ├── CamStudyUsers.ts     # 캠스터디 참가자 모델
 │       ├── CamStudyTimeLog.ts   # 일간 학습 로그 모델
-│       └── CamStudyWeeklyTimeLog.ts # 주간 학습 로그 모델
+│       ├── CamStudyWeeklyTimeLog.ts # 주간 학습 로그 모델
+│       ├── challengeRepository.ts   # 기상 챌린지 조회/갱신 헬퍼
+│       └── camStudyRepository.ts    # 캠스터디 조회/갱신 헬퍼
 │
 ├── docs/
 │   ├── PROJECT.md               # 프로젝트 문서 (현재 파일)
@@ -163,6 +172,11 @@ haruharu-discord-bot/
 - 기상 챌린지 리포트: 매일 13:00
 - 캠스터디 리포트: 매일 23:59
 
+**구현 메모:**
+- 운영 daily message/thread 중복 방지와 재탐색은 `src/daily-attendance.ts`가 담당한다.
+- 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
+- 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
+
 #### interactionCreate.ts
 | 항목 | 내용 |
 |------|------|
@@ -178,7 +192,7 @@ haruharu-discord-bot/
 | 항목 | 내용 |
 |------|------|
 | 트리거 | 음성 채널 상태 변경 |
-| 기능 | 카메라 ON/OFF 감지, 학습 시간 기록 |
+| 기능 | 카메라 ON/OFF 감지, 상태 전이를 `src/services/camStudy.ts`에 위임하여 학습 시간 기록 |
 
 #### messageCreate.ts
 | 항목 | 내용 |
@@ -200,7 +214,39 @@ haruharu-discord-bot/
 
 ---
 
+### Services (도메인 서비스)
+
+#### attendance.ts
+| 항목 | 내용 |
+|------|------|
+| 역할 | `/check-in`, `/check-out` 공통 검증과 로그 저장 |
+| 담당 | 채널 검증, 사용자 조회, 중복 출석 확인, 허용 시간 판정, 이미지 첨부 검증, `TimeLog` 생성 |
+| 호출처 | `src/commands/haruharu/check-in.ts`, `src/commands/haruharu/check-out.ts` |
+
+#### camStudy.ts
+| 항목 | 내용 |
+|------|------|
+| 역할 | 음성 채널 상태 변경을 캠스터디 시작/종료 이벤트로 해석 |
+| 담당 | 입장/퇴장/카메라 ON/OFF 전이 계산, 최소 인정 시간 검증, 일간 로그 생성/갱신 |
+| 호출처 | `src/events/camStudyHandler.ts` |
+
+#### reporting.ts
+| 항목 | 내용 |
+|------|------|
+| 역할 | 일일/주간 리포트 생성과 스케줄링 |
+| 담당 | 모델 동기화, 기상 챌린지 출석표 생성, 월말 생존 명단 생성, 캠스터디 일일/주간 집계, 스케줄 중복 실행 방지 |
+| 호출처 | `src/events/ready.ts` |
+
+---
+
 ### Repository (데이터 모델)
+
+#### Repository helper 모듈
+
+| 파일 | 역할 |
+|------|------|
+| `challengeRepository.ts` | `Users`, `TimeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
+| `camStudyRepository.ts` | `CamStudyUsers`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼 |
 
 #### Users (기상 챌린지 참가자)
 
@@ -284,6 +330,9 @@ haruharu-discord-bot/
 
 ### Utils (유틸리티)
 
+비고:
+- `src/utils.ts`는 배럴 파일이며 실제 구현은 `src/utils/constants.ts`, `src/utils/date.ts`, `src/utils/format.ts`로 분리되어 있다.
+
 #### 날짜/시간 함수
 
 | 함수 | 반환 | 설명 |
@@ -301,7 +350,7 @@ haruharu-discord-bot/
 
 | 상수 | 값 | 설명 |
 |------|-----|------|
-| `PERMISSION_NUM_ADMIN` | 0 | 관리자 권한 레벨 |
+| `PERMISSION_NUM_ADMIN` | `PermissionFlagsBits.Administrator` | Discord 관리자 권한 비트 |
 | `LATE_RANGE_TIME` | 10 | 정시 인정 범위 (분) |
 | `ABSENCE_RANGE_TIME` | 30 | 출석 유효 범위 (분) |
 | `DEFAULT_VACANCES_COUNT` | 5 | 기본 휴가일수 |
@@ -309,7 +358,8 @@ haruharu-discord-bot/
 | `PRINT_HOURS_CHALLENGE` | 13 | 기상 챌린지 리포트 시간 |
 | `PRINT_HOURS_CAM_STUDY` | 23 | 캠스터디 리포트 시간 |
 | `PRINT_MINUTES_CAM_STUDY` | 59 | 캠스터디 리포트 분 |
-| `PUBLIC_HOLIDAYS_2025` | [...] | 2025년 한국 공휴일 목록 |
+| `ONE_DAY_MILLISECONDS` | 86400000 | 일일 스케줄 반복 간격 |
+| `PUBLIC_HOLIDAYS_2026` | [...] | 2026년 한국 공휴일 목록 |
 
 ---
 
@@ -331,6 +381,11 @@ haruharu-discord-bot/
   "testChannelId": "테스트 채널 ID"
 }
 ```
+
+비고:
+- `src/config.ts`는 런타임 진입점에서 사용하는 설정 로더이며 `token`, `clientId`, `guildId`, 각 채널 ID를 fail-fast로 검증한다.
+- `databaseUser`, `password`는 SQLite 사용 기준 optional 값이며 비어 있어도 동작한다.
+- `src/deployConfig.ts`는 slash command 등록 전용 최소 설정 로더이며 `token`, `clientId`, `guildId`만 요구한다.
 
 ### package.json 스크립트
 

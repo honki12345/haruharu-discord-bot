@@ -238,6 +238,13 @@ vi.mock('node:module', async importOriginal => {
     createRequire: () => (path: string) => {
       if (path.includes('config.json')) {
         return {
+          token: 'test-token',
+          clientId: 'test-client-id',
+          guildId: 'test-guild-id',
+          databaseUser: 'test-db-user',
+          password: 'test-db-password',
+          noticeChannelId: 'valid-notice-channel-id',
+          vacancesRegisterChannelId: 'valid-vacances-channel-id',
           checkChannelId: 'valid-channel-id',
           testChannelId: 'valid-test-channel-id',
           voiceChannelId: 'valid-voice-channel-id',

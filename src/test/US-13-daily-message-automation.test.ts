@@ -7,58 +7,26 @@ const mockLogger = {
   warn: vi.fn(),
 };
 
+const mockSyncModels = vi.fn().mockResolvedValue(undefined);
+const mockScheduleDailyReports = vi.fn();
+const mockBuildChallengeReport = vi.fn().mockResolvedValue({
+  attendanceMessage: 'attendance report',
+  hallOfFameMessage: null,
+});
+const mockBuildCamStudyReports = vi.fn().mockResolvedValue({
+  dailyMessage: 'cam study daily report',
+  weeklyMessage: 'cam study weekly report',
+});
+
 vi.mock('../logger.js', () => ({
   logger: mockLogger,
 }));
 
-vi.mock('../repository/Users.js', () => ({
-  Users: {
-    sync: vi.fn().mockResolvedValue(undefined),
-    findAll: vi.fn().mockResolvedValue([]),
-    findOne: vi.fn().mockResolvedValue(null),
-    update: vi.fn().mockResolvedValue([0]),
-  },
-}));
-
-vi.mock('../repository/TimeLog.js', () => ({
-  TimeLog: {
-    sync: vi.fn().mockResolvedValue(undefined),
-    findAll: vi.fn().mockResolvedValue([]),
-  },
-}));
-
-vi.mock('../repository/AttendanceLog.js', () => ({
-  AttendanceLog: {
-    sync: vi.fn().mockResolvedValue(undefined),
-  },
-}));
-
-vi.mock('../repository/CamStudyUsers.js', () => ({
-  CamStudyUsers: {
-    sync: vi.fn().mockResolvedValue(undefined),
-    findAll: vi.fn().mockResolvedValue([]),
-  },
-}));
-
-vi.mock('../repository/CamStudyTimeLog.js', () => ({
-  CamStudyTimeLog: {
-    sync: vi.fn().mockResolvedValue(undefined),
-    findAll: vi.fn().mockResolvedValue([]),
-  },
-}));
-
-vi.mock('../repository/CamStudyWeeklyTimeLog.js', () => ({
-  CamStudyWeeklyTimeLog: {
-    sync: vi.fn().mockResolvedValue(undefined),
-    findOne: vi.fn().mockResolvedValue(null),
-    update: vi.fn().mockResolvedValue([0]),
-    create: vi.fn().mockResolvedValue(undefined),
-    findAll: vi.fn().mockResolvedValue([]),
-  },
-}));
-
-vi.mock('../repository/config.js', () => ({
-  sequelize: {},
+vi.mock('../services/reporting.js', () => ({
+  buildCamStudyReports: mockBuildCamStudyReports,
+  buildChallengeReport: mockBuildChallengeReport,
+  scheduleDailyReports: mockScheduleDailyReports,
+  syncModels: mockSyncModels,
 }));
 
 vi.mock('node:module', async importOriginal => {
@@ -68,6 +36,11 @@ vi.mock('node:module', async importOriginal => {
     createRequire: () => (path: string) => {
       if (path.includes('config.json')) {
         return {
+          token: 'test-token',
+          clientId: 'test-client-id',
+          guildId: 'test-guild-id',
+          noticeChannelId: 'valid-notice-channel-id',
+          vacancesRegisterChannelId: 'valid-vacances-channel-id',
           checkChannelId: 'valid-channel-id',
           testChannelId: 'valid-test-channel-id',
           voiceChannelId: 'valid-voice-channel-id',
@@ -88,6 +61,10 @@ describe('US-13: 운영 daily message 자동화', () => {
     mockLogger.info.mockReset();
     mockLogger.error.mockReset();
     mockLogger.warn.mockReset();
+    mockSyncModels.mockClear();
+    mockScheduleDailyReports.mockClear();
+    mockBuildChallengeReport.mockClear();
+    mockBuildCamStudyReports.mockClear();
   });
 
   afterEach(() => {
@@ -316,6 +293,8 @@ describe('US-13: 운영 daily message 자동화', () => {
       },
     } as never);
 
+    expect(mockSyncModels).toHaveBeenCalledOnce();
+    expect(mockScheduleDailyReports).toHaveBeenCalledOnce();
     const hasDailyScheduler = setTimeoutSpy.mock.calls.some(
       ([, delay]) => delay === calculateRemainingTimeDailyMessage(),
     );
@@ -394,6 +373,26 @@ describe('US-13: 운영 daily message 자동화', () => {
         'valid-channel-id',
       ),
     ).rejects.toThrow('send failed');
+
+    expect(logger.error).toHaveBeenCalled();
+  });
+
+  it('운영 채널 fetch 실패도 로그로 남긴다', async () => {
+    const fetch = vi.fn().mockRejectedValue(new Error('fetch failed'));
+
+    const { logger } = await import('../logger.js');
+    const { ensureTodayAttendanceThread } = await import('../daily-attendance.js');
+
+    await expect(
+      ensureTodayAttendanceThread(
+        {
+          channels: {
+            fetch,
+          },
+        } as never,
+        'valid-channel-id',
+      ),
+    ).rejects.toThrow('fetch failed');
 
     expect(logger.error).toHaveBeenCalled();
   });

@@ -1,3 +1,4 @@
+import { PermissionFlagsBits } from 'discord.js';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // logger 모킹 (utils.ts 에서 import 하기 전에 먼저 모킹해야 함)
@@ -19,6 +20,7 @@ import {
   LATE_RANGE_TIME,
   ABSENCE_RANGE_TIME,
   PUBLIC_HOLIDAYS_2026,
+  PERMISSION_NUM_ADMIN,
 } from '../utils.js';
 
 describe('utils.ts', () => {
@@ -220,6 +222,10 @@ describe('utils.ts', () => {
 
     it('2026년 공휴일에 크리스마스가 포함되어 있다', () => {
       expect(PUBLIC_HOLIDAYS_2026).toContain('1225');
+    });
+
+    it('관리자 권한 상수는 Discord 관리자 비트와 일치한다', () => {
+      expect(PERMISSION_NUM_ADMIN).toBe(PermissionFlagsBits.Administrator);
     });
   });
 });

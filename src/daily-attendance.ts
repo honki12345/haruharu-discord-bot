@@ -93,14 +93,15 @@ const ensureTodayAttendanceThread = async (client: Client, channelId: string) =>
   const { year, month, date } = getYearMonthDate();
   const threadName = buildAttendanceThreadName(year, month, date);
   const question = pickDailyMessageQuestion();
-  const channel = await client.channels.fetch(channelId);
-
-  if (!channel || channel.type !== ChannelType.GuildText) {
-    logger.error('daily attendance invalid channel', { channelId, threadName });
-    return null;
-  }
 
   try {
+    const channel = await client.channels.fetch(channelId);
+
+    if (!channel || channel.type !== ChannelType.GuildText) {
+      logger.error('daily attendance invalid channel', { channelId, threadName });
+      return null;
+    }
+
     const result = await ensureAttendanceThreadForChannel(
       channel as TextChannel,
       threadName,
