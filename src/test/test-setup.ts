@@ -1,6 +1,8 @@
 import { vi } from 'vitest';
 import { Sequelize, DataTypes, Model, CreationOptional, InferAttributes, InferCreationAttributes } from 'sequelize';
 
+const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+
 // ============ 인메모리 DB 설정 ============
 export const testSequelize = new Sequelize({
   dialect: 'sqlite',
@@ -56,6 +58,62 @@ TestTimeLog.init(
     isintime: { type: DataTypes.BOOLEAN },
   },
   { sequelize: testSequelize, tableName: 'time_logs' },
+);
+
+// ============ AttendanceLog 모델 ============
+export class TestAttendanceLog extends Model<
+  InferAttributes<TestAttendanceLog>,
+  InferCreationAttributes<TestAttendanceLog>
+> {
+  declare id: CreationOptional<number>;
+  declare userid: string;
+  declare username: string;
+  declare yearmonthday: string;
+  declare threadid: string;
+  declare messageid: string;
+  declare commentedat: string;
+  declare status: 'attended' | 'late' | 'absent';
+  declare createdAt: CreationOptional<Date>;
+  declare updatedAt: CreationOptional<Date>;
+}
+
+TestAttendanceLog.init(
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    userid: { type: DataTypes.STRING(128), allowNull: false },
+    username: { type: DataTypes.STRING(128), allowNull: false },
+    yearmonthday: { type: DataTypes.STRING(8), allowNull: false },
+    threadid: { type: DataTypes.STRING(128), allowNull: false },
+    messageid: { type: DataTypes.STRING(128), allowNull: false },
+    commentedat: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isIsoTimestamp(value: string) {
+          if (!ISO_TIMESTAMP_PATTERN.test(value) || Number.isNaN(Date.parse(value))) {
+            throw new Error('commentedat must be an ISO-8601 UTC timestamp');
+          }
+        },
+      },
+    },
+    status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isIn: [['attended', 'late', 'absent']],
+      },
+    },
+  },
+  {
+    sequelize: testSequelize,
+    tableName: 'attendance_logs',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userid', 'yearmonthday'],
+      },
+    ],
+  },
 );
 
 // ============ CamStudyUsers 모델 ============
@@ -128,6 +186,7 @@ TestCamStudyWeeklyTimeLog.init(
 // ============ 모킹 설정 ============
 vi.mock('../repository/Users.js', () => ({ Users: TestUsers }));
 vi.mock('../repository/TimeLog.js', () => ({ TimeLog: TestTimeLog }));
+vi.mock('../repository/AttendanceLog.js', () => ({ AttendanceLog: TestAttendanceLog }));
 vi.mock('../repository/CamStudyUsers.js', () => ({ CamStudyUsers: TestCamStudyUsers }));
 vi.mock('../repository/CamStudyTimeLog.js', () => ({ CamStudyTimeLog: TestCamStudyTimeLog }));
 vi.mock('../repository/CamStudyWeeklyTimeLog.js', () => ({ CamStudyWeeklyTimeLog: TestCamStudyWeeklyTimeLog }));
@@ -166,6 +225,7 @@ export async function teardownTestDB() {
 
 export async function clearAllTables() {
   await TestTimeLog.destroy({ where: {} });
+  await TestAttendanceLog.destroy({ where: {} });
   await TestUsers.destroy({ where: {} });
   await TestCamStudyTimeLog.destroy({ where: {} });
   await TestCamStudyUsers.destroy({ where: {} });

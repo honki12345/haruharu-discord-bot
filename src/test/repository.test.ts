@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
   testSequelize,
   setupTestDB,
@@ -6,6 +6,7 @@ import {
   clearAllTables,
   TestUsers,
   TestTimeLog,
+  TestAttendanceLog,
   TestCamStudyUsers,
   TestCamStudyTimeLog,
 } from './test-setup.js';
@@ -356,23 +357,8 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
   });
 
   describe('AttendanceLog 모델', () => {
-    let AttendanceLog: Awaited<typeof import('../repository/AttendanceLog.js')>['AttendanceLog'];
-
-    beforeAll(async () => {
-      vi.doMock('../repository/config.js', () => ({ sequelize: testSequelize }));
-      const module = await import('../repository/AttendanceLog.js');
-      AttendanceLog = module.AttendanceLog;
-      await AttendanceLog.sync({ force: true });
-    });
-
-    beforeEach(async () => {
-      if (AttendanceLog) {
-        await AttendanceLog.destroy({ where: {} });
-      }
-    });
-
     it('thread 기반 공식 출석 기록을 생성할 수 있다', async () => {
-      const log = await AttendanceLog.create({
+      const log = await TestAttendanceLog.create({
         userid: 'user123',
         username: '홍길동',
         yearmonthday: '20251207',
@@ -392,7 +378,7 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
     });
 
     it('같은 사용자에 대해 하루 1건만 공식 출석 기록을 저장할 수 있다', async () => {
-      await AttendanceLog.create({
+      await TestAttendanceLog.create({
         userid: 'user123',
         username: '홍길동',
         yearmonthday: '20251207',
@@ -403,7 +389,7 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
       });
 
       await expect(
-        AttendanceLog.create({
+        TestAttendanceLog.create({
           userid: 'user123',
           username: '홍길동',
           yearmonthday: '20251207',
@@ -417,7 +403,7 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
 
     it('too-early 상태는 공식 출석 기록으로 저장할 수 없다', async () => {
       await expect(
-        AttendanceLog.create({
+        TestAttendanceLog.create({
           userid: 'user123',
           username: '홍길동',
           yearmonthday: '20251207',
@@ -425,6 +411,20 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
           messageid: 'message-123',
           commentedat: '2025-12-07T06:45:00.000Z',
           status: 'too-early',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('ISO 형식이 아닌 commentedat은 저장할 수 없다', async () => {
+      await expect(
+        TestAttendanceLog.create({
+          userid: 'user123',
+          username: '홍길동',
+          yearmonthday: '20251207',
+          threadid: 'thread-123',
+          messageid: 'message-123',
+          commentedat: 'not-a-date',
+          status: 'attended',
         }),
       ).rejects.toThrow();
     });

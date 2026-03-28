@@ -2,6 +2,7 @@ import { sequelize } from './config.js';
 import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model } from 'sequelize';
 
 const ATTENDANCE_LOG_STATUSES = ['attended', 'late', 'absent'] as const;
+const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 
 class AttendanceLog extends Model<InferAttributes<AttendanceLog>, InferCreationAttributes<AttendanceLog>> {
   declare id: CreationOptional<number>;
@@ -46,6 +47,13 @@ AttendanceLog.init(
     commentedat: {
       type: DataTypes.STRING,
       allowNull: false,
+      validate: {
+        isIsoTimestamp(value: string) {
+          if (!ISO_TIMESTAMP_PATTERN.test(value) || Number.isNaN(Date.parse(value))) {
+            throw new Error('commentedat must be an ISO-8601 UTC timestamp');
+          }
+        },
+      },
     },
     status: {
       type: DataTypes.STRING,
