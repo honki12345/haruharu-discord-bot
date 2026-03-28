@@ -89,14 +89,16 @@ const buildChallengeReport = async () => {
     }
 
     if (logs.length !== 2) {
-      await updateChallengeUser(userid, yearmonth, { absencecount: user.absencecount + 1 });
-      absentees += `- ${user.username}: 결석 (${user.absencecount + 1}/${user.vacances})\n`;
+      const nextAbsenceCount = (user.absencecount ?? 0) + 1;
+      await updateChallengeUser(userid, yearmonth, { absencecount: nextAbsenceCount });
+      absentees += `- ${user.username}: 결석 (${nextAbsenceCount}/${user.vacances})\n`;
       continue;
     }
 
     if (!logs[0].isintime || !logs[1].isintime) {
-      await updateChallengeUser(userid, yearmonth, { latecount: user.latecount + 1 });
-      latecomers += `- ${logs[0].username}: 지각 (${user.latecount + 1})\n`;
+      const nextLateCount = (user.latecount ?? 0) + 1;
+      await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
+      latecomers += `- ${logs[0].username}: 지각 (${nextLateCount})\n`;
       continue;
     }
 
@@ -117,8 +119,9 @@ const buildCamStudyReports = async () => {
   const yearmonthday = getYearMonthDay(year, month, date);
   const camStudyUsers = await listCamStudyUsers();
   const camStudyTimelogs = await listCamStudyTimeLogs(yearmonthday);
+  const camStudyTimeLogMap = new Map(camStudyTimelogs.map(timelog => [timelog.userid, timelog]));
   const userMinutes = camStudyUsers.map(user => {
-    const timelog = camStudyTimelogs.find(entry => entry.userid === user.userid);
+    const timelog = camStudyTimeLogMap.get(user.userid);
     return {
       totalminutes: Number(timelog?.totalminutes ?? 0),
       username: user.username,
@@ -167,16 +170,54 @@ const scheduleDailyReports = (
   onChallengeReport: () => Promise<void>,
   onCamStudyReport: () => Promise<void>,
 ) => {
+  let challengeReportInFlight = false;
+  const runChallengeReport = async () => {
+    if (challengeReportInFlight) {
+      logger.warn('Skipping challenge report run because previous run is still in progress');
+      return;
+    }
+
+    challengeReportInFlight = true;
+    try {
+      await onChallengeReport();
+    } catch (error) {
+      logger.error('Error while running scheduled challenge report', { error });
+    } finally {
+      challengeReportInFlight = false;
+    }
+  };
+
+  let camStudyReportInFlight = false;
+  const runCamStudyReport = async () => {
+    if (camStudyReportInFlight) {
+      logger.warn('Skipping cam study report run because previous run is still in progress');
+      return;
+    }
+
+    camStudyReportInFlight = true;
+    try {
+      await onCamStudyReport();
+    } catch (error) {
+      logger.error('Error while running scheduled cam study report', { error });
+    } finally {
+      camStudyReportInFlight = false;
+    }
+  };
+
   const remainingTimeChallenge = calculateRemainingTimeChallenge();
   setTimeout(() => {
-    void onChallengeReport();
-    setInterval(() => void onChallengeReport(), ONE_DAY_MILLISECONDS);
+    void runChallengeReport();
+    setInterval(() => {
+      void runChallengeReport();
+    }, ONE_DAY_MILLISECONDS);
   }, remainingTimeChallenge);
 
   const remainingTimeCamStudy = calculateRemainingTimeCamStudy();
   setTimeout(() => {
-    void onCamStudyReport();
-    setInterval(() => void onCamStudyReport(), ONE_DAY_MILLISECONDS);
+    void runCamStudyReport();
+    setInterval(() => {
+      void runCamStudyReport();
+    }, ONE_DAY_MILLISECONDS);
   }, remainingTimeCamStudy);
 };
 

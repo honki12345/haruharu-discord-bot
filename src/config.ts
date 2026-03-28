@@ -18,18 +18,26 @@ export interface AppConfig {
 const jsonRequire = createRequire(import.meta.url);
 export const config = jsonRequire('../config.json') as AppConfig;
 
-export const token = config.token ?? '';
-export const clientId = config.clientId ?? '';
-export const guildId = config.guildId ?? '';
-export const databaseUser = config.databaseUser ?? '';
-export const password = config.password ?? '';
-export const noticeChannelId = config.noticeChannelId ?? '';
-export const vacancesRegisterChannelId = config.vacancesRegisterChannelId ?? '';
-export const checkChannelId = config.checkChannelId ?? '';
-export const testChannelId = config.testChannelId ?? '';
-export const logChannelId = config.logChannelId ?? '';
-export const resultChannelId = config.resultChannelId ?? '';
-export const voiceChannelId = config.voiceChannelId ?? '';
+const getRequiredConfig = (key: keyof AppConfig) => {
+  const value = config[key];
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error(`Missing required configuration value for "${String(key)}" in config.json`);
+  }
+  return value;
+};
+
+export const token = getRequiredConfig('token');
+export const clientId = getRequiredConfig('clientId');
+export const guildId = getRequiredConfig('guildId');
+export const databaseUser = getRequiredConfig('databaseUser');
+export const password = getRequiredConfig('password');
+export const noticeChannelId = getRequiredConfig('noticeChannelId');
+export const vacancesRegisterChannelId = getRequiredConfig('vacancesRegisterChannelId');
+export const checkChannelId = getRequiredConfig('checkChannelId');
+export const testChannelId = getRequiredConfig('testChannelId');
+export const logChannelId = getRequiredConfig('logChannelId');
+export const resultChannelId = getRequiredConfig('resultChannelId');
+export const voiceChannelId = getRequiredConfig('voiceChannelId');
 
 export const commandChannelIds = new Set(
   [noticeChannelId, vacancesRegisterChannelId, checkChannelId, testChannelId, logChannelId].filter(Boolean),

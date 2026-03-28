@@ -133,11 +133,7 @@ const executeAttendance = async ({
   }
 
   logger.info(`image attachment info: `, { attachment });
-  if (!validateAttachment(attachment)) {
-    return { reply: 'please upload image file' };
-  }
-
-  if (!attachment) {
+  if (!attachment || !validateAttachment(attachment)) {
     return { reply: 'please upload image file' };
   }
 
