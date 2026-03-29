@@ -481,9 +481,12 @@ interface MockInteractionOptions {
   userId?: string;
   globalName?: string;
   username?: string;
+  memberDisplayName?: string | null;
   options?: Record<string, string | null>;
   attachment?: { url: string; name: string; contentType: string } | null;
   member?: {
+    displayName?: string | null;
+    nickname?: string | null;
     roles: {
       add: ReturnType<typeof vi.fn>;
       remove: ReturnType<typeof vi.fn>;
@@ -512,7 +515,10 @@ export function createMockInteraction(opts: MockInteractionOptions = {}) {
     globalName: opts.globalName ?? '테스트유저',
     username: opts.username ?? 'test-username',
   };
+  const defaultDisplayName = opts.memberDisplayName === undefined ? user.globalName : opts.memberDisplayName;
   const member = opts.member ?? {
+    displayName: defaultDisplayName,
+    nickname: defaultDisplayName,
     roles: {
       add: vi.fn(),
       remove: vi.fn(),

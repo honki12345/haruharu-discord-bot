@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } 
 import {
   testSequelize,
   TestUsers,
+  TestWakeUpMembership,
   TestWaketimeChangeLog,
   clearAllTables,
   createMockInteraction,
@@ -152,5 +153,73 @@ describe('US-01: /register 커맨드', () => {
     const updatedUser = await TestUsers.findOne({ where: { userid: 'existing-user', yearmonth: '202512' } });
     expect(updatedUser?.waketime).toBe('0800');
     expect(interaction.getLastReply()).toContain('수정했습니다');
+  });
+
+  it('TC-R05: 서버 닉네임이 있으면 globalName보다 우선 저장한다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'display-name-user',
+      globalName: '글로벌이름',
+      username: 'plain-user',
+      memberDisplayName: '서버닉네임',
+      options: {
+        waketime: '0700',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const user = await TestUsers.findOne({ where: { userid: 'display-name-user', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'display-name-user' } });
+
+    expect(user?.username).toBe('서버닉네임');
+    expect(membership?.username).toBe('서버닉네임');
+    expect(interaction.getLastReply()).toContain('서버닉네임님');
+  });
+
+  it('TC-R06: 서버 닉네임이 없으면 globalName으로 fallback 한다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'global-name-user',
+      globalName: '글로벌이름',
+      username: 'plain-user',
+      memberDisplayName: null,
+      options: {
+        waketime: '0700',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const user = await TestUsers.findOne({ where: { userid: 'global-name-user', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'global-name-user' } });
+
+    expect(user?.username).toBe('글로벌이름');
+    expect(membership?.username).toBe('글로벌이름');
+    expect(interaction.getLastReply()).toContain('글로벌이름님');
+  });
+
+  it('TC-R07: 서버 닉네임과 globalName이 모두 없으면 username으로 fallback 한다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'username-user',
+      globalName: undefined,
+      username: 'plain-user',
+      memberDisplayName: null,
+      options: {
+        waketime: '0700',
+      },
+    });
+
+    interaction.user.globalName = null;
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const user = await TestUsers.findOne({ where: { userid: 'username-user', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'username-user' } });
+
+    expect(user?.username).toBe('plain-user');
+    expect(membership?.username).toBe('plain-user');
+    expect(interaction.getLastReply()).toContain('plain-user님');
   });
 });
