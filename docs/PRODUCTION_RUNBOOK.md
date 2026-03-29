@@ -9,19 +9,20 @@
 - PR 검증: `CI`, `Dependency Review`
 - production 배포 시작: GitHub Actions `Deploy Production`
 - 배포 시작 방식: `workflow_dispatch`
-- 배포 경로: GitHub-hosted runner -> SSH -> OCI Compute -> PM2 single process
-- verify 단계에서 입력한 `ref`를 검증된 commit SHA로 고정한 뒤 deploy가 같은 SHA를 배포한다
+- 배포 경로: GitHub-hosted runner -> verify build artifact 생성 -> artifact upload/download -> SSH -> OCI Compute -> PM2 single process
+- verify 단계에서 입력한 `ref`를 검증된 commit SHA로 고정한 뒤 deploy가 같은 SHA에서 만든 production artifact를 배포한다
 - GitHub `production` environment 용도: production secrets/variables 관리
 
 ```mermaid
 flowchart TD
   A[Operator runs workflow_dispatch] --> B[verify job: lint + prettier + build + test + smoke]
-  B --> C[deploy job]
-  C --> D[SSH to OCI host]
-  D --> E[git fetch / checkout / npm ci / npm run build]
-  E --> F[pm2 reload or start]
-  F --> G[pm2 status + ready log check]
-  G --> H[Manual /ping check if needed]
+  B --> C[package production artifact]
+  C --> D[deploy job downloads artifact]
+  D --> E[scp artifact to OCI host]
+  E --> F[extract artifact in app dir]
+  F --> G[pm2 reload or start]
+  G --> H[pm2 status + ready log check]
+  H --> I[Manual /ping check if needed]
 ```
 
 ## GitHub 설정
@@ -61,14 +62,16 @@ flowchart TD
    - `npm run build`
    - `npm test`
    - `npm run test:smoke`
-4. `verify`가 끝나면 workflow가 검증된 commit SHA를 고정한다.
+4. `verify`가 끝나면 workflow가 검증된 commit SHA를 고정하고, 같은 SHA에서 production artifact를 만든다.
+   - `npm prune --omit=dev`로 production 실행에 필요한 의존성만 남긴다.
+   - `dist`, `node_modules`, `package.json`, `package-lock.json`을 tar.gz artifact로 묶어 업로드한다.
 5. `deploy` job이 시작되면 OCI 서버에 SSH 접속해서 아래를 수행한다.
+   - deploy job은 verify에서 업로드한 artifact만 내려받고, 별도의 server-side build를 하지 않는다.
+   - artifact를 OCI 서버로 `scp` 전송한다.
    - 비대화형 SSH 셸에서도 `nvm` 경로를 사용할 수 있도록 원격 스크립트가 `NVM_DIR`과 `nvm.sh`를 직접 로드한다.
-   - `node`, `npm`, `pm2`가 현재 원격 셸에서 보이지 않으면 fail-fast로 중단한다.
-   - `git fetch origin --tags`
-   - 검증된 commit SHA를 `git checkout --detach --force`로 정확히 checkout
-   - `npm ci`
-   - `npm run build`
+   - `node`, `pm2`, `tar`가 현재 원격 셸에서 보이지 않으면 fail-fast로 중단한다.
+   - 기존 `dist`, `node_modules`, `package.json`, `package-lock.json`을 artifact 내용으로 교체한다.
+   - `config.json`, `database.sqlite`, `logs`, `runtime` 같은 서버 로컬 자산은 유지한다.
    - PM2 프로세스 reload 또는 최초 start
 6. `Verify production readiness` 단계에서 아래를 자동 확인한다.
    - 비대화형 SSH 셸에서 `nvm` bootstrap 후 `node`, `pm2`를 사용할 수 있는지
@@ -91,7 +94,7 @@ flowchart TD
 1. 마지막 안정 ref를 확인한다.
 2. GitHub Actions `Deploy Production` workflow를 다시 실행한다.
 3. `ref`에 마지막 안정 branch, tag, commit SHA를 지정한다.
-4. `verify -> deploy -> readiness`가 다시 green 인지 확인한다.
+4. `verify -> artifact package -> deploy -> readiness`가 다시 green 인지 확인한다.
 5. 배포 후 `/ping`과 핵심 운영 흐름을 다시 점검한다.
 
 ## 의존성 변경 정책

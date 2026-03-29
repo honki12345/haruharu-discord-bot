@@ -255,7 +255,7 @@ haruharu-discord-bot/
 |----------|--------|------|
 | `CI` | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
 | `Dependency Review` | `pull_request` + package manifest 변경 | 취약점/라이선스 정책 검토 |
-| `Deploy Production` | `workflow_dispatch` | verify 후 OCI 서버에 SSH 배포하고 PM2/ready 로그를 확인 |
+| `Deploy Production` | `workflow_dispatch` | verify 후 production artifact를 만들고 OCI 서버에 반영한 뒤 PM2/ready 로그를 확인 |
 
 ### Production 배포 흐름
 
@@ -263,11 +263,12 @@ haruharu-discord-bot/
 flowchart TD
   A[workflow_dispatch] --> B[verify job]
   B --> C[lint + prettier + build + test + smoke]
-  C --> D[deploy job]
-  D --> E[SSH deploy to OCI]
-  E --> F[pm2 reload or start]
-  F --> G[pm2 status + ready log check]
-  G --> H[Manual /ping if needed]
+  C --> D[package production artifact]
+  D --> E[deploy job downloads artifact]
+  E --> F[SSH deploy to OCI]
+  F --> G[extract artifact + pm2 reload or start]
+  G --> H[pm2 status + ready log check]
+  H --> I[Manual /ping if needed]
 ```
 
 #### interactionCreate.ts

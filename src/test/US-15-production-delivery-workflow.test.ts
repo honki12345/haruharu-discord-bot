@@ -17,17 +17,26 @@ describe('US-15 production delivery workflow', () => {
     expect(workflow).toContain('./scripts/deploy-production.sh');
   });
 
-  it('production deploy workflow는 verify에서 확인한 정확한 commit sha와 known_hosts를 deploy에 전달해야 한다', () => {
+  it('production deploy workflow는 verify에서 확인한 정확한 commit sha 기준 artifact를 만들고 deploy가 이를 사용해야 한다', () => {
     const workflow = readRepositoryFile('.github/workflows/deploy-production.yml');
 
-    expect(workflow).toContain('ref: ${{ inputs.ref }}');
-    expect(workflow).not.toContain('ref: ${{ needs.verify.outputs.verified_sha }}');
     expect(workflow).toContain('id: resolve-sha');
     expect(workflow).toContain('git rev-parse HEAD');
     expect(workflow).toContain('outputs:');
     expect(workflow).toContain('verified_sha');
+    expect(workflow).toContain('artifact_name');
+    expect(workflow).toContain('artifact_path');
+    expect(workflow).toContain('needs.verify.outputs.verified_sha');
+    expect(workflow).toContain('needs.verify.outputs.artifact_name');
+    expect(workflow).toContain('needs.verify.outputs.artifact_path');
+    expect(workflow).toContain('actions/upload-artifact');
+    expect(workflow).toContain('actions/download-artifact');
+    expect(workflow).toContain('ref: ${{ needs.verify.outputs.verified_sha }}');
+    expect(workflow).toContain('tar -czf');
+    expect(workflow).toContain('npm prune --omit=dev');
     expect(workflow).toContain('needs.verify.outputs.verified_sha');
     expect(workflow).toContain('PRODUCTION_GIT_SHA');
+    expect(workflow).toContain('PRODUCTION_ARTIFACT_PATH');
     expect(workflow).toContain('PRODUCTION_SSH_KNOWN_HOSTS');
   });
 
@@ -47,17 +56,22 @@ describe('US-15 production delivery workflow', () => {
     expect(workflow).toContain('npm run test:smoke');
   });
 
-  it('deploy script는 mutable ref pull 대신 verified sha를 checkout 해야 한다', () => {
+  it('deploy script는 verified artifact만 서버에 반영하고 서버에서 npm ci나 build를 수행하지 않아야 한다', () => {
     const script = readRepositoryFile('scripts/deploy-production.sh');
 
     expect(script).toContain('PRODUCTION_GIT_SHA');
+    expect(script).toContain('PRODUCTION_ARTIFACT_PATH');
+    expect(script).toContain('scp');
     expect(script).toContain('export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"');
     expect(script).toContain('source "${NVM_DIR}/nvm.sh"');
     expect(script).toContain('command -v node >/dev/null');
-    expect(script).toContain('command -v npm >/dev/null');
     expect(script).toContain('command -v pm2 >/dev/null');
-    expect(script).toContain('git fetch origin --tags');
-    expect(script).toContain('git checkout --detach');
+    expect(script).toContain('tar -xzf');
+    expect(script).not.toContain('command -v npm >/dev/null');
+    expect(script).not.toContain('git fetch origin --tags');
+    expect(script).not.toContain('git checkout --detach');
+    expect(script).not.toContain('npm ci');
+    expect(script).not.toContain('npm run build');
     expect(script).not.toContain('git pull --ff-only origin');
   });
 
@@ -86,6 +100,7 @@ describe('US-15 production delivery workflow', () => {
 
     expect(runbook).toContain('PRODUCTION_SSH_KNOWN_HOSTS');
     expect(runbook).toContain('검증된 commit SHA');
+    expect(runbook).toContain('artifact');
     expect(runbook).toContain('branch, tag, commit SHA');
   });
 });
