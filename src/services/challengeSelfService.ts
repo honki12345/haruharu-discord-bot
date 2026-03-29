@@ -5,6 +5,7 @@ import {
   createChallengeUserExclusion,
   countUserVacationLogs,
   createVacationLog,
+  deleteChallengeUser,
   findChallengeUser,
   findChallengeUserExclusion,
   findVacationLog,
@@ -228,6 +229,14 @@ const prepareRegister = async ({
     return { reply: '기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요' };
   }
 
+  const membership = await findWakeUpMembership(userId);
+  const currentMonthExclusion =
+    membership?.status === 'stopped' ? await findChallengeUserExclusion(userId, yearmonth) : null;
+
+  if (membership?.status === 'stopped' && currentMonthExclusion) {
+    return { reply: '이번 달에 중단한 기상스터디는 다음 달부터 다시 등록할 수 있습니다' };
+  }
+
   const existingChange = await findWaketimeChangeLog(userId, yearmonthday);
   if (existingChange) {
     return { reply: 'register는 하루에 한 번만 변경할 수 있습니다' };
@@ -406,16 +415,28 @@ const executeApplyVacation = async ({
   return { reply: `${user.username}님 ${yearmonthday} 휴가를 등록했습니다` };
 };
 
-const prepareStopWakeUp = async ({ userId }: { userId: string }): Promise<CommandResult | { userId: string }> => {
+const prepareStopWakeUp = async ({
+  userId,
+}: {
+  userId: string;
+}): Promise<CommandResult | { userId: string; currentYearmonth: string }> => {
+  const { year, month } = getYearMonthDate();
+  const currentYearmonth = getYearMonth(year, month);
   const membership = await findWakeUpMembershipWithLegacyBackfill(userId);
   if (!membership || membership.status !== 'active') {
     return { reply: '현재 진행 중인 기상스터디 참여가 없습니다' };
   }
 
-  return { userId };
+  return { userId, currentYearmonth };
 };
 
-const persistStopWakeUp = async ({ userId }: { userId: string }): Promise<CommandResult> => {
+const persistStopWakeUp = async ({
+  userId,
+  currentYearmonth,
+}: {
+  userId: string;
+  currentYearmonth: string;
+}): Promise<CommandResult> => {
   const membership = await findWakeUpMembership(userId);
   if (!membership || membership.status !== 'active') {
     return { reply: '현재 진행 중인 기상스터디 참여가 없습니다' };
@@ -425,9 +446,11 @@ const persistStopWakeUp = async ({ userId }: { userId: string }): Promise<Comman
     status: 'stopped',
     stoppedat: new Date().toISOString(),
   });
+  await createChallengeUserExclusion(userId, currentYearmonth);
+  await deleteChallengeUser(userId, currentYearmonth);
 
   return {
-    reply: '기상스터디 참여를 중단했습니다. 현재 월 기록은 유지되고 다음 달부터 자동 등록되지 않습니다',
+    reply: '기상스터디 참여를 중단했습니다. 이번 달 참여는 즉시 중단되며 다음 달부터 다시 등록할 수 있습니다',
   };
 };
 
