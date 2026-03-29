@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Client } from 'discord.js';
+import { Client, GatewayIntentBits } from 'discord.js';
 
 vi.mock('../repository/Users.js', () => ({
   Users: {
@@ -78,8 +78,15 @@ describe('US-14 bot boot smoke', () => {
     expect(loginSpy).not.toHaveBeenCalled();
     expect(client.commands.size).toBeGreaterThan(0);
     expect(client.commands.has('ping')).toBe(true);
+    expect(client.options.intents.has(GatewayIntentBits.GuildMembers)).toBe(true);
     expect(client.eventNames()).toEqual(
-      expect.arrayContaining(['clientReady', 'interactionCreate', 'messageCreate', 'voiceStateUpdate']),
+      expect.arrayContaining([
+        'clientReady',
+        'guildMemberUpdate',
+        'interactionCreate',
+        'messageCreate',
+        'voiceStateUpdate',
+      ]),
     );
 
     client.destroy();

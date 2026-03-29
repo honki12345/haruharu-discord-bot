@@ -34,21 +34,22 @@ sequenceDiagram
 
 ---
 
-### US-15: 역할 기반 참여 신청과 승인
+### US-15: 역할 기반 self-service 참여 활성화
 
 ```
 AS A 서버 사용자
-I WANT TO /기상인증신청 또는 /캠스터디신청 으로 직접 신청하고 운영자 승인을 받고 싶다
-SO THAT 승인된 프로그램의 전용 채널만 자동으로 열리길 원한다
+I WANT TO /apply-wakeup 또는 /apply-cam 으로 바로 참여를 활성화하고 싶다
+SO THAT 운영자 개입 없이 필요한 전용 채널 접근이 즉시 열리길 원한다
 ```
 
 **인수 조건:**
 
-- `/기상인증신청` (`/apply-wakeup`), `/캠스터디신청` (`/apply-cam`)은 `#apply`에서만 실행된다
-- 신청 응답은 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
-- 신청 시 운영 채널에 승인/거절용 안내가 전송된다
-- 운영자가 승인하면 해당 역할이 자동 부여된다
-- 운영자가 거절하면 거절 사유와 재신청 안내가 사용자에게 전달된다
+- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행된다
+- 활성화 결과는 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
+- `/apply-wakeup` 성공 시 `@wake-up` 역할과 `ParticipationApplication.status=approved`가 즉시 반영된다
+- `/apply-cam` 성공 시 `@cam-study` 역할, `ParticipationApplication.status=approved`, `CamStudyUsers`가 즉시 반영된다
+- 캠스터디는 이후 수동 역할 부여/회수도 `guildMemberUpdate`로 감지해서 `CamStudyUsers`를 계속 동기화한다
+- `/approve-application`, `/reject-application`은 deprecated 상태로 남고 참여 상태는 더 이상 변경하지 않는다
 
 ```mermaid
 sequenceDiagram
@@ -56,25 +57,16 @@ sequenceDiagram
     participant A as #apply
     participant B as Bot
     participant DB as SQLite
-    participant O as #ops
     participant D as Discord Role
 
     U->>A: /기상인증신청 또는 /캠스터디신청
     A->>B: InteractionCreate 이벤트
-    B->>DB: ParticipationApplication 조회/생성
-    B-->>U: ephemeral "신청이 접수되었어요"
-    B->>O: 승인/거절 안내 전송
-
-    alt 운영자가 승인
-        O->>B: /admin-신청승인
-        B->>DB: status = approved
-        B->>D: 역할 부여
-        B-->>U: 승인 안내
-    else 운영자가 거절
-        O->>B: /admin-신청거절
-        B->>DB: status = rejected
-        B-->>U: 거절 사유 + 재신청 안내
+    B->>D: 역할 부여
+    B->>DB: ParticipationApplication status = approved
+    opt program = cam-study
+        B->>DB: CamStudyUsers upsert
     end
+    B-->>U: ephemeral "참여가 바로 활성화되었어요"
 ```
 
 ---
@@ -415,37 +407,33 @@ sequenceDiagram
 
 ## 캠스터디 (Cam Study)
 
-### US-7: 캠스터디 등록
+### US-7: 캠스터디 역할 기반 등록
 
 ```
-AS A 관리자
-I WANT TO 사용자를 캠스터디에 등록
-SO THAT 해당 사용자의 학습 시간이 추적된다
+AS A 캠스터디 참여 사용자
+I WANT TO `@cam-study` 역할을 받으면 별도 관리자 명령 없이 자동으로 등록되고 싶다
+SO THAT 실제 채널 접근 권한과 학습 추적 대상이 항상 일치한다
 ```
 
 **인수 조건:**
 
-- 사용자 ID와 이름을 입력받는다
-- 중복 등록 불가
+- `@cam-study` 역할 부여 시 `CamStudyUsers`에 자동 등록된다
+- 이미 등록된 사용자면 중복 생성 대신 표시 이름을 갱신한다
+- `/register-cam`은 deprecated 상태로 남고 역할 기반 흐름을 안내만 한다
 
 ```mermaid
 sequenceDiagram
-    participant A as 관리자
-    participant D as Discord
+    participant U as 사용자
+    participant O as 운영진 또는 온보딩 흐름
+    participant D as Discord Role
     participant B as Bot
     participant DB as SQLite
 
-    A->>D: /admin-캠스터디등록 사용자id:USER 이름:홍길동
-
-    D->>B: InteractionCreate 이벤트
-
-    B->>DB: CamStudyUsers 조회 (userid)
-    alt 이미 등록됨
-        B-->>A: "이미 등록된 사용자입니다"
-    end
-
-    B->>DB: CamStudyUsers 생성
-    B-->>A: "홍길동님을 캠스터디 참가자로 등록했습니다"
+    U->>O: 캠스터디 권한 획득
+    O->>B: /apply-cam 또는 역할 부여 실행
+    B->>D: @cam-study 역할 부여
+    B->>DB: CamStudyUsers upsert
+    B-->>U: 별도 관리자 등록 없이 추적 대상 포함
 ```
 
 ---
@@ -611,37 +599,35 @@ sequenceDiagram
 
 ---
 
-### US-11: 캠스터디 탈퇴
+### US-11: 캠스터디 역할 회수 기반 탈퇴
 
 ```
-AS A 관리자
-I WANT TO 사용자를 캠스터디에서 삭제
-SO THAT 해당 사용자의 학습 시간 추적이 중단된다
+AS A 캠스터디 참가자
+I WANT TO `@cam-study` 역할이 회수되면 자동으로 추적 대상에서 빠지고 싶다
+SO THAT 권한이 없는 사용자의 학습 시간이 계속 기록되지 않는다
 ```
 
 **인수 조건:**
 
-- 등록된 사용자만 삭제 가능
-- 기존 학습 기록은 유지됨
+- `@cam-study` 역할이 제거되면 `CamStudyUsers`에서 자동 해제된다
+- 단, 이미 진행 중인 캠스터디 세션이 있으면 종료 이벤트까지는 임시로 유지되고 종료 직후 해제된다
+- 기존 학습 기록은 유지된다
+- `/delete-cam`은 deprecated 상태로 남고 역할 회수 흐름을 안내만 한다
 
 ```mermaid
 sequenceDiagram
-    participant A as 관리자
-    participant D as Discord
+    participant U as 참가자
+    participant O as 운영진 또는 온보딩 흐름
+    participant D as Discord Role
     participant B as Bot
     participant DB as SQLite
 
-    A->>D: /delete-cam userid:USER
-
-    D->>B: InteractionCreate 이벤트
-
-    B->>DB: CamStudyUsers 조회 (userid)
-    alt 미등록 사용자
-        B-->>A: "cam-study 삭제 실패: 존재하지 않는 회원입니다"
-    end
-
-    B->>DB: CamStudyUsers 삭제
-    B-->>A: "홍길동님을 캠스터디 참가자에서 삭제했습니다"
+    U->>O: 캠스터디 역할 회수 요청 또는 운영 해제
+    O->>D: @cam-study 역할 제거
+    D->>B: guildMemberUpdate 이벤트
+    B->>DB: 활성 세션 없으면 즉시 삭제
+    B->>DB: 활성 세션이면 종료 직후 삭제
+    B-->>U: 이미 시작한 세션은 마무리하고 새 세션부터 추적 대상 제외
 ```
 
 ---
