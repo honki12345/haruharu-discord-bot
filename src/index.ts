@@ -17,6 +17,7 @@ export interface Command {
   data: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder | SlashCommandSubcommandsOnlyBuilder;
   execute: (interaction: ChatInputCommandInteraction) => Promise<unknown>;
   cooldown?: number;
+  allowedChannelIds?: string[];
 }
 
 export class MyClient extends Client {

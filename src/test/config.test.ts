@@ -26,6 +26,10 @@ describe('config.ts', () => {
               logChannelId: 'log-channel',
               resultChannelId: 'result-channel',
               voiceChannelId: 'voice-channel',
+              applyChannelId: 'apply-channel',
+              opsChannelId: 'ops-channel',
+              wakeUpRoleId: 'wake-up-role',
+              camStudyRoleId: 'cam-study-role',
             };
           }
 
@@ -55,6 +59,10 @@ describe('config.ts', () => {
               logChannelId: 'log-channel',
               resultChannelId: 'result-channel',
               voiceChannelId: 'voice-channel',
+              applyChannelId: 'apply-channel',
+              opsChannelId: 'ops-channel',
+              wakeUpRoleId: 'wake-up-role',
+              camStudyRoleId: 'cam-study-role',
             };
           }
 
@@ -81,6 +89,17 @@ describe('config.ts', () => {
               token: 'token',
               clientId: 'client-id',
               guildId: 'guild-id',
+              applyChannelId: 'apply-channel',
+              opsChannelId: 'ops-channel',
+              wakeUpRoleId: 'wake-up-role',
+              camStudyRoleId: 'cam-study-role',
+              noticeChannelId: 'notice-channel',
+              vacancesRegisterChannelId: 'vacances-channel',
+              checkChannelId: 'check-channel',
+              testChannelId: 'test-channel',
+              logChannelId: 'log-channel',
+              resultChannelId: 'result-channel',
+              voiceChannelId: 'voice-channel',
             };
           }
 

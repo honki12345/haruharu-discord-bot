@@ -61,6 +61,7 @@
 - Discord client 생성과 커맨드/이벤트 동적 로딩만 담당한다.
 - 새 기능의 비즈니스 로직을 직접 넣지 말고 `commands`, `events`, `repository`, `utils`로 분리한다.
 - 커맨드 모듈은 `export const command`, 이벤트 모듈은 `export const event` 형태를 유지한다.
+- 특정 채널에서만 실행되어야 하는 슬래시 커맨드는 `allowedChannelIds` 메타데이터로 제한하고, 실제 채널 ID는 `config.json`에서 읽는다.
 
 ### `src/commands/haruharu`
 
@@ -73,6 +74,7 @@
 - Discord 입력 파싱, 권한 검증, 응답 메시지 처리는 커맨드 안에서 수행한다.
 - DB 접근은 직접 Sequelize 쿼리를 쓰더라도 repository 모델을 통해서만 접근한다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
+- 역할 기반 운영 흐름을 추가할 때는 `#apply` 같은 신청 채널과 `#ops` 같은 운영 채널을 분리하고, 신청 응답은 가능하면 `ephemeral`로 처리한다.
 
 ### `src/events`
 
@@ -81,6 +83,7 @@
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅을 담당한다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
+- `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#apply`/`#ops` 같은 전용 채널에 묶이는지 문서에 남긴다.
 
 ### `src/daily-attendance.ts`
 
@@ -93,6 +96,7 @@
 - Sequelize 모델은 파일당 모델 하나를 유지한다.
 - 모델 클래스명과 export 이름은 PascalCase를 사용한다.
 - thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 레거시 `/check-in`, `/check-out` 기록용으로 유지한다.
+- 역할 기반 온보딩/신청 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하고, 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 책임을 분리한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
   - `docs/PROJECT.md`의 테이블 설명
@@ -127,6 +131,7 @@
 
 - TypeScript ESM import 경로는 현재 코드베이스처럼 `.js` 확장자를 명시한다.
 - 설정값은 `config.json`에서 읽으며, 현재 패턴대로 `createRequire(import.meta.url)` 사용을 우선한다.
+- 역할 기반 접근 제어를 추가할 때는 채널 ID와 역할 ID를 `config.json`에 명시하고, 코드에서는 하드코딩하지 않는다.
 - 로깅은 `console.log`보다 `src/logger.ts`의 `logger` 사용을 우선한다. 단, 부팅 로더 수준의 단순 진단 출력은 기존 패턴을 따른다.
 - 날짜/시간 계산과 상수는 가능한 한 `src/utils.ts`에 모은다.
 - daily message 질문 정책은 `src/daily-message.ts`, 운영 daily message/thread 생성 규칙은 `src/daily-attendance.ts`에 모은다.
@@ -243,6 +248,7 @@
 ## 문서 갱신 기준
 
 - 새 슬래시 커맨드 추가: `AGENTS.md`, `docs/PROJECT.md`, 필요 시 `docs/USER_STORIES.md`
+- 역할 기반 신청/승인 흐름 추가: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`
 - 이벤트 흐름 변경: `AGENTS.md`, `docs/PROJECT.md`
 - DB 컬럼/테이블 변경: `AGENTS.md`, `docs/PROJECT.md`, 관련 테스트
 - 정책/운영 규칙 변경: `AGENTS.md`, 해당 정책 문서

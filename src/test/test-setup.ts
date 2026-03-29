@@ -250,6 +250,10 @@ vi.mock('node:module', async importOriginal => {
           voiceChannelId: 'valid-voice-channel-id',
           logChannelId: 'valid-log-channel-id',
           resultChannelId: 'valid-result-channel-id',
+          applyChannelId: 'valid-apply-channel-id',
+          opsChannelId: 'valid-ops-channel-id',
+          wakeUpRoleId: 'valid-wake-up-role-id',
+          camStudyRoleId: 'valid-cam-study-role-id',
         };
       }
       return original.createRequire(import.meta.url)(path);
@@ -282,8 +286,23 @@ interface MockInteractionOptions {
   globalName?: string;
   options?: Record<string, string | null>;
   attachment?: { url: string; name: string; contentType: string } | null;
+  member?: {
+    roles: {
+      add: ReturnType<typeof vi.fn>;
+      remove: ReturnType<typeof vi.fn>;
+    };
+    send: ReturnType<typeof vi.fn>;
+  };
+  guild?: {
+    members: {
+      fetch: ReturnType<typeof vi.fn>;
+    };
+  };
   client?: {
     channels: {
+      fetch: ReturnType<typeof vi.fn>;
+    };
+    users?: {
       fetch: ReturnType<typeof vi.fn>;
     };
   };
@@ -291,6 +310,18 @@ interface MockInteractionOptions {
 
 export function createMockInteraction(opts: MockInteractionOptions = {}) {
   const replies: Array<string | { content: string; ephemeral?: boolean }> = [];
+  const member = opts.member ?? {
+    roles: {
+      add: vi.fn(),
+      remove: vi.fn(),
+    },
+    send: vi.fn(),
+  };
+  const guild = opts.guild ?? {
+    members: {
+      fetch: vi.fn().mockResolvedValue(member),
+    },
+  };
 
   return {
     channelId: opts.channelId ?? 'valid-channel-id',
@@ -298,6 +329,8 @@ export function createMockInteraction(opts: MockInteractionOptions = {}) {
       id: opts.userId ?? 'test-user-id',
       globalName: opts.globalName ?? '테스트유저',
     },
+    member,
+    guild,
     options: {
       getString: (name: string) => opts.options?.[name] ?? null,
       getAttachment: () => opts.attachment ?? null,
@@ -305,6 +338,9 @@ export function createMockInteraction(opts: MockInteractionOptions = {}) {
     client: opts.client ?? {
       channels: {
         fetch: vi.fn(),
+      },
+      users: {
+        fetch: vi.fn().mockResolvedValue(member),
       },
     },
     reply: async (content: string | { content: string; ephemeral?: boolean }) => {
