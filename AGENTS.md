@@ -73,6 +73,9 @@
   - `async execute(interaction)`
 - Discord 입력 파싱, 권한 검증, 응답 메시지 처리는 커맨드 안에서 수행한다.
 - DB 접근은 직접 Sequelize 쿼리를 쓰더라도 repository 모델을 통해서만 접근한다.
+- 사용자 self-service 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 변경해야 한다.
+- 기상시간 self-service는 `/register` 하나로 신규 등록과 수정(upsert)을 처리하되 하루 1회 제한을 지켜야 한다.
+- 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
 - 역할 기반 운영 흐름을 추가할 때는 `#apply` 같은 신청 채널과 `#ops` 같은 운영 채널을 분리하고, 신청 응답은 가능하면 `ephemeral`로 처리한다.
 
@@ -95,7 +98,9 @@
 
 - Sequelize 모델은 파일당 모델 하나를 유지한다.
 - 모델 클래스명과 export 이름은 PascalCase를 사용한다.
-- thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 레거시 `/check-in`, `/check-out` 기록용으로 유지한다.
+- thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 전환 기간 집계 fallback 및 과거 레거시 데이터 호환용으로 유지한다.
+- 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
+- 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
 - 역할 기반 온보딩/신청 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하고, 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 책임을 분리한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
@@ -251,6 +256,7 @@
 - 역할 기반 신청/승인 흐름 추가: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`
 - 이벤트 흐름 변경: `AGENTS.md`, `docs/PROJECT.md`
 - DB 컬럼/테이블 변경: `AGENTS.md`, `docs/PROJECT.md`, 관련 테스트
+- self-service 정책 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `README.md`
 - 정책/운영 규칙 변경: `AGENTS.md`, 해당 정책 문서
 - 구현 계획 문서 추가/수정: `AGENTS.md`, `docs/plan/*`
 - GitHub 이슈/PR 프로세스 변경: `AGENTS.md`, `.github/*`, 필요 시 `docs/pull_request_template.md`
