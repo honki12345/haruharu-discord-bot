@@ -26,7 +26,7 @@
 | 채널             | 역할                                     | 비고                                                 |
 | ---------------- | ---------------------------------------- | ---------------------------------------------------- |
 | `#start-here`    | 환영 및 서버 소개                        | 읽기 전용 권장, everyone 공개                        |
-| `#apply`         | 참여 방법 안내 및 self-service 명령 실행 | `/apply-wakeup`, `/apply-cam`, 일반 메시지 금지      |
+| `#apply`         | 참여 방법 안내 및 self-service 명령 실행 | `/apply-cam`, 일반 메시지 금지                       |
 | `#qna`           | 질문/응답                                | everyone 공개 문의 채널                              |
 | `#announcements` | 운영 공지                                | everyone 열람, 관리자 전용 작성 권장                 |
 | `#ops`           | 운영 공지 및 관리자 처리                 | 관리자 전용                                          |
@@ -42,7 +42,7 @@
 | `#apply`      | 고정 안내        | 참여 방법과 신청 명령어 고정 안내                                      | 운영 수동 관리, `USER_STORIES`             |
 | `#wake-up`    | 반복 자동 메시지 | 매일 06:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내 | `src/daily-attendance.ts`                  |
 | `#wake-up`    | 반복 자동 메시지 | 평일 13:00 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영           | `src/services/reporting.ts`                |
-| `#ops`        | 반복 운영 메시지 | 신청 승인/거절 안내와 운영 처리 메시지                                 | `src/services/participationApplication.ts` |
+| `#ops`        | 반복 운영 메시지 | deprecated 운영 명령 안내와 기타 운영 처리 메시지                      | `src/services/participationApplication.ts` |
 
 ---
 
@@ -64,9 +64,9 @@ haruharu-discord-bot/
 │   │
 │   ├── commands/
 │   │   └── haruharu/
-│   │       ├── register.ts      # 사용자 기상 챌린지 등록/수정
+│   │       ├── register.ts      # 사용자 기상 챌린지 시작/재시작 및 기상시간 등록/수정
+│   │       ├── stop-wakeup.ts   # 사용자 기상 챌린지 중단
 │   │       ├── apply-vacation.ts # 사용자 휴가 등록
-│   │       ├── apply-wakeup.ts  # 사용자 기상인증 참여 신청
 │   │       ├── apply-cam.ts     # 사용자 캠스터디 참여 신청
 │   │       ├── add-vacances.ts  # 휴가 추가
 │   │       ├── approve-application.ts # deprecated: 자동 활성화 안내
@@ -104,6 +104,8 @@ haruharu-discord-bot/
 │       ├── CamStudyTimeLog.ts   # 일간 학습 로그 모델
 │       ├── CamStudyWeeklyTimeLog.ts # 주간 학습 로그 모델
 │       ├── ParticipationApplication.ts # 역할 기반 신청 상태 모델
+│       ├── WakeUpMembership.ts   # 기상 챌린지 상시 참여 상태 모델
+│       ├── ChallengeUserExclusion.ts # 관리자 월별 삭제 exclusion 모델
 │       ├── challengeRepository.ts   # 기상 챌린지 조회/갱신 헬퍼
 │       └── camStudyRepository.ts    # 캠스터디 조회/갱신 헬퍼
 │
@@ -145,18 +147,23 @@ haruharu-discord-bot/
 
 #### 기상 챌린지 커맨드
 
-| 내부 key          | 한국어 표시명(ko)   | 권한   | 설명                                 |
-| ----------------- | ------------------- | ------ | ------------------------------------ |
-| `/register`       | `/기상등록`         | 사용자 | 자신의 현재 월 기상 챌린지 등록/수정 |
-| `/apply-vacation` | `/휴가신청`         | 사용자 | 자신의 특정 날짜 휴가 등록           |
-| `/add-vacances`   | `/admin-휴가추가`   | 관리자 | 휴가일수 추가                        |
-| `/delete`         | `/admin-챌린저삭제` | 관리자 | 챌린저 삭제                          |
+| 내부 key          | 한국어 표시명(ko)   | 권한   | 설명                                       |
+| ----------------- | ------------------- | ------ | ------------------------------------------ |
+| `/register`       | `/기상등록`         | 사용자 | 기상 참여 시작/재시작과 기상시간 등록/수정 |
+| `/stop-wakeup`    | `/기상중단`         | 사용자 | 기상 챌린지 상시 참여 중단                 |
+| `/apply-vacation` | `/휴가신청`         | 사용자 | 자신의 특정 날짜 휴가 등록                 |
+| `/add-vacances`   | `/admin-휴가추가`   | 관리자 | 휴가일수 추가                              |
+| `/delete`         | `/admin-챌린저삭제` | 관리자 | 챌린저 삭제                                |
+
+비고:
+
+- `/apply-wakeup` 는 더 이상 등록하지 않는다.
+- 배포 전환 중 stale `/apply-wakeup` 슬래시 등록이 남아 있으면 `interactionCreate.ts`가 `/register` 사용 안내를 ephemeral 응답으로 돌려준다.
 
 #### 역할 기반 참여 신청 커맨드
 
 | 내부 key               | 한국어 표시명(ko) | 권한   | 설명                         |
 | ---------------------- | ----------------- | ------ | ---------------------------- |
-| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 참여 즉시 활성화    |
 | `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 즉시 활성화    |
 | `/approve-application` | `/admin-신청승인` | 관리자 | deprecated: 자동 활성화 안내 |
 | `/reject-application`  | `/admin-신청거절` | 관리자 | deprecated: 자동 활성화 안내 |
@@ -185,18 +192,25 @@ haruharu-discord-bot/
 | ------------- | ----------------- | ---- | -------------------------- |
 | waketime      | 기상시간          | O    | 기상시간 (HHmm, 0500~0900) |
 
+비고:
+
+- `WakeUpMembership`를 생성 또는 재활성화하고, 현재 월 `Users` 스냅샷이 없으면 자동 생성한다.
+- 같은 날 두 번째 변경은 `WaketimeChangeLog`로 거부한다.
+
+#### `/stop-wakeup` (`/기상중단`)
+
+- 별도 파라미터 없음
+- 현재 월 기록은 유지하고, 이후 월 `Users` 자동 생성만 중단한다.
+- `WakeUpMembership` 이 아직 없고 latest `Users` 스냅샷만 있는 legacy 참가자도 backfill 후 중단 처리한다.
+
 #### `/apply-vacation` (`/휴가신청`)
 
 | 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                      |
 | ------------- | ----------------- | ---- | ------------------------- |
 | date          | 날짜              | O    | 휴가 대상 날짜 (yyyymmdd) |
 
-#### `/apply-wakeup` (`/기상인증신청`)
-
-- 별도 파라미터 없음
-- `#apply` 채널에서만 실행 가능
-- 다른 채널에서는 `#apply` 사용과 `#qna` 문의 채널을 안내하는 `ephemeral` 메시지로 종료
-- 이미 활성화된 사용자가 다시 실행하면 `/register` 다음 행동을 다시 안내
+- 현재 월 날짜만 신청할 수 있다.
+- 활성 membership 이 있고 현재 월 `Users` 스냅샷이 없으면 자동 생성 후 처리한다.
 
 #### `/apply-cam` (`/캠스터디신청`)
 
@@ -230,9 +244,13 @@ haruharu-discord-bot/
 
 #### `/delete` (`/admin-챌린저삭제`)
 
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
-| ------------- | ----------------- | ---- | ----------------- |
-| userid        | 사용자id          | O    | Discord 사용자 ID |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명               |
+| ------------- | ----------------- | ---- | ------------------ |
+| userid        | 사용자id          | O    | Discord 사용자 ID  |
+| yearmonth     | 년월              | O    | 대상 년월 (yyyymm) |
+
+- 관리자 삭제는 해당 `(userid, yearmonth)` 월 스냅샷을 제거하고 exclusion 으로 기록한다.
+- 같은 달 리포트/휴가/출석 경로의 자동 스냅샷 생성은 이 exclusion 을 존중해 사용자를 다시 만들지 않는다.
 
 #### `/delete-cam` (`/admin-캠스터디삭제`)
 
@@ -253,10 +271,10 @@ haruharu-discord-bot/
 
 #### ready.ts
 
-| 항목   | 내용                                                                                                                                                                                                                 |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                 |
-| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
+| 항목   | 내용                                                                                                                                                                                                                                                               |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                                                               |
+| 기능   | DB 테이블 동기화(`WakeUpMembership`, `ChallengeUserExclusion`, `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
 
 **스케줄러:**
 
@@ -338,7 +356,8 @@ flowchart TD
 **채널 라우팅 메모:**
 
 - 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
-- `/apply-wakeup`, `/apply-cam`은 `#apply` 전용 채널에서만 실행된다.
+- stale `/apply-wakeup` interaction 이 들어오면 커맨드 미존재 오류로 끝내지 않고 `/register` migration 안내를 ephemeral 응답으로 반환한다.
+- `/apply-cam`은 `#apply` 전용 채널에서만 실행된다.
 - `/approve-application`, `/reject-application`은 deprecated 상태로 `#ops`에서만 남아 있고 실제 참여 상태는 바꾸지 않는다.
 - `/register-cam`, `/delete-cam`은 deprecated 상태로 `#ops`에서만 남아 있으며 역할 기반 운영 흐름만 안내한다.
 
@@ -410,27 +429,27 @@ flowchart TD
 
 #### challengeSelfService.ts
 
-| 항목   | 내용                                                                                                             |
-| ------ | ---------------------------------------------------------------------------------------------------------------- |
-| 역할   | 사용자 직접 `/register` upsert 와 휴가 등록 정책 처리                                                            |
-| 담당   | 사용자 기준 등록/수정, 기상시간 범위 검증, register 하루 1회 변경 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
-| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/apply-vacation.ts`                                   |
+| 항목   | 내용                                                                                                                                                                                                                                                                                                      |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                                                                                                                           |
+| 담당   | `WakeUpMembership` 생성/재활성화/중단, latest `Users` 기반 membership backfill, legacy 참가자의 `/stop-wakeup` 중단 처리, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 현재 월 휴가 날짜 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                                                                                                                                    |
 
 #### participationApplication.ts
 
-| 항목   | 내용                                                                                                                                                                         |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | self-service 참여 활성화, 역할 부여, deprecated 운영 명령 안내                                                                                                               |
-| 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 신청 즉시 `approved` 반영, 캠스터디 자동 활성화 시 `CamStudyUsers` upsert, 실패 시 role/db rollback |
-| 호출처 | `src/commands/haruharu/apply-wakeup.ts`, `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts` |
+| 항목   | 내용                                                                                                                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | self-service 참여 활성화, 역할 부여, deprecated 운영 명령 안내                                                                                                                                                |
+| 담당   | `ParticipationApplication` 조회/갱신, `@cam-study` 역할 매핑, `/apply-cam` 즉시 `approved` 반영, 캠스터디 자동 활성화 시 `CamStudyUsers` upsert, 실패 시 role/db rollback, deprecated 관리자 명령 가이드 응답 |
+| 호출처 | `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts`                                                                           |
 
 #### reporting.ts
 
-| 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                                                                                                                                                                                                                                                                                                                           |
-| 담당   | `Users`/`TimeLog`/`AttendanceLog`/`ParticipationApplication` 등 모델 sync, `AttendanceLog` 단일 원본 기반 기상 챌린지 출석표 생성, 휴가일 결석 제외 처리, 무댓글 사용자 결석 확정, 오늘 상태와 월 누적 `latecount` / `absencecount` / 잔여휴가를 함께 표시하는 결과표 생성, Discord 2000자 제한 초과 시 결과표 분할 전송, 월말 생존 명단 생성, 캠스터디 일일 리포트 생성, 해당 주차 일간 로그 재계산 기반 주간 집계, 스케줄 중복 실행 방지 |
-| 호출처 | `src/events/ready.ts`                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 담당   | `WakeUpMembership`/`Users`/`TimeLog`/`AttendanceLog`/`ParticipationApplication` 등 모델 sync, 활성 기상 membership의 현재 월 `Users` 스냅샷 보장, `AttendanceLog` 단일 원본 기반 기상 챌린지 출석표 생성, 휴가일 결석 제외 처리, 무댓글 사용자 결석 확정, 오늘 상태와 월 누적 `latecount` / `absencecount` / 잔여휴가를 함께 표시하는 결과표 생성, Discord 2000자 제한 초과 시 결과표 분할 전송, 월말 생존 명단 생성, 캠스터디 일일 리포트 생성, 해당 주차 일간 로그 재계산 기반 주간 집계, 스케줄 중복 실행 방지 |
+| 호출처 | `src/events/ready.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 비고:
 
@@ -443,10 +462,28 @@ flowchart TD
 
 #### Repository helper 모듈
 
-| 파일                     | 역할                                                                                                         |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `challengeRepository.ts` | `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
-| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼     |
+| 파일                     | 역할                                                                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `challengeRepository.ts` | `WakeUpMembership`, `ChallengeUserExclusion`, `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
+| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼                                                   |
+
+#### WakeUpMembership (기상 챌린지 상시 참여 상태)
+
+| 컬럼      | 타입    | 설명                             |
+| --------- | ------- | -------------------------------- |
+| id        | INTEGER | PK, Auto Increment               |
+| userid    | STRING  | Discord 사용자 ID                |
+| username  | STRING  | 표시 이름                        |
+| waketime  | STRING  | 최근 `/register` 기상시간 (HHmm) |
+| status    | STRING  | `active` / `stopped`             |
+| stoppedat | STRING  | 중단 시각 ISO 문자열 또는 `null` |
+
+비고:
+
+- `(userid)` 조합은 UNIQUE이며 기상 챌린지 참여 상태를 사용자당 1건으로 유지한다.
+- `/register`가 이 테이블을 생성하거나 `stopped -> active`로 재활성화하고, 최근 등록 기상시간을 함께 갱신한다.
+- membership 이 아직 없는 레거시 운영 데이터는 최신 `Users.yearmonth` 스냅샷을 기준으로 자동 backfill 된다.
+- 일일 리포트와 휴가 self-service는 활성 membership의 현재 월 `Users` 스냅샷을 필요 시 자동 생성한다.
 
 #### Users (기상 챌린지 참가자)
 
@@ -460,6 +497,25 @@ flowchart TD
 | vacances     | INTEGER | 총 지급 휴가일수 (기본: 5) |
 | latecount    | INTEGER | 지각 횟수                  |
 | absencecount | INTEGER | 결석 횟수                  |
+
+비고:
+
+- `(userid, yearmonth)` 조합은 UNIQUE이며 같은 월 스냅샷 중복 생성을 막는다.
+- 활성 membership 자동 backfill 은 이 테이블과 월별 exclusion 을 함께 확인한 뒤 누락된 사용자만 생성한다.
+
+#### ChallengeUserExclusion (관리자 월별 삭제 exclusion)
+
+| 컬럼      | 타입    | 설명                    |
+| --------- | ------- | ----------------------- |
+| id        | INTEGER | PK, Auto Increment      |
+| userid    | STRING  | Discord 사용자 ID       |
+| yearmonth | STRING  | 제외 대상 년월 (yyyymm) |
+
+비고:
+
+- `(userid, yearmonth)` 조합은 UNIQUE이며 같은 달 exclusion 중복 생성을 막는다.
+- `/delete`는 이 테이블을 기록한 뒤 `Users` 월 스냅샷을 제거한다.
+- 자동 스냅샷 생성은 이 테이블에 있는 월을 건너뛰어 관리자 삭제가 같은 달 리포트에서 되살아나지 않도록 한다.
 
 #### TimeLog (출석 로그)
 
@@ -492,6 +548,8 @@ flowchart TD
 
 비고:
 
+- `Users`는 상시 membership 자체가 아니라 월별 집계 스냅샷이다.
+- 활성 `WakeUpMembership`과 유효한 `waketime`이 있을 때 현재 월 레코드가 자동 생성될 수 있다.
 - `(userid, yearmonthday)` 조합은 UNIQUE이며 같은 날짜 중복 등록을 막는다.
 - `Users.vacances` 총량과 별도로, 실제 사용한 휴가 날짜를 기록한다.
 - 잔여 휴가 수는 `vacances - VacationLog 월별 사용 건수`로 해석한다.
@@ -607,8 +665,8 @@ flowchart TD
 비고:
 
 - `(userid, program)` 조합은 UNIQUE이며 사용자별 프로그램 신청 상태를 1건으로 유지한다.
-- 현재 self-service 흐름에서는 `/apply-wakeup`, `/apply-cam` 실행 시 해당 row를 즉시 `approved`로 맞춘다.
-- 이 테이블은 역할 기반 접근 제어용 상태 테이블이며, 실제 기능 사용 등록 정보(`Users`, `CamStudyUsers`)와는 분리된다.
+- 현재 self-service 흐름에서는 `/apply-cam` 실행 시 해당 row를 즉시 `approved`로 맞춘다.
+- 이 테이블은 역할 기반 접근 제어용 상태를 남기며, 실제 기상 참여 상태는 `WakeUpMembership`, 실제 월별 집계는 `Users`, 캠스터디 등록 정보는 `CamStudyUsers`에서 관리한다.
 
 ---
 
@@ -683,15 +741,18 @@ flowchart TD
 ## 운영 메모
 
 - 사용자 직접 변경 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 수정한다.
-- `/register`는 사용자가 자신의 월별 기상시간을 신규 등록하거나 수정하는 단일 명령이다.
+- `/register`는 사용자가 기상 참여를 시작/재시작하고 기상시간을 등록/수정하는 단일 명령이다.
 - `/register`는 Discord 한국어 locale에서 `/기상등록`으로 표시된다.
 - `/register`는 같은 날 두 번째 변경을 거부한다.
-- `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산한다.
-- `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 날짜 단위(`yyyymmdd`)로 동작한다.
+- `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산하고 현재 월 `Users` 스냅샷을 보장한다.
+- `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 미래 월 자동 참여만 중단한다.
+- `/delete`는 지정한 `(userid, yearmonth)`를 exclusion 으로 기록해 같은 달 자동 스냅샷 생성이 사용자를 다시 만들지 않게 한다.
+- `/approve-application`, `/reject-application`은 deprecated 호환용이며 실제 참여 상태를 바꾸지 않는다.
+- `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 현재 월 날짜 단위(`yyyymmdd`)로 동작한다.
 - 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.
 - 데모 전용 커맨드는 Discord 한국어 locale에서 `admin-demo-...` 접두어로 표시된다.
-- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답한다.
-- `/apply-wakeup` 성공 뒤에도 실제 기상 챌린지 참가 데이터는 사용자가 `/register`로 기상시간을 넣어야 완성된다.
+- stale `/apply-wakeup` interaction 은 `#apply` 계열 잘못된 채널 안내 대신 `/register` migration 응답으로 종료한다.
+- `/apply-cam`은 `#apply`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답한다.
 - `/apply-cam` 성공 시 `@cam-study` 역할과 `CamStudyUsers`가 함께 맞춰지고, 이후 역할 변경은 `guildMemberUpdate`가 계속 동기화한다.
 - `/approve-application`, `/reject-application`은 `#ops`에서 deprecated 안내만 반환한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.

@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { classifyAttendanceStatus, getAttendanceStatusEmoji, getAttendanceStatusLabel } from '../attendance.js';
 import { logger } from '../logger.js';
 import { Users } from '../repository/Users.js';
+import { ensureWakeUpMembershipSnapshot } from '../services/challengeSelfService.js';
 
 const jsonRequire = createRequire(import.meta.url);
 const { testChannelId } = jsonRequire('../../config.json');
@@ -101,6 +102,7 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string)
     const createdAt = new Date(message.createdTimestamp);
     const year = createdAt.getFullYear();
     const month = String(createdAt.getMonth() + 1).padStart(2, '0');
+    await ensureWakeUpMembershipSnapshot(message.author.id, `${year}${month}`);
     const user = await Users.findOne({
       where: {
         userid: message.author.id,

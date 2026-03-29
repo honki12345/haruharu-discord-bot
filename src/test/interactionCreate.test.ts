@@ -12,7 +12,7 @@ describe('interactionCreate 이벤트', () => {
     const reply = vi.fn();
     const interaction = {
       isChatInputCommand: () => true,
-      commandName: 'apply-wakeup',
+      commandName: 'apply-cam',
       channel: {
         id: 'valid-channel-id',
       },
@@ -22,9 +22,9 @@ describe('interactionCreate 이벤트', () => {
       client: {
         commands: new Collection([
           [
-            'apply-wakeup',
+            'apply-cam',
             {
-              data: { name: 'apply-wakeup' },
+              data: { name: 'apply-cam' },
               allowedChannelIds: ['valid-apply-channel-id'],
               execute,
             },
@@ -46,5 +46,35 @@ describe('interactionCreate 이벤트', () => {
       ephemeral: true,
     });
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('stale /apply-wakeup interaction은 migration 안내로 응답한다', async () => {
+    const reply = vi.fn();
+    const interaction = {
+      isChatInputCommand: () => true,
+      commandName: 'apply-wakeup',
+      channel: {
+        id: 'valid-apply-channel-id',
+      },
+      user: {
+        id: 'user-1',
+      },
+      client: {
+        commands: new Collection(),
+        cooldowns: new Collection(),
+      },
+      reply,
+      replied: false,
+      deferred: false,
+      followUp: vi.fn(),
+    };
+
+    const { event } = await import('../events/interactionCreate.js');
+    await event.execute(interaction as never);
+
+    expect(reply).toHaveBeenCalledWith({
+      content: '`/apply-wakeup`는 더 이상 사용되지 않습니다. `/register`에서 기상시간을 입력해 참여해 주세요.',
+      ephemeral: true,
+    });
   });
 });

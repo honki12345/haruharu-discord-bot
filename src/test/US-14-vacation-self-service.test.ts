@@ -3,7 +3,14 @@
  * 사용자는 /apply-vacation 명령어로 자신의 휴가를 직접 관리한다.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { testSequelize, TestUsers, TestVacationLog, clearAllTables, createMockInteraction } from './test-setup.js';
+import {
+  testSequelize,
+  TestUsers,
+  TestVacationLog,
+  TestWakeUpMembership,
+  clearAllTables,
+  createMockInteraction,
+} from './test-setup.js';
 
 describe('US-14: 사용자 휴가 등록 self-service 커맨드', () => {
   beforeAll(async () => {
@@ -116,5 +123,36 @@ describe('US-14: 사용자 휴가 등록 self-service 커맨드', () => {
 
     expect(vacationLog).toBeNull();
     expect(interaction.getLastReply()).toContain('잔여 휴가가 없습니다');
+  });
+
+  it('TC-VS04: 현재 월이 아닌 날짜로는 휴가를 신청할 수 없다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'self-user',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+    });
+
+    const interaction = createMockInteraction({
+      userId: 'self-user',
+      options: {
+        date: '20260108',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/apply-vacation.js');
+    await command.execute(interaction as never);
+
+    const currentMonthUser = await TestUsers.findOne({
+      where: { userid: 'self-user', yearmonth: '202601' },
+    });
+    const vacationLog = await TestVacationLog.findOne({
+      where: { userid: 'self-user', yearmonthday: '20260108' },
+    });
+
+    expect(currentMonthUser).toBeNull();
+    expect(vacationLog).toBeNull();
+    expect(interaction.getLastReply()).toContain('현재 월 날짜만');
   });
 });

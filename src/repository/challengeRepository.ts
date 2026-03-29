@@ -1,14 +1,27 @@
 import { Op } from 'sequelize';
 import { sequelize } from './config.js';
 import { AttendanceLog } from './AttendanceLog.js';
+import { ChallengeUserExclusion } from './ChallengeUserExclusion.js';
 import { TimeLog } from './TimeLog.js';
 import { Users } from './Users.js';
 import { VacationLog } from './VacationLog.js';
+import { WakeUpMembership } from './WakeUpMembership.js';
 import { WaketimeChangeLog } from './WaketimeChangeLog.js';
 
 const findChallengeUser = (userid: string, yearmonth: string) => Users.findOne({ where: { userid, yearmonth } });
 
 const listChallengeUsers = (yearmonth: string) => Users.findAll({ where: { yearmonth } });
+
+const findChallengeUserExclusion = (userid: string, yearmonth: string) =>
+  ChallengeUserExclusion.findOne({ where: { userid, yearmonth } });
+
+const listChallengeUserExclusions = (yearmonth: string) => ChallengeUserExclusion.findAll({ where: { yearmonth } });
+
+const createChallengeUserExclusion = (userid: string, yearmonth: string) =>
+  ChallengeUserExclusion.findOrCreate({
+    where: { userid, yearmonth },
+    defaults: { userid, yearmonth },
+  });
 
 const listChallengeAttendanceLogs = (yearmonthday: string) => AttendanceLog.findAll({ where: { yearmonthday } });
 
@@ -50,6 +63,36 @@ const findWaketimeChangeLog = (userid: string, yearmonthday: string) =>
 const createWaketimeChangeLog = (payload: { userid: string; yearmonthday: string; waketime: string }) =>
   WaketimeChangeLog.create(payload);
 
+const findWakeUpMembership = (userid: string) => WakeUpMembership.findOne({ where: { userid } });
+
+const listActiveWakeUpMemberships = () => WakeUpMembership.findAll({ where: { status: 'active' } });
+
+const listWakeUpMembershipsByUserIds = (userids: string[]) =>
+  WakeUpMembership.findAll({ where: { userid: { [Op.in]: userids } } });
+
+const createWakeUpMembership = (payload: {
+  userid: string;
+  username: string;
+  waketime: string;
+  status: 'active' | 'stopped';
+  stoppedat?: string | null;
+}) => WakeUpMembership.create(payload);
+
+const bulkCreateWakeUpMemberships = (
+  payloads: Array<{
+    userid: string;
+    username: string;
+    waketime: string;
+    status: 'active' | 'stopped';
+    stoppedat?: string | null;
+  }>,
+) => WakeUpMembership.bulkCreate(payloads, { ignoreDuplicates: true });
+
+const updateWakeUpMembership = (
+  userid: string,
+  values: Partial<Pick<WakeUpMembership, 'status' | 'stoppedat' | 'username' | 'waketime'>>,
+) => WakeUpMembership.update(values, { where: { userid } });
+
 const listMonthlySurvivors = (yearmonth: string) =>
   Users.findAll({
     where: {
@@ -59,17 +102,26 @@ const listMonthlySurvivors = (yearmonth: string) =>
 
 export {
   createChallengeLog,
+  createChallengeUserExclusion,
   createVacationLog,
+  bulkCreateWakeUpMemberships,
+  createWakeUpMembership,
   createWaketimeChangeLog,
   listChallengeAttendanceLogs,
   findChallengeUser,
+  findChallengeUserExclusion,
   findVacationLog,
+  findWakeUpMembership,
   findWaketimeChangeLog,
   listChallengeUsers,
+  listChallengeUserExclusions,
+  listActiveWakeUpMemberships,
   listMonthlySurvivors,
   listUserChallengeLogs,
   listVacationLogs,
+  listWakeUpMembershipsByUserIds,
   listMonthlyVacationLogs,
   countUserVacationLogs,
   updateChallengeUser,
+  updateWakeUpMembership,
 };

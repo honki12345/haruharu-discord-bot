@@ -1,10 +1,11 @@
-import { ChatInputCommandInteraction } from 'discord.js';
-import { camStudyRoleId, wakeUpRoleId } from '../config.js';
+import { ChatInputCommandInteraction, GuildMember } from 'discord.js';
+import { camStudyRoleId } from '../config.js';
 import { logger } from '../logger.js';
 import { ParticipationApplication } from '../repository/ParticipationApplication.js';
 import { removeCamStudyUser, upsertCamStudyUser } from '../repository/camStudyRepository.js';
 
-export type ParticipationProgram = 'wake-up' | 'cam-study';
+export type ParticipationProgram = 'cam-study';
+export type LegacyParticipationProgram = 'wake-up' | 'cam-study';
 
 const PROGRAM_METADATA: Record<
   ParticipationProgram,
@@ -13,10 +14,6 @@ const PROGRAM_METADATA: Record<
     roleId: string;
   }
 > = {
-  'wake-up': {
-    label: '기상인증',
-    roleId: wakeUpRoleId,
-  },
   'cam-study': {
     label: '캠스터디',
     roleId: camStudyRoleId,
@@ -26,39 +23,21 @@ const PROGRAM_METADATA: Record<
 const isUniqueConstraintError = (error: unknown) =>
   typeof error === 'object' && error !== null && 'name' in error && error.name === 'SequelizeUniqueConstraintError';
 
-const buildApprovedReply = (program: ParticipationProgram) => {
-  if (program === 'wake-up') {
-    return {
-      content: '기상인증 참여가 이미 활성화되어 있어요. `/register`로 기상시간을 등록하거나 수정해 주세요.',
-      ephemeral: true,
-    };
-  }
+const buildApprovedReply = () => ({
+  content: '캠스터디 참여가 이미 활성화되어 있어요. 전용 채널을 확인해 주세요.',
+  ephemeral: true,
+});
 
-  return {
-    content: '캠스터디 참여가 이미 활성화되어 있어요. 전용 채널을 확인해 주세요.',
-    ephemeral: true,
-  };
-};
-
-const buildActivatedReply = (program: ParticipationProgram) => {
-  if (program === 'wake-up') {
-    return {
-      content: '기상인증 참여가 바로 활성화되었어요. `/register`로 기상시간을 등록해 주세요.',
-      ephemeral: true,
-    };
-  }
-
-  return {
-    content: '캠스터디 참여가 바로 활성화되었어요. 전용 채널을 확인해 주세요.',
-    ephemeral: true,
-  };
-};
+const buildActivatedReply = () => ({
+  content: '캠스터디 참여가 바로 활성화되었어요. 전용 채널을 확인해 주세요.',
+  ephemeral: true,
+});
 
 const persistApprovedApplication = async (
   existingApplication: {
     userid: string;
     username: string;
-    program: ParticipationProgram;
+    program: LegacyParticipationProgram;
     status: 'pending' | 'approved' | 'rejected';
     reason: string | null;
   } | null,
@@ -134,9 +113,9 @@ const submitParticipationApplication = async (
   }
 
   const roleId = PROGRAM_METADATA[program].roleId;
-  let member;
+  let member: GuildMember;
   try {
-    member = await guild.members.fetch(userid);
+    member = (await guild.members.fetch(userid)) as GuildMember;
   } catch (error) {
     logger.error('failed to fetch guild member for participation activation', { error, userid, program });
     return {
@@ -161,25 +140,20 @@ const submitParticipationApplication = async (
 
   try {
     if (existingApplication?.status === 'approved' && hadRoleBeforeActivation) {
-      if (program === 'cam-study') {
-        await upsertCamStudyUser({ userid, username });
-      }
-
-      return buildApprovedReply(program);
-    }
-
-    if (program === 'cam-study') {
       await upsertCamStudyUser({ userid, username });
+      return buildApprovedReply();
     }
+
+    await upsertCamStudyUser({ userid, username });
 
     const persistResult = await persistApprovedApplication(existingApplication, userid, username, program);
     if (persistResult === 'already-approved') {
-      return buildApprovedReply(program);
+      return buildApprovedReply();
     }
   } catch (error) {
     logger.error('failed to finalize participation activation', { error, userid, program });
 
-    if (!hadRoleBeforeActivation && program === 'cam-study') {
+    if (!hadRoleBeforeActivation) {
       try {
         await removeCamStudyUser(userid);
       } catch (rollbackSyncError) {
@@ -189,9 +163,7 @@ const submitParticipationApplication = async (
           program,
         });
       }
-    }
 
-    if (!hadRoleBeforeActivation) {
       try {
         await member.roles.remove(roleId);
       } catch (rollbackError) {
@@ -210,31 +182,39 @@ const submitParticipationApplication = async (
     };
   }
 
-  return buildActivatedReply(program);
+  return buildActivatedReply();
 };
 
 const approveParticipationApplication = async (
   interaction: ChatInputCommandInteraction,
   userid: string,
-  program: ParticipationProgram,
+  program: LegacyParticipationProgram,
 ) => {
   void interaction;
   void userid;
-  void program;
-  return 'approve-application is deprecated. Participation is activated automatically when users run /apply-wakeup or /apply-cam.';
+
+  if (program === 'wake-up') {
+    return 'approve-application is deprecated. Wake-up participation is now handled by /register.';
+  }
+
+  return 'approve-application is deprecated. Cam-study participation is activated automatically when users run /apply-cam.';
 };
 
 const rejectParticipationApplication = async (
   interaction: ChatInputCommandInteraction,
   userid: string,
-  program: ParticipationProgram,
+  program: LegacyParticipationProgram,
   reason: string,
 ) => {
   void interaction;
   void userid;
-  void program;
   void reason;
-  return 'reject-application is deprecated. Participation is activated automatically when users run /apply-wakeup or /apply-cam.';
+
+  if (program === 'wake-up') {
+    return 'reject-application is deprecated. Wake-up participation is now handled by /register.';
+  }
+
+  return 'reject-application is deprecated. Cam-study participation is activated automatically when users run /apply-cam.';
 };
 
 export {

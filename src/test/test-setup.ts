@@ -59,7 +59,43 @@ TestUsers.init(
     latecount: { type: DataTypes.INTEGER, defaultValue: 0 },
     absencecount: { type: DataTypes.INTEGER, defaultValue: 0 },
   },
-  { sequelize: testSequelize, tableName: 'users' },
+  {
+    sequelize: testSequelize,
+    tableName: 'users',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userid', 'yearmonth'],
+      },
+    ],
+  },
+);
+
+export class TestChallengeUserExclusion extends Model<
+  InferAttributes<TestChallengeUserExclusion>,
+  InferCreationAttributes<TestChallengeUserExclusion>
+> {
+  declare id: CreationOptional<number>;
+  declare userid: string;
+  declare yearmonth: string;
+}
+
+TestChallengeUserExclusion.init(
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    userid: { type: DataTypes.STRING(128), allowNull: false },
+    yearmonth: { type: DataTypes.STRING(128), allowNull: false },
+  },
+  {
+    sequelize: testSequelize,
+    tableName: 'challenge_user_exclusions',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userid', 'yearmonth'],
+      },
+    ],
+  },
 );
 
 // ============ TimeLog 모델 ============
@@ -233,6 +269,37 @@ TestWaketimeChangeLog.init(
   },
 );
 
+// ============ WakeUpMembership 모델 ============
+export class TestWakeUpMembership extends Model<
+  InferAttributes<TestWakeUpMembership>,
+  InferCreationAttributes<TestWakeUpMembership>
+> {
+  declare id: CreationOptional<number>;
+  declare userid: string;
+  declare username: string;
+  declare waketime: string;
+  declare status: 'active' | 'stopped';
+  declare stoppedat: string | null;
+}
+
+TestWakeUpMembership.init(
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    userid: { type: DataTypes.STRING(128), allowNull: false, unique: true },
+    username: { type: DataTypes.STRING(128), allowNull: false },
+    waketime: { type: DataTypes.STRING(4), allowNull: false },
+    status: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      validate: {
+        isIn: [['active', 'stopped']],
+      },
+    },
+    stoppedat: { type: DataTypes.STRING, allowNull: true },
+  },
+  { sequelize: testSequelize, tableName: 'wake_up_memberships' },
+);
+
 // ============ CamStudyUsers 모델 ============
 export class TestCamStudyUsers extends Model<
   InferAttributes<TestCamStudyUsers>,
@@ -327,10 +394,12 @@ TestCamStudyWeeklyTimeLog.init(
 
 // ============ 모킹 설정 ============
 vi.mock('../repository/Users.js', () => ({ Users: TestUsers }));
+vi.mock('../repository/ChallengeUserExclusion.js', () => ({ ChallengeUserExclusion: TestChallengeUserExclusion }));
 vi.mock('../repository/TimeLog.js', () => ({ TimeLog: TestTimeLog }));
 vi.mock('../repository/AttendanceLog.js', () => ({ AttendanceLog: TestAttendanceLog }));
 vi.mock('../repository/VacationLog.js', () => ({ VacationLog: TestVacationLog }));
 vi.mock('../repository/WaketimeChangeLog.js', () => ({ WaketimeChangeLog: TestWaketimeChangeLog }));
+vi.mock('../repository/WakeUpMembership.js', () => ({ WakeUpMembership: TestWakeUpMembership }));
 vi.mock('../repository/CamStudyUsers.js', () => ({ CamStudyUsers: TestCamStudyUsers }));
 vi.mock('../repository/CamStudyTimeLog.js', () => ({ CamStudyTimeLog: TestCamStudyTimeLog }));
 vi.mock('../repository/CamStudyActiveSession.js', () => ({ CamStudyActiveSession: TestCamStudyActiveSession }));
@@ -388,6 +457,8 @@ export async function clearAllTables() {
     TestAttendanceLog,
     TestVacationLog,
     TestWaketimeChangeLog,
+    TestWakeUpMembership,
+    TestChallengeUserExclusion,
     TestUsers,
     TestCamStudyTimeLog,
     TestCamStudyActiveSession,

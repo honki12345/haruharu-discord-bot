@@ -19,13 +19,16 @@ import { CamStudyUsers } from '../repository/CamStudyUsers.js';
 import { CamStudyWeeklyTimeLog } from '../repository/CamStudyWeeklyTimeLog.js';
 import { CamStudyActiveSession } from '../repository/CamStudyActiveSession.js';
 import { AttendanceLog } from '../repository/AttendanceLog.js';
+import { ChallengeUserExclusion } from '../repository/ChallengeUserExclusion.js';
 import { ParticipationApplication } from '../repository/ParticipationApplication.js';
 import { TimeLog } from '../repository/TimeLog.js';
 import { Users } from '../repository/Users.js';
 import { VacationLog } from '../repository/VacationLog.js';
 import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
 import { logger } from '../logger.js';
+import { WakeUpMembership } from '../repository/WakeUpMembership.js';
 import { HARUHARU_TIMES, ONE_DAY_MILLISECONDS, PUBLIC_HOLIDAYS_2026, SATURDAY, SUNDAY } from '../utils/constants.js';
+import { ensureActiveWakeUpMembershipSnapshots } from './challengeSelfService.js';
 import {
   calculateRemainingTimeCamStudy,
   calculateRemainingTimeChallenge,
@@ -41,7 +44,9 @@ import {
 const DISCORD_MESSAGE_LIMIT = 2000;
 
 const syncModels = async () => {
+  await WakeUpMembership.sync();
   await Users.sync();
+  await ChallengeUserExclusion.sync();
   await TimeLog.sync();
   await AttendanceLog.sync();
   await ParticipationApplication.sync();
@@ -167,6 +172,7 @@ const buildChallengeReport = async () => {
   const isBonusDay = isChallengeBonusDay(day, monthdate);
   const yearmonth = getYearMonth(year, month);
   const yearmonthday = getYearMonthDay(year, month, date);
+  await ensureActiveWakeUpMembershipSnapshots(yearmonth);
   const users = await listChallengeUsers(yearmonth);
   const userMap = new Map(users.map(user => [user.userid, user]));
   const attendanceLogs = await listChallengeAttendanceLogs(yearmonthday);

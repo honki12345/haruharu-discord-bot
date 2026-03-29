@@ -88,7 +88,8 @@
 - Discord 입력 파싱, 권한 검증, 응답 메시지 처리는 커맨드 안에서 수행한다.
 - DB 접근은 직접 Sequelize 쿼리를 쓰더라도 repository 모델을 통해서만 접근한다.
 - 사용자 self-service 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 변경해야 한다.
-- 기상시간 self-service는 `/register` 하나로 신규 등록과 수정(upsert)을 처리하되 하루 1회 제한을 지켜야 한다.
+- 기상시간 self-service는 `/register` 하나로 기상 참여 시작/재시작과 기상시간 등록/수정을 처리하되 하루 1회 제한을 지켜야 한다.
+- 기상 self-service 중단은 `/stop-wakeup` 으로 처리하고, 현재 월 기록은 유지한 채 이후 월 자동 등록만 중단해야 한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - `register-cam`, `delete-cam`은 deprecated 호환용 명령으로만 유지하고, 실제 캠스터디 등록 원본은 `@cam-study` 역할과 `guildMemberUpdate` 동기화로 본다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
@@ -99,6 +100,7 @@
 - Discord 이벤트당 파일 하나를 유지한다.
 - `ready.ts`는 부팅, 테이블 sync, 운영 daily message/thread 생성 스케줄, 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅을 담당한다.
+- `interactionCreate.ts`는 배포 전환 중 stale 슬래시 등록이 남을 수 있는 경우, 무응답으로 끝내지 말고 migration 안내를 우선 반환한다. 현재는 stale `/apply-wakeup` 에 대해 `/register` 안내를 반환한다.
 - `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 감지해서 `CamStudyUsers`를 자동 동기화하고, 활성 세션 중 역할 회수면 삭제를 종료 시점까지 미룬다.
 - `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 역할 회수 뒤 종료 시점 정리까지 포함해 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
@@ -121,8 +123,10 @@
 - `CamStudyUsers`는 수동 등록 원본이 아니라 `@cam-study` 역할 상태를 반영하는 캐시/인덱스로 유지하되, 활성 세션 중 역할 회수면 종료 이벤트까지 임시로 유지할 수 있다.
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
-- 역할 기반 온보딩 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하되, 현재 정책상 `/apply-wakeup`, `/apply-cam` 실행 시 즉시 `approved` 상태로 반영한다.
+- 기상 챌린지 상시 참여 상태와 최근 `/register` 기상시간은 `WakeUpMembership` 같은 별도 모델로 관리하고, `Users` 는 월별 집계 스냅샷으로 유지한다.
+- 관리자 `/delete` 로 제거한 `(userid, yearmonth)` 월 스냅샷은 별도 exclusion 기록으로 남겨 자동 backfill 이 같은 달 사용자를 되살리지 않도록 유지한다.
 - 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 신청/활성화 상태 모델 책임은 계속 분리한다.
+- 역할 기반 온보딩 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하되, 현재 정책상 `/apply-cam` 실행 시 즉시 `approved` 상태로 반영하고, 관리자 승인/거절 명령은 deprecated 안내만 유지한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
   - `docs/PROJECT.md`의 테이블 설명
