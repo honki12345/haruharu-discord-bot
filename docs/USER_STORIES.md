@@ -120,6 +120,78 @@ sequenceDiagram
 
 ---
 
+### US-14: CI bot boot smoke test
+
+```
+AS A 운영자
+I WANT TO Discord 로그인 없이도 봇 부팅 경로를 CI에서 확인하고 싶다
+SO THAT 설정 누락이나 command/event 로더 오류를 production 배포 전에 막을 수 있다
+```
+
+**인수 조건:**
+- `config` 로딩이 CI에서 실패 없이 검증된다
+- Discord client 생성이 실제 로그인 없이 가능하다
+- command/event 동적 로딩이 CI에서 실패 없이 끝난다
+- smoke test는 production 토큰 없이 실행 가능하다
+
+```mermaid
+sequenceDiagram
+    participant PR as Pull Request
+    participant GH as GitHub Actions
+    participant T as Bot Smoke Test
+    participant B as Runtime Loader
+
+    PR->>GH: CI 실행
+    GH->>T: npm run test:smoke
+    T->>B: bootstrapClient(login=false)
+    B->>B: config 로딩
+    B->>B: Discord client 생성
+    B->>B: command/event 동적 로딩
+    B-->>T: 정상 종료
+    T-->>GH: green
+```
+
+---
+
+### US-15: 운영자 production 수동 배포와 롤백
+
+```
+AS A 운영자
+I WANT TO workflow_dispatch로 production 배포를 시작하고 verify 통과 후 자동 배포되길 원한다
+SO THAT 배포 전 검증과 배포 후 확인을 같은 절차로 반복할 수 있다
+```
+
+**인수 조건:**
+- production 배포는 `workflow_dispatch`로만 시작된다
+- verify job이 `lint`, `prettier`, `build`, `test`, `smoke test`를 통과해야 deploy가 실행된다
+- deploy는 GitHub-hosted runner에서 OCI 서버로 SSH 배포한다
+- deploy 뒤에는 `pm2 status`와 `Ready! Logged in as` 로그를 확인한다
+- 실패 시 이전 안정 ref로 같은 workflow를 다시 실행해 롤백할 수 있다
+
+```mermaid
+sequenceDiagram
+    participant O as Operator
+    participant GH as GitHub Actions
+    participant OCI as OCI Server
+    participant PM2 as PM2
+    participant D as Discord
+
+    O->>GH: Run workflow_dispatch(ref)
+    GH->>GH: verify job (lint + prettier + build + test + smoke)
+
+    alt verify 실패
+        GH-->>O: 배포 중단
+    else verify 성공
+        GH->>OCI: SSH deploy
+        OCI->>OCI: git fetch / checkout / npm ci / npm run build
+        OCI->>PM2: reload or start haruharu-bot
+        GH->>OCI: pm2 status / ready log 확인
+        O->>D: /ping 수동 확인
+    end
+```
+
+---
+
 ### US-1: 챌린저 등록/수정
 
 ```

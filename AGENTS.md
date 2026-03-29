@@ -9,9 +9,11 @@
 ## 프로젝트 요약
 
 - 이 저장소는 Discord 슬래시 커맨드와 음성 채널 이벤트를 처리하는 단일 TypeScript 봇이다.
-- 런타임 진입점은 `src/index.ts`이고, 커맨드 등록 스크립트는 `src/deploy-commands.ts`다.
+- 런타임 진입점은 `src/index.ts`이고, 실제 Discord client 생성/커맨드·이벤트 로딩은 `src/runtime.ts`가 담당한다.
+- 커맨드 등록 스크립트는 `src/deploy-commands.ts`다.
 - 데이터 저장은 SQLite + Sequelize 모델(`src/repository`)로 처리한다.
-- 테스트는 Vitest를 사용하며 기본 테스트와 통합 테스트를 분리한다.
+- 테스트는 Vitest를 사용하며 기본 테스트, bot boot smoke test, 통합 테스트를 분리한다.
+- 운영 배포는 GitHub Actions `workflow_dispatch` + SSH + PM2 조합을 기준으로 한다.
 
 ## 우선 참고 문서
 
@@ -29,6 +31,7 @@
 .
 ├── src/
 │   ├── index.ts                  # 봇 런타임 진입점
+│   ├── runtime.ts                # Discord client/커맨드/이벤트 로더와 smoke boot 진입점
 │   ├── deploy-commands.ts        # Discord 슬래시 커맨드 등록
 │   ├── attendance.ts             # 출석 판정/이모지 유틸리티
 │   ├── daily-attendance.ts       # 운영 daily message/thread 생성 및 재탐색 유틸리티
@@ -41,11 +44,13 @@
 │   ├── repository/               # Sequelize 모델과 DB 설정
 │   └── test/                     # Vitest 테스트와 테스트 헬퍼
 ├── docs/                         # 프로젝트/프로세스 문서
+│   ├── PRODUCTION_RUNBOOK.md     # production 배포/검증/롤백 절차
 │   └── plan/                     # 이슈별 구현 계획 문서
 ├── .github/
 │   ├── ISSUE_TEMPLATE/           # GitHub 이슈 템플릿
 │   ├── pull_request_template.md  # GitHub PR 템플릿
-│   └── workflows/                # GitHub Actions
+│   └── workflows/                # GitHub Actions CI / dependency review / deploy
+├── scripts/                      # 배포/운영 헬퍼 스크립트
 ├── logs/                         # 런타임 로그 출력 디렉터리
 ├── README.md
 ├── package.json
@@ -58,10 +63,17 @@
 
 ### `src/index.ts`
 
-- Discord client 생성과 커맨드/이벤트 동적 로딩만 담당한다.
+- 프로세스 시작용 진입점만 담당한다.
+- 실제 Discord client 생성과 커맨드/이벤트 동적 로딩은 `src/runtime.ts`로 위임한다.
 - 새 기능의 비즈니스 로직을 직접 넣지 말고 `commands`, `events`, `repository`, `utils`로 분리한다.
 - 커맨드 모듈은 `export const command`, 이벤트 모듈은 `export const event` 형태를 유지한다.
 - 특정 채널에서만 실행되어야 하는 슬래시 커맨드는 `allowedChannelIds` 메타데이터로 제한하고, 실제 채널 ID는 `config.json`에서 읽는다.
+
+### `src/runtime.ts`
+
+- Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집을 담당한다.
+- `src/index.ts`, `src/deploy-commands.ts`, bot boot smoke test가 같은 로더를 재사용하도록 유지한다.
+- 새 커맨드/이벤트 파일을 추가하면 source(`.ts`)와 build output(`.js`) 양쪽에서 로더가 동작하는지 확인한다.
 
 ### `src/commands/haruharu`
 
@@ -116,6 +128,8 @@
 - 사용자 스토리 또는 버그 시나리오 단위로 테스트를 추가한다.
 - 공통 mock/helper는 `src/test/test-setup.ts`에 둔다.
 - 통합 테스트는 `src/test/integration`에 둔다.
+- bot boot smoke test는 Discord 로그인 없이 `config 로딩 -> client 생성 -> command/event 로딩`까지만 검증한다.
+- workflow/CI 회귀 테스트가 필요하면 `.github/workflows`를 읽는 정적 테스트를 추가할 수 있다.
 - 기능 수정 시 가능하면 회귀 테스트를 같이 추가한다.
 
 ### `docs`
@@ -133,6 +147,10 @@
 - 구현 이슈는 `.github/ISSUE_TEMPLATE/implementation.yml`을 기본으로 사용한다.
 - 이슈 템플릿은 현재 저장소 문맥에 맞는 예시와 완료 조건을 유지한다.
 - 구현 이슈 템플릿에는 최소한 `완료조건`, `검증항목`, `회귀 테스트 계획`, `구현 계획`이 있어야 한다.
+- workflow는 역할을 분리한다.
+  - `ci.yml`: lint / prettier / unit test / smoke test / integration test
+  - `dependency-review.yml`: 의존성 변경 PR 리뷰
+  - `deploy-production.yml`: 수동 시작 production 배포와 readiness 확인
 
 ## 구현 컨벤션
 
@@ -209,6 +227,7 @@
 - 현재 저장소 기준 최소 확인 명령은 아래와 같다.
   - `npm run lint`
   - `npx prettier --check src`
+  - `npm run build`
   - `npm test`
 
 ## 이슈 작성 원칙
@@ -247,10 +266,12 @@
 
 ## 자주 쓰는 명령
 
+- `npm run build`
 - `npm run local:ci`
 - `npm run lint`
 - `npm run lint:fix`
 - `npm run test`
+- `npm run test:smoke`
 - `npm run test:integration`
 - `npm run start`
 
@@ -262,6 +283,7 @@
 - DB 컬럼/테이블 변경: `AGENTS.md`, `docs/PROJECT.md`, 관련 테스트
 - self-service 정책 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `README.md`
 - 정책/운영 규칙 변경: `AGENTS.md`, 해당 정책 문서
+- CI/CD 또는 배포 절차 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `docs/PRODUCTION_RUNBOOK.md`
 - 구현 계획 문서 추가/수정: `AGENTS.md`, `docs/plan/*`
 - GitHub 이슈/PR 프로세스 변경: `AGENTS.md`, `.github/*`, 필요 시 `docs/pull_request_template.md`
 
