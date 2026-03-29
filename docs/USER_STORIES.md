@@ -71,7 +71,6 @@ sequenceDiagram
         B->>DB: status = approved
         B->>D: 역할 부여
         opt program = cam-study
-            D->>B: guildMemberUpdate
             B->>DB: CamStudyUsers upsert
         end
         B-->>U: 승인 안내
@@ -441,8 +440,8 @@ sequenceDiagram
     participant DB as SQLite
 
     U->>O: 캠스터디 권한 획득
-    O->>D: @cam-study 역할 부여
-    D->>B: guildMemberUpdate 이벤트
+    O->>B: /approve-application 또는 역할 부여 명령 실행
+    B->>D: @cam-study 역할 부여
     B->>DB: CamStudyUsers upsert
     B-->>U: 별도 관리자 등록 없이 추적 대상 포함
 ```

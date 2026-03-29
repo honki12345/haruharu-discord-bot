@@ -2,6 +2,7 @@ import { ChatInputCommandInteraction } from 'discord.js';
 import { applyChannelId, camStudyRoleId, opsChannelId, wakeUpRoleId } from '../config.js';
 import { logger } from '../logger.js';
 import { ParticipationApplication } from '../repository/ParticipationApplication.js';
+import { removeCamStudyUser, upsertCamStudyUser } from '../repository/camStudyRepository.js';
 
 export type ParticipationProgram = 'wake-up' | 'cam-study';
 
@@ -203,8 +204,46 @@ const approveParticipationApplication = async (
       await member.roles.remove(roleId);
       return `${PROGRAM_METADATA[program].label} 대기 신청이 없어요.`;
     }
+
+    if (program === 'cam-study') {
+      await upsertCamStudyUser({
+        userid,
+        username: application.username,
+      });
+    }
   } catch (error) {
-    logger.error('failed to update participation status to approved', { error, userid, program });
+    logger.error('failed to finalize participation approval', { error, userid, program });
+
+    if (program === 'cam-study') {
+      try {
+        await removeCamStudyUser(userid);
+      } catch (rollbackSyncError) {
+        logger.error('failed to rollback cam study user sync after approval failure', {
+          rollbackSyncError,
+          userid,
+          program,
+        });
+      }
+    }
+
+    try {
+      await ParticipationApplication.update(
+        {
+          status: 'pending',
+          reason: null,
+        },
+        {
+          where: { userid, program, status: 'approved' },
+        },
+      );
+    } catch (rollbackStatusError) {
+      logger.error('failed to rollback participation approval status', {
+        rollbackStatusError,
+        userid,
+        program,
+      });
+    }
+
     try {
       await member.roles.remove(roleId);
     } catch (rollbackError) {

@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMockInteraction } from './test-setup.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMockInteraction, testSequelize, TestCamStudyUsers } from './test-setup.js';
 
 type ProgramType = 'wake-up' | 'cam-study';
 type ApplicationStatus = 'pending' | 'approved' | 'rejected';
@@ -48,9 +48,18 @@ vi.mock('../repository/ParticipationApplication.js', () => ({
 }));
 
 describe('US-14: 역할 기반 신청/승인 흐름', () => {
-  beforeEach(() => {
+  beforeAll(async () => {
+    await testSequelize.sync({ force: true });
+  });
+
+  afterAll(async () => {
+    await testSequelize.close();
+  });
+
+  beforeEach(async () => {
     vi.resetModules();
     applications.clear();
+    await TestCamStudyUsers.destroy({ where: {} });
     ParticipationApplication.findOne.mockReset();
     ParticipationApplication.create.mockReset();
     ParticipationApplication.update.mockReset();
@@ -293,6 +302,56 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
     expect(applicantMember.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
     expect(notifyApplicant).toHaveBeenCalledWith(expect.stringContaining('승인'));
     expect(interaction.getLastReply()).toContain('승인');
+  });
+
+  it('TC-RA15: /approve-application은 cam-study 승인 시 CamStudyUsers도 함께 등록한다', async () => {
+    applications.set('test-user-id:cam-study', {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'cam-study',
+      status: 'pending',
+      reason: null,
+    });
+
+    const notifyApplicant = vi.fn();
+    const applicantMember = {
+      roles: {
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: notifyApplicant,
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-ops-channel-id',
+      options: {
+        userid: 'test-user-id',
+        program: 'cam-study',
+      },
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+      client: {
+        channels: {
+          fetch: vi.fn(),
+        },
+        users: {
+          fetch: vi.fn().mockResolvedValue({
+            send: notifyApplicant,
+          }),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/approve-application.js');
+    await command.execute(interaction as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'test-user-id' } });
+    expect(applications.get('test-user-id:cam-study')?.status).toBe('approved');
+    expect(applicantMember.roles.add).toHaveBeenCalledWith('valid-cam-study-role-id');
+    expect(user).not.toBeNull();
+    expect(user?.username).toBe('테스트유저');
   });
 
   it('TC-RA11: /approve-application의 운영 응답은 신청자 이름에 멘션이 있어도 allowedMentions를 비활성화한다', async () => {

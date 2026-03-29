@@ -379,7 +379,7 @@ flowchart TD
 | 항목   | 내용                                                                                                                                                                         |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 역할   | 참여 신청 저장, 운영 알림, 승인/거절, 역할 부여 및 신청자 안내                                                                                                               |
-| 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 운영 채널 공지, 신청자 안내 메시지 처리, 캠스터디는 후속 역할 동기화의 진입점 제공                  |
+| 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 운영 채널 공지, 신청자 안내 메시지 처리, 캠스터디 승인 시 `CamStudyUsers` upsert                    |
 | 호출처 | `src/commands/haruharu/apply-wakeup.ts`, `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts` |
 
 #### reporting.ts
