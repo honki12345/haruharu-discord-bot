@@ -339,7 +339,7 @@ const startActiveSession = async (
 const getRecoveryStartedAt = async (userid: string, recoveredAt: number) => {
   const today = getYearMonthDayFromTimestamp(recoveredAt);
   const todayLog = await findCamStudyTimeLog(userid, today);
-  if (todayLog) {
+  if (todayLog && Number(todayLog.totalminutes) === 0) {
     return todayLog.timestamp;
   }
 
