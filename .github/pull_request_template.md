@@ -9,17 +9,22 @@
 
 ## 변경 흐름 (Mermaid)
 
-- 구조, 실행 흐름, 데이터 흐름이 바뀌면 `Before` / `After` 두 개의 mermaid 다이어그램으로 요약해주세요.
+- 구조, 실행 흐름, 데이터 흐름이 바뀌면 단일 `mermaid` 블록 하나로 변경 흐름을 요약해주세요.
+- 비교 다이어그램을 쓸 때는 `subgraph` 없이, 최상위 박스에 `Before: ...`, `After: ...` 라벨을 직접 넣어주세요.
+- 예시:
+
+```mermaid
+flowchart TD
+  B1[Before: operator manually deploys on OCI] --> B2[git pull / tsc / pm2 reload]
+  A1[After: operator runs workflow_dispatch] --> A2[verify job]
+```
+
 - 흐름 변화가 없으면 단일 `Current` 다이어그램만 적거나, 아주 작은 변경이면 생략하고 이유를 적어주세요.
 
 ```mermaid
 flowchart TD
-  A[Before Trigger] --> B[Before Flow]
-```
-
-```mermaid
-flowchart TD
-  A[After Trigger] --> B[After Flow]
+  B1[Before: describe prior operator or system flow] --> B2[Before detail]
+  A1[After: describe new operator or system flow] --> A2[After detail]
 ```
 
 ## 이번 PR 범위
@@ -49,7 +54,7 @@ flowchart TD
 - [ ] 영향 범위에 맞는 테스트를 실행했나요?
 - [ ] 관련 이슈의 완료 조건과 회귀 테스트 항목을 이번 PR 기준으로 다시 확인했나요?
 - [ ] PR 본문에 추가/수정된 테스트 명세를 반영했나요?
-- [ ] 구조/흐름 변경이 있다면 PR 본문에 `Before` / `After` mermaid 다이어그램을 반영했나요?
+- [ ] 구조/흐름 변경이 있다면 PR 본문에 단일 `mermaid` 블록과 최상위 `Before: ...` / `After: ...` 박스를 반영했나요?
 - [ ] 문서 영향 분석을 했나요?
 - [ ] 필요한 문서를 업데이트했거나, 업데이트가 불필요한 이유를 PR 본문에 적었나요?
 - [ ] `AGENTS.md`와 관련 문서를 함께 업데이트했나요?

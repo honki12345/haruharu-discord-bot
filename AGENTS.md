@@ -84,6 +84,9 @@
   - `async execute(interaction)`
 - Discord 입력 파싱, 권한 검증, 응답 메시지 처리는 커맨드 안에서 수행한다.
 - DB 접근은 직접 Sequelize 쿼리를 쓰더라도 repository 모델을 통해서만 접근한다.
+- 사용자 self-service 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 변경해야 한다.
+- 기상시간 self-service는 `/register` 하나로 신규 등록과 수정(upsert)을 처리하되 하루 1회 제한을 지켜야 한다.
+- 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
 
 ### `src/events`
@@ -91,6 +94,7 @@
 - Discord 이벤트당 파일 하나를 유지한다.
 - `ready.ts`는 부팅, 테이블 sync, 운영 daily message/thread 생성 스케줄, 집계 스케줄 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅을 담당한다.
+- `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
 
@@ -104,7 +108,10 @@
 
 - Sequelize 모델은 파일당 모델 하나를 유지한다.
 - 모델 클래스명과 export 이름은 PascalCase를 사용한다.
-- thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 레거시 `/check-in`, `/check-out` 기록용으로 유지한다.
+- thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 집계 원본이 아닌 과거 레거시 데이터 호환용으로만 유지한다.
+- `CamStudyWeeklyTimeLog`는 해당 주차의 `CamStudyTimeLog`를 재계산한 결과를 반영하는 용도로 유지하고, 같은 일간 로그를 누적 덧셈으로 중복 반영하지 않는다.
+- 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
+- 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
   - `docs/PROJECT.md`의 테이블 설명
@@ -182,7 +189,9 @@
 - PR 브랜치에서 커밋을 만들고 push할 때마다 이번 변경사항에 맞게 GitHub PR 본문과 관련 이슈 본문을 함께 점검하고 필요하면 즉시 업데이트한다.
 - PR 본문에는 이번 push에 포함된 변경 요약, 테스트/검증 결과, 범위 변화가 반영되어 있어야 한다.
 - PR 본문에는 이번 push 기준 문서 영향 분석 결과도 반영되어 있어야 한다.
-- 구조, 실행 흐름, 데이터 흐름이 바뀐 PR이면 본문에 `Before` / `After` `mermaid` 다이어그램으로 변경 흐름을 요약한다.
+- 구조, 실행 흐름, 데이터 흐름이 바뀐 PR이면 본문에 단일 `mermaid` 블록 하나로 변경 흐름을 요약한다.
+- 비교 다이어그램을 쓸 때는 `subgraph`를 쓰지 않고, 최상위 박스에 `Before: ...`, `After: ...` 라벨을 직접 둔다.
+- 예시는 `Before: operator manually deploys on OCI`, `After: operator runs workflow_dispatch`처럼 박스 텍스트 자체로 상태를 구분한다.
 - 흐름 변화가 없으면 단일 `Current` 다이어그램만 두거나, 아주 작은 변경이면 `mermaid`를 생략하고 그 이유를 PR 본문에 남긴다.
 - PR 본문에는 이번 변경으로 추가되거나 수정된 테스트 명세도 포함한다.
   - 어떤 시나리오를 검증하는지
@@ -266,6 +275,7 @@
 - 새 슬래시 커맨드 추가: `AGENTS.md`, `docs/PROJECT.md`, 필요 시 `docs/USER_STORIES.md`
 - 이벤트 흐름 변경: `AGENTS.md`, `docs/PROJECT.md`
 - DB 컬럼/테이블 변경: `AGENTS.md`, `docs/PROJECT.md`, 관련 테스트
+- self-service 정책 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `README.md`
 - 정책/운영 규칙 변경: `AGENTS.md`, 해당 정책 문서
 - CI/CD 또는 배포 절차 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `docs/PRODUCTION_RUNBOOK.md`
 - 구현 계획 문서 추가/수정: `AGENTS.md`, `docs/plan/*`
