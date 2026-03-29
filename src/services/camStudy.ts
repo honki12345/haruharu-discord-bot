@@ -1,9 +1,10 @@
 import { Client } from 'discord.js';
 import { logger } from '../logger.js';
 import {
-  createCamStudyActiveSession,
+  createOrRefreshCamStudyActiveSession,
   createCamStudyTimeLog,
   deleteCamStudyActiveSession,
+  deleteCamStudyActiveSessionMatching,
   findCamStudyActiveSession,
   findCamStudyTimeLog,
   findCamStudyUser,
@@ -12,7 +13,7 @@ import {
   updateCamStudyTimeLog,
 } from '../repository/camStudyRepository.js';
 import { LEAST_TIME_LIMIT } from '../utils/constants.js';
-import { getFormattedYesterday, getTimeDiffFromNowInMinutes, getYearMonthDay, padTwoDigits } from '../utils/date.js';
+import { getFormattedYesterday, getYearMonthDay, padTwoDigits } from '../utils/date.js';
 
 interface VoiceStateSnapshot {
   channelId: string | null;
@@ -65,6 +66,18 @@ const getDurationInMinutes = (startedAt: number, endedAt: number) => {
   return Math.floor((safeEndTimestamp - startedAt) / 1000 / 60);
 };
 
+const getStartOfNextDayTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp);
+  date.setHours(24, 0, 0, 0);
+  return date.getTime();
+};
+
+const getPreviousYearMonthDayFromTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp);
+  date.setDate(date.getDate() - 1);
+  return getYearMonthDay(date.getFullYear(), padTwoDigits(date.getMonth() + 1), padTwoDigits(date.getDate()));
+};
+
 const ensureCamStudyTimeLog = async (payload: {
   userid: string;
   username: string;
@@ -85,60 +98,150 @@ const ensureCamStudyTimeLog = async (payload: {
   return null;
 };
 
+const buildCamStudyDailySegments = (startedAt: number, endedAt: number) => {
+  const safeEndedAt = Math.max(startedAt, endedAt);
+  const totalRecordedMinutes = getDurationInMinutes(startedAt, safeEndedAt);
+  const rawSegments: Array<{ durationMs: number; segmentEnd: number; yearmonthday: string }> = [];
+  let cursor = startedAt;
+
+  while (cursor < safeEndedAt) {
+    const segmentEnd = Math.min(safeEndedAt, getStartOfNextDayTimestamp(cursor));
+    rawSegments.push({
+      durationMs: segmentEnd - cursor,
+      segmentEnd,
+      yearmonthday: getYearMonthDayFromTimestamp(cursor),
+    });
+    cursor = segmentEnd;
+  }
+
+  let allocatedMinutes = 0;
+  const segments = rawSegments.map((segment, index) => {
+    const isLastSegment = index === rawSegments.length - 1;
+    const addedMinutes = isLastSegment
+      ? totalRecordedMinutes - allocatedMinutes
+      : Math.floor(segment.durationMs / 1000 / 60);
+
+    allocatedMinutes += addedMinutes;
+    return {
+      addedMinutes,
+      timestamp: segment.segmentEnd.toString(),
+      yearmonthday: segment.yearmonthday,
+    };
+  });
+
+  return {
+    segments,
+    totalRecordedMinutes,
+  };
+};
+
+const finalizeCamStudyDuration = async (
+  user: { userid: string; username: string },
+  startedAt: number,
+  endedAt: number,
+  reason: 'event-end' | 'stale-before-start' | 'legacy-end' | CamStudySyncSource,
+) => {
+  const safeEndedAt = Math.max(startedAt, endedAt);
+  const endedAtString = safeEndedAt.toString();
+  const { segments, totalRecordedMinutes } = buildCamStudyDailySegments(startedAt, safeEndedAt);
+  const endingYearMonthDay = segments[segments.length - 1]?.yearmonthday ?? getYearMonthDayFromTimestamp(safeEndedAt);
+  const endingTimeLog = await findCamStudyTimeLog(user.userid, endingYearMonthDay);
+  const currentEndingDayTotal = Number(endingTimeLog?.totalminutes ?? 0);
+
+  if (totalRecordedMinutes < LEAST_TIME_LIMIT) {
+    await ensureCamStudyTimeLog({
+      userid: user.userid,
+      username: user.username,
+      yearmonthday: endingYearMonthDay,
+      timestamp: endedAtString,
+      totalminutes: currentEndingDayTotal,
+    });
+    logger.info('cam study session ignored under minimum limit', {
+      durationInMinutes: totalRecordedMinutes,
+      endedAt: endedAtString,
+      reason,
+      startedAt: startedAt.toString(),
+      userid: user.userid,
+    });
+    return { recordedMinutes: 0, totalMinutes: currentEndingDayTotal, tooShort: true };
+  }
+
+  let totalMinutes = currentEndingDayTotal;
+  for (const segment of segments) {
+    const timelog = await findCamStudyTimeLog(user.userid, segment.yearmonthday);
+    const nextTotalMinutes = Number(timelog?.totalminutes ?? 0) + segment.addedMinutes;
+    await ensureCamStudyTimeLog({
+      userid: user.userid,
+      username: user.username,
+      yearmonthday: segment.yearmonthday,
+      timestamp: segment.timestamp,
+      totalminutes: nextTotalMinutes,
+    });
+    totalMinutes = nextTotalMinutes;
+  }
+
+  logger.info('cam study session finalized', {
+    durationInMinutes: totalRecordedMinutes,
+    endedAt: endedAtString,
+    reason,
+    startedAt: startedAt.toString(),
+    totalMinutes,
+    userid: user.userid,
+  });
+  return { recordedMinutes: totalRecordedMinutes, totalMinutes, tooShort: false };
+};
+
+const claimActiveSessionForClose = async (
+  userid: string,
+  activeSession: { startedat: string; lastobservedat: string },
+) => {
+  let currentSession = activeSession;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const claimedCount = await deleteCamStudyActiveSessionMatching({
+      lastobservedat: currentSession.lastobservedat,
+      startedat: currentSession.startedat,
+      userid,
+    });
+    if (claimedCount > 0) {
+      return currentSession;
+    }
+
+    const latestActiveSession = await findCamStudyActiveSession(userid);
+    if (!latestActiveSession) {
+      return null;
+    }
+
+    if (latestActiveSession.startedat !== currentSession.startedat) {
+      return null;
+    }
+
+    currentSession = latestActiveSession;
+  }
+
+  return null;
+};
+
 const closeActiveSession = async (
   user: { userid: string; username: string },
   activeSession: { startedat: string; lastobservedat: string; channelid: string },
   endedAt: number,
   reason: 'event-end' | 'stale-before-start' | CamStudySyncSource,
 ) => {
-  const startedAt = Number(activeSession.startedat);
-  const safeEndedAt = Math.max(startedAt, endedAt);
-  const endedAtString = safeEndedAt.toString();
-  const durationInMinutes = getDurationInMinutes(startedAt, safeEndedAt);
-  const targetYearMonthDay = getYearMonthDayFromTimestamp(safeEndedAt);
-  const timelog = await findCamStudyTimeLog(user.userid, targetYearMonthDay);
-  const currentTotalMinutes = Number(timelog?.totalminutes ?? 0);
-
-  if (durationInMinutes < LEAST_TIME_LIMIT) {
-    await ensureCamStudyTimeLog({
-      userid: user.userid,
-      username: user.username,
-      yearmonthday: targetYearMonthDay,
-      timestamp: endedAtString,
-      totalminutes: currentTotalMinutes,
-    });
-    await deleteCamStudyActiveSession(user.userid);
-    logger.info('cam study active session ignored under minimum limit', {
+  const claimedSession = await claimActiveSessionForClose(user.userid, activeSession);
+  if (!claimedSession) {
+    logger.info('cam study active session close skipped because session was already updated or removed', {
       reason,
       userid: user.userid,
       channelId: activeSession.channelid,
       startedAt: activeSession.startedat,
-      endedAt: endedAtString,
-      durationInMinutes,
+      lastObservedAt: activeSession.lastobservedat,
     });
-    return { recordedMinutes: 0, totalMinutes: currentTotalMinutes, tooShort: true };
+    return { recordedMinutes: 0, totalMinutes: 0, tooShort: true, skipped: true };
   }
 
-  const totalMinutes = currentTotalMinutes + durationInMinutes;
-  await ensureCamStudyTimeLog({
-    userid: user.userid,
-    username: user.username,
-    yearmonthday: targetYearMonthDay,
-    timestamp: endedAtString,
-    totalminutes: totalMinutes,
-  });
-  await deleteCamStudyActiveSession(user.userid);
-  logger.info('cam study active session finalized', {
-    reason,
-    userid: user.userid,
-    channelId: activeSession.channelid,
-    startedAt: activeSession.startedat,
-    endedAt: endedAtString,
-    durationInMinutes,
-    totalMinutes,
-  });
-
-  return { recordedMinutes: durationInMinutes, totalMinutes, tooShort: false };
+  const result = await finalizeCamStudyDuration(user, Number(claimedSession.startedat), endedAt, reason);
+  return { ...result, skipped: false };
 };
 
 const resolveLegacyCamStudyEnd = async (
@@ -146,36 +249,27 @@ const resolveLegacyCamStudyEnd = async (
   oldState: VoiceStateSnapshot,
   newState: VoiceStateSnapshot,
 ) => {
-  const today = getYearMonthDayFromTimestamp(Date.now());
-  const timestampNowString = Date.now().toString();
+  const endedAt = Date.now();
+  const today = getYearMonthDayFromTimestamp(endedAt);
   const timelog = await findCamStudyTimeLog(user.userid, today);
 
-  if (!timelog) {
-    const yesterday = getFormattedYesterday();
-    const yesterdayTimelog = await findCamStudyTimeLog(user.userid, yesterday);
-    if (yesterdayTimelog) {
-      const passedMinutes = getTimeDiffFromNowInMinutes(Number(yesterdayTimelog.timestamp));
-      await createCamStudyTimeLog({
-        userid: user.userid,
-        username: user.username,
-        yearmonthday: today,
-        timestamp: timestampNowString,
-        totalminutes: passedMinutes,
-      });
-
-      logger.info('cam study session rolled over from yesterday', {
-        passedMinutes,
-        today,
-        userId: user.userid,
-        yesterday,
-      });
-
+  if (timelog) {
+    const result = await finalizeCamStudyDuration(user, Number(timelog.timestamp), endedAt, 'legacy-end');
+    if (result.tooShort) {
       return {
         target: 'voice-channel' as const,
-        message: `${user.username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`,
+        message: `${user.username}님 study end: 5분 이내 입력안됨`,
       };
     }
 
+    return {
+      target: 'voice-channel' as const,
+      message: `${user.username}님 study end: ${result.recordedMinutes}분 입력완료, 총 공부시간: ${result.totalMinutes}분`,
+    };
+  }
+
+  const yesterday = getFormattedYesterday();
+  if (getPreviousYearMonthDayFromTimestamp(endedAt) !== yesterday) {
     logger.warn('cam study session ended without active log', {
       newChannelId: newState.channelId,
       oldChannelId: oldState.channelId,
@@ -187,37 +281,27 @@ const resolveLegacyCamStudyEnd = async (
     };
   }
 
-  const timeDiffInMinutes = getTimeDiffFromNowInMinutes(Number(timelog.timestamp));
-  if (timeDiffInMinutes < LEAST_TIME_LIMIT) {
-    logger.info('cam study session ignored because duration is below limit', {
-      minMinutes: LEAST_TIME_LIMIT,
-      timeDiffInMinutes,
-      today,
-      userId: user.userid,
-    });
-    await updateCamStudyTimeLog(user.userid, today, { timestamp: timestampNowString });
-    return {
-      target: 'voice-channel' as const,
-      message: `${user.username}님 study end: 5분 이내 입력안됨`,
-    };
+  {
+    const yesterdayTimelog = await findCamStudyTimeLog(user.userid, yesterday);
+    if (yesterdayTimelog) {
+      const result = await finalizeCamStudyDuration(user, Number(yesterdayTimelog.timestamp), endedAt, 'legacy-end');
+      if (result.tooShort) {
+        return {
+          target: 'voice-channel' as const,
+          message: `${user.username}님 study end: 5분 이내 입력안됨`,
+        };
+      }
+
+      return {
+        target: 'voice-channel' as const,
+        message: `${user.username}님 study end: ${result.recordedMinutes}분 입력완료, 총 공부시간: ${result.totalMinutes}분`,
+      };
+    }
   }
-
-  const totalMinutes = Number(timelog.totalminutes) + timeDiffInMinutes;
-  await updateCamStudyTimeLog(user.userid, today, {
-    timestamp: timestampNowString,
-    totalminutes: totalMinutes,
-  });
-
-  logger.info('cam study session ended', {
-    addedMinutes: timeDiffInMinutes,
-    today,
-    totalMinutes,
-    userId: user.userid,
-  });
 
   return {
     target: 'voice-channel' as const,
-    message: `${user.username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`,
+    message: `${user.username}님 study end: 공부시간 정상 입력안됨`,
   };
 };
 
@@ -241,7 +325,7 @@ const startActiveSession = async (
     });
   }
 
-  await createCamStudyActiveSession({
+  await createOrRefreshCamStudyActiveSession({
     userid: user.userid,
     username: user.username,
     channelid: configuredChannelId,
@@ -250,6 +334,17 @@ const startActiveSession = async (
   });
 
   return { hadTimeLog: Boolean(timelog), today };
+};
+
+const getRecoveryStartedAt = async (userid: string, recoveredAt: number) => {
+  const today = getYearMonthDayFromTimestamp(recoveredAt);
+  const todayLog = await findCamStudyTimeLog(userid, today);
+  if (todayLog) {
+    return todayLog.timestamp;
+  }
+
+  const yesterdayLog = await findCamStudyTimeLog(userid, getPreviousYearMonthDayFromTimestamp(recoveredAt));
+  return yesterdayLog?.timestamp ?? recoveredAt.toString();
 };
 
 const processCamStudyStateChange = async (
@@ -283,6 +378,10 @@ const processCamStudyStateChange = async (
     const activeSession = await findCamStudyActiveSession(user.userid);
     if (activeSession) {
       const result = await closeActiveSession(user, activeSession, Date.now(), 'event-end');
+      if (result.skipped) {
+        return null;
+      }
+
       if (result.tooShort) {
         return {
           target: 'voice-channel',
@@ -311,12 +410,17 @@ const processCamStudyStateChange = async (
 
   const existingActiveSession = await findCamStudyActiveSession(user.userid);
   if (existingActiveSession) {
-    await closeActiveSession(
+    const result = await closeActiveSession(
       user,
       existingActiveSession,
       Number(existingActiveSession.lastobservedat),
       'stale-before-start',
     );
+    if (result.skipped) {
+      logger.info('cam study stale session close skipped before start because another path already handled it', {
+        userId: user.userid,
+      });
+    }
   }
 
   const timestampNowString = Date.now().toString();
@@ -391,20 +495,12 @@ const reconcileCamStudyActiveSessions = async (
       continue;
     }
 
-    const existingActiveSession = await findCamStudyActiveSession(userid);
-    if (existingActiveSession) {
-      await updateCamStudyActiveSession(userid, {
-        channelid: configuredChannelId,
-        lastobservedat: timestampNowString,
-      });
-      continue;
-    }
-
-    await createCamStudyActiveSession({
+    const startedAt = await getRecoveryStartedAt(user.userid, Number(timestampNowString));
+    const mergedSession = await createOrRefreshCamStudyActiveSession({
       userid: user.userid,
       username: user.username,
       channelid: configuredChannelId,
-      startedat: timestampNowString,
+      startedat: startedAt,
       lastobservedat: timestampNowString,
     });
     logger.info('recovered cam study active session from voice state sync', {
@@ -412,6 +508,7 @@ const reconcileCamStudyActiveSessions = async (
       userid: user.userid,
       channelId: configuredChannelId,
       recoveredAt: timestampNowString,
+      startedAt: mergedSession.startedat,
     });
   }
 };
@@ -419,7 +516,7 @@ const reconcileCamStudyActiveSessions = async (
 const extractLiveCamStudySnapshots = async (
   client: Client,
   configuredChannelId: string,
-): Promise<VoiceStateSnapshot[]> => {
+): Promise<VoiceStateSnapshot[] | null> => {
   const cachedChannel = client.channels.cache.get(configuredChannelId);
   const fetchedChannel =
     cachedChannel ??
@@ -439,7 +536,7 @@ const extractLiveCamStudySnapshots = async (
     logger.warn('cam study sync skipped because configured voice channel is unavailable', {
       channelId: configuredChannelId,
     });
-    return [];
+    return null;
   }
 
   return Array.from(members.values()).map(member => ({
@@ -456,6 +553,10 @@ const syncCamStudyActiveSessionsFromClient = async (
   source: CamStudySyncSource,
 ) => {
   const liveStates = await extractLiveCamStudySnapshots(client, configuredChannelId);
+  if (!liveStates) {
+    return;
+  }
+
   await reconcileCamStudyActiveSessions(liveStates, configuredChannelId, source);
 };
 

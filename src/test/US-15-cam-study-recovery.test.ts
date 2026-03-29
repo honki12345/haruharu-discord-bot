@@ -6,7 +6,7 @@ import {
   clearAllTables,
   testSequelize,
 } from './test-setup.js';
-import { reconcileCamStudyActiveSessions } from '../services/camStudy.js';
+import { reconcileCamStudyActiveSessions, syncCamStudyActiveSessionsFromClient } from '../services/camStudy.js';
 
 describe('US-15: 재배포 후 캠스터디 active session 복구', () => {
   beforeAll(async () => {
@@ -44,6 +44,31 @@ describe('US-15: 재배포 후 캠스터디 active session 복구', () => {
 
     expect(activeSession).not.toBeNull();
     expect(activeSession?.startedat).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
+    expect(activeSession?.lastobservedat).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
+  });
+
+  it('재기동 시 오늘 timelog 가 이미 있으면 그 timestamp 부터 복구를 이어간다', async () => {
+    const existingStart = new Date('2025-12-07T10:15:00').getTime();
+    await TestCamStudyTimeLog.create({
+      userid: 'test-user-id',
+      username: '테스트유저',
+      yearmonthday: '20251207',
+      timestamp: existingStart.toString(),
+      totalminutes: 40,
+    });
+
+    await reconcileCamStudyActiveSessions(
+      [{ channelId: 'valid-voice-channel-id', selfVideo: false, streaming: true, userId: 'test-user-id' }],
+      'valid-voice-channel-id',
+      'ready',
+    );
+
+    const activeSession = await TestCamStudyActiveSession.findOne({
+      where: { userid: 'test-user-id' },
+    });
+
+    expect(activeSession).not.toBeNull();
+    expect(activeSession?.startedat).toBe(existingStart.toString());
     expect(activeSession?.lastobservedat).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
   });
 
@@ -94,5 +119,82 @@ describe('US-15: 재배포 후 캠스터디 active session 복구', () => {
     expect(activeSessions).toHaveLength(1);
     expect(activeSessions[0]?.startedat).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
     expect(activeSessions[0]?.lastobservedat).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
+  });
+
+  it('voice channel snapshot 을 읽지 못하면 기존 active session 을 종료 정산하지 않는다', async () => {
+    const startedAt = new Date('2025-12-07T10:00:00').getTime();
+    const lastObservedAt = new Date('2025-12-07T10:30:00').getTime();
+
+    await TestCamStudyTimeLog.create({
+      userid: 'test-user-id',
+      username: '테스트유저',
+      yearmonthday: '20251207',
+      timestamp: startedAt.toString(),
+      totalminutes: 0,
+    });
+    await TestCamStudyActiveSession.create({
+      userid: 'test-user-id',
+      username: '테스트유저',
+      channelid: 'valid-voice-channel-id',
+      startedat: startedAt.toString(),
+      lastobservedat: lastObservedAt.toString(),
+    });
+
+    await syncCamStudyActiveSessionsFromClient(
+      {
+        channels: {
+          cache: {
+            get: () => null,
+          },
+          fetch: vi.fn().mockResolvedValue(null),
+        },
+      } as never,
+      'valid-voice-channel-id',
+      'heartbeat',
+    );
+
+    const activeSession = await TestCamStudyActiveSession.findOne({
+      where: { userid: 'test-user-id' },
+    });
+    const log = await TestCamStudyTimeLog.findOne({
+      where: { userid: 'test-user-id', yearmonthday: '20251207' },
+    });
+
+    expect(activeSession).not.toBeNull();
+    expect(log?.totalminutes).toBe(0);
+  });
+
+  it('동시에 다른 경로가 먼저 닫은 stale session 은 중복 정산하지 않는다', async () => {
+    const startedAt = new Date('2025-12-07T10:00:00').getTime();
+    const lastObservedAt = new Date('2025-12-07T10:30:00').getTime();
+
+    await TestCamStudyTimeLog.create({
+      userid: 'test-user-id',
+      username: '테스트유저',
+      yearmonthday: '20251207',
+      timestamp: startedAt.toString(),
+      totalminutes: 0,
+    });
+    await TestCamStudyActiveSession.create({
+      userid: 'test-user-id',
+      username: '테스트유저',
+      channelid: 'valid-voice-channel-id',
+      startedat: startedAt.toString(),
+      lastobservedat: lastObservedAt.toString(),
+    });
+
+    const originalFindOne = TestCamStudyUsers.findOne.bind(TestCamStudyUsers);
+    vi.spyOn(TestCamStudyUsers, 'findOne').mockImplementationOnce(async (...args) => {
+      await TestCamStudyActiveSession.destroy({ where: { userid: 'test-user-id' } });
+      return originalFindOne(...args);
+    });
+
+    await reconcileCamStudyActiveSessions([], 'valid-voice-channel-id', 'heartbeat');
+
+    const log = await TestCamStudyTimeLog.findOne({
+      where: { userid: 'test-user-id', yearmonthday: '20251207' },
+    });
+
+    expect(log?.totalminutes).toBe(0);
   });
 });

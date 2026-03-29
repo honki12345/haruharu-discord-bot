@@ -504,8 +504,13 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       const todayLog = await TestCamStudyTimeLog.findOne({
         where: { userid: 'test-user-id', yearmonthday: '20251207' },
       });
+      const yesterdayLog = await TestCamStudyTimeLog.findOne({
+        where: { userid: 'test-user-id', yearmonthday: '20251206' },
+      });
+
       expect(todayLog).not.toBeNull();
-      expect(todayLog?.totalminutes).toBe(120);
+      expect(todayLog?.totalminutes).toBe(60);
+      expect(yesterdayLog?.totalminutes).toBe(60);
     });
   });
 
