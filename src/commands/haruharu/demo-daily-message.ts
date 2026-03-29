@@ -6,7 +6,7 @@ import {
   ThreadChannel,
   ThreadAutoArchiveDuration,
 } from 'discord.js';
-import { testChannelId } from '../../config.js';
+import { testChannelId } from '../../commandChannelConfig.js';
 import { buildDailyAttendanceMessageContent } from '../../daily-attendance.js';
 import { pickDailyMessageQuestion } from '../../daily-message.js';
 import { logger } from '../../logger.js';

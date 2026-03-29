@@ -4,7 +4,7 @@
 
 ## 참여 온보딩
 
-- `#start-here`가 온보딩 안내와 self-service 진입점 역할을 함께 맡습니다.
+- `#start-here`와 기상 self-service 안내 채널이 온보딩/self-service 진입점 역할을 맡습니다.
 - 기상 챌린지는 `/register <waketime>`로 참여를 시작하고, `/stop-wakeup`으로 이후 월 자동 참여를 중단합니다.
 - `/apply-cam`은 `@cam-study` 역할과 캠스터디 참가자 상태를 즉시 활성화합니다.
 - 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서 실행합니다.
@@ -36,6 +36,7 @@
 ## 기상챌린지
 
 - self-service 온보딩
+  - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`와 기상 self-service 안내 채널에서 실행합니다.
   - 기상 참여 시작은 `/register`로 처리합니다.
   - `#start-here`에 남아 있는 stale `/apply-wakeup` 등록은 `/register` 사용 안내로 전환됩니다.
   - 참여 중단은 `/stop-wakeup`으로 처리합니다.

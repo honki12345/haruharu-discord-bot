@@ -1,8 +1,10 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { startHereChannelId, timeStartHereChannelId } from '../../commandChannelConfig.js';
 import { logger } from '../../logger.js';
 
 export const command = {
   cooldown: 5,
+  allowedChannelIds: [startHereChannelId, timeStartHereChannelId],
   data: new SlashCommandBuilder()
     .setName('stop-wakeup')
     .setDescription('stop wake-up program participation')

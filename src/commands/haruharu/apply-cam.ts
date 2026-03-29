@@ -1,6 +1,5 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import { startHereChannelId } from '../../config.js';
-import { submitParticipationApplication } from '../../services/participationApplication.js';
+import { startHereChannelId } from '../../commandChannelConfig.js';
 
 export const command = {
   cooldown: 5,
@@ -11,6 +10,7 @@ export const command = {
     .setNameLocalizations({ ko: '캠스터디신청' })
     .setDescriptionLocalizations({ ko: '캠스터디 참여를 신청합니다' }),
   async execute(interaction: ChatInputCommandInteraction) {
+    const { submitParticipationApplication } = await import('../../services/participationApplication.js');
     await interaction.reply(await submitParticipationApplication(interaction, 'cam-study'));
   },
 };

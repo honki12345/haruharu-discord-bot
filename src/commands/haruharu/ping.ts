@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import { testChannelId } from '../../config.js';
+import { testChannelId } from '../../commandChannelConfig.js';
 import { PERMISSION_NUM_ADMIN } from '../../utils.js';
 
 export const command = {

@@ -1,7 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import { testChannelId } from '../../config.js';
+import { testChannelId } from '../../commandChannelConfig.js';
 import { logger } from '../../logger.js';
-import { Users } from '../../repository/Users.js';
 import { PERMISSION_NUM_ADMIN } from '../../utils.js';
 
 export const command = {
@@ -39,6 +38,7 @@ export const command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
+    const { Users } = await import('../../repository/Users.js');
     const userid = interaction.options.getString('userid')!;
     const yearmonth = interaction.options.getString('yearmonth')!;
     const count = Number(interaction.options.getString('count')!);
