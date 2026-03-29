@@ -7,7 +7,7 @@ import {
   updateWeeklyCamStudyTimeLog,
 } from '../repository/camStudyRepository.js';
 import {
-  listChallengeLogs,
+  listChallengeAttendanceLogs,
   listChallengeUsers,
   listMonthlySurvivors,
   updateChallengeUser,
@@ -68,43 +68,40 @@ const buildChallengeReport = async () => {
   const yearmonthday = getYearMonthDay(year, month, date);
   const users = await listChallengeUsers(yearmonth);
   const userMap = new Map(users.map(user => [user.userid, user]));
-  const timelogs = await listChallengeLogs(yearmonthday);
-  const timelogsGroupById = users.reduce<Record<string, TimeLog[]>>((accumulator, user) => {
-    accumulator[user.userid] = [];
-    return accumulator;
-  }, {});
-
-  timelogs.forEach(timelog => {
-    timelogsGroupById[timelog.userid]?.push(timelog);
+  const attendanceLogs = await listChallengeAttendanceLogs(yearmonthday);
+  const attendanceLogsByUserId = new Map(attendanceLogs.map(attendanceLog => [attendanceLog.userid, attendanceLog]));
+  logger.info(`user id 로 그룹핑한 attendanceLog 인스턴스들: `, {
+    attendanceLogsByUserId: Object.fromEntries(attendanceLogsByUserId),
   });
-  logger.info(`user id 로 그룹핑한 timelog 인스턴스들: `, { timelogsGroupById });
 
   let attendanceMessage = `### ${yearmonthday} 출석표\n`;
   let attendees = '';
   let latecomers = '';
   let absentees = '';
 
-  for (const [userid, logs] of Object.entries(timelogsGroupById)) {
+  for (const userid of userMap.keys()) {
     const user = userMap.get(userid);
     if (!user) {
       continue;
     }
 
-    if (logs.length !== 2) {
+    const attendanceLog = attendanceLogsByUserId.get(userid);
+
+    if (!attendanceLog || attendanceLog.status === 'absent') {
       const nextAbsenceCount = (user.absencecount ?? 0) + 1;
       await updateChallengeUser(userid, yearmonth, { absencecount: nextAbsenceCount });
       absentees += `- ${user.username}: 결석 (${nextAbsenceCount}/${user.vacances})\n`;
       continue;
     }
 
-    if (!logs[0].isintime || !logs[1].isintime) {
+    if (attendanceLog.status === 'late') {
       const nextLateCount = (user.latecount ?? 0) + 1;
       await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
-      latecomers += `- ${logs[0].username}: 지각 (${nextLateCount})\n`;
+      latecomers += `- ${user.username}: 지각 (${nextLateCount})\n`;
       continue;
     }
 
-    attendees += `- ${logs[0].username}: 출석\n`;
+    attendees += `- ${user.username}: 출석\n`;
   }
 
   if (attendees) attendanceMessage += attendees;

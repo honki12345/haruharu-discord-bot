@@ -261,10 +261,11 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 ```
 
 **인수 조건:**
-- 출석/지각/결석 인원 집계
+- `AttendanceLog` 기준 출석/지각/결석 인원 집계
+- 댓글이 없는 사용자도 결석으로 확정
 - 주말 및 공휴일 제외
-- 결석자는 결석 횟수 증가
-- 지각자는 지각 횟수 증가
+- `late` 상태는 `latecount` 증가
+- `absent` 상태 또는 무댓글 사용자는 `absencecount` 증가
 
 ```mermaid
 sequenceDiagram
@@ -274,7 +275,7 @@ sequenceDiagram
     participant C as Check Channel
 
     Note over S: 매일 13:00 트리거
-    S->>B: printChallengeInterval()
+    S->>B: buildChallengeReport()
 
     B->>B: 요일 확인
     alt 토요일 또는 일요일
@@ -286,27 +287,28 @@ sequenceDiagram
         B->>B: 스킵 (24시간 후 재시도)
     end
 
-    B->>DB: 전일자 TimeLog 전체 조회
     B->>DB: 이번 달 Users 전체 조회
+    B->>DB: 당일 AttendanceLog 전체 조회
 
     B->>B: 출석 현황 집계
 
     loop 각 사용자별
-        alt 체크인 & 체크아웃 완료
-            alt 둘 중 하나라도 지각
-                B->>DB: Users.latecount++
-                B->>B: 지각자 목록에 추가
-            else 모두 정시
-                B->>B: 출석자 목록에 추가
-            end
-        else 체크인 또는 체크아웃 미완료
+        alt AttendanceLog 없음
             B->>DB: Users.absencecount++
             B->>B: 결석자 목록에 추가
+        else AttendanceLog.status = late
+                B->>DB: Users.latecount++
+                B->>B: 지각자 목록에 추가
+        else AttendanceLog.status = absent
+            B->>DB: Users.absencecount++
+            B->>B: 결석자 목록에 추가
+        else AttendanceLog.status = attended
+            B->>B: 출석자 목록에 추가
         end
     end
 
     B->>C: 리포트 메시지 전송
-    Note over C: 📊 출석 현황 (12/06)<br/>✅ 출석: 홍길동, 김철수<br/>⏰ 지각: 이영희<br/>❌ 결석: 박민수
+    Note over C: ### 20251208 출석표<br/>- 홍길동: 출석<br/>- 이영희: 지각 (3)<br/>- 박민수: 결석 (2/5)
 ```
 
 ---
@@ -321,7 +323,7 @@ SO THAT 한 달간의 성과를 축하받을 수 있다
 
 **인수 조건:**
 - 매월 마지막 날 출력
-- 결석 3회 미만인 사용자만 포함 (삼진아웃 제도)
+- `absencecount <= vacances` 인 사용자만 포함
 
 ```mermaid
 sequenceDiagram
@@ -341,7 +343,7 @@ sequenceDiagram
     B->>DB: 이번 달 Users 전체 조회
 
     B->>B: 완주자 필터링
-    Note right of B: absencecount < 3인 사용자만
+    Note right of B: absencecount <= vacances 인 사용자만
 
     loop 완주자별
         B->>B: 명단에 추가
