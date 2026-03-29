@@ -310,7 +310,7 @@ vi.mock('../repository/CamStudyUsers.js', () => ({ CamStudyUsers: TestCamStudyUs
 vi.mock('../repository/CamStudyTimeLog.js', () => ({ CamStudyTimeLog: TestCamStudyTimeLog }));
 vi.mock('../repository/CamStudyWeeklyTimeLog.js', () => ({ CamStudyWeeklyTimeLog: TestCamStudyWeeklyTimeLog }));
 vi.mock('../logger.js', () => ({
-  logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
+  logger: { debug: vi.fn(), info: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
 
 // config.json 모킹
@@ -354,14 +354,29 @@ export async function teardownTestDB() {
 }
 
 export async function clearAllTables() {
-  await TestTimeLog.destroy({ where: {} });
-  await TestAttendanceLog.destroy({ where: {} });
-  await TestVacationLog.destroy({ where: {} });
-  await TestWaketimeChangeLog.destroy({ where: {} });
-  await TestUsers.destroy({ where: {} });
-  await TestCamStudyTimeLog.destroy({ where: {} });
-  await TestCamStudyUsers.destroy({ where: {} });
-  await TestCamStudyWeeklyTimeLog.destroy({ where: {} });
+  const existingTables = new Set(
+    (await testSequelize.getQueryInterface().showAllTables()).map(table => table.toString()),
+  );
+  const models = [
+    TestTimeLog,
+    TestAttendanceLog,
+    TestVacationLog,
+    TestWaketimeChangeLog,
+    TestUsers,
+    TestCamStudyTimeLog,
+    TestCamStudyUsers,
+    TestCamStudyWeeklyTimeLog,
+  ];
+
+  for (const model of models) {
+    const tableName = model.getTableName().toString();
+
+    if (!existingTables.has(tableName)) {
+      continue;
+    }
+
+    await model.destroy({ where: {} });
+  }
 }
 
 // ============ Mock Discord Interaction Factory ============
@@ -454,14 +469,17 @@ export function createMockInteraction(opts: MockInteractionOptions = {}) {
 // ============ Mock VoiceState Factory ============
 interface MockVoiceStateOptions {
   channelId?: string | null;
+  selfVideo?: boolean;
   streaming?: boolean;
   userId: string;
 }
 
 export function createMockVoiceState(opts: MockVoiceStateOptions) {
   const sendMock = vi.fn();
+  const channelId = opts.channelId !== undefined ? opts.channelId : 'valid-voice-channel-id';
   return {
-    channelId: opts.channelId ?? 'valid-voice-channel-id',
+    channelId,
+    selfVideo: opts.selfVideo ?? false,
     streaming: opts.streaming ?? false,
     id: opts.userId,
     guild: {
@@ -473,9 +491,7 @@ export function createMockVoiceState(opts: MockVoiceStateOptions) {
         },
       },
     },
-    channel: {
-      send: sendMock,
-    },
+    channel: channelId ? { send: sendMock } : null,
     _sendMock: sendMock,
   };
 }
