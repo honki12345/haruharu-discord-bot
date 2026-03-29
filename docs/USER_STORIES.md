@@ -252,7 +252,7 @@ sequenceDiagram
 ```
 AS A 챌린저
 I WANT TO /기상중단 명령으로 기상 챌린지 상시 참여를 직접 중단
-SO THAT 다음 달부터 자동 등록되지 않게 하고 싶다
+SO THAT 이번 달 참여를 바로 멈추고 다음 달부터만 다시 시작 여부를 결정하고 싶다
 ```
 
 **인수 조건:**
@@ -260,9 +260,10 @@ SO THAT 다음 달부터 자동 등록되지 않게 하고 싶다
 - 현재 active 상태인 사용자만 중단할 수 있다
 - `/기상중단`은 `#start-here`, 기상 self-service 안내 채널에서만 실행된다
 - `WakeUpMembership` 이 아직 없는 legacy 참가자라도 latest `Users` 스냅샷에 있으면 중단할 수 있다
-- 현재 월 `Users`, `AttendanceLog`, `VacationLog` 기록은 유지된다
+- 현재 월 `Users` 스냅샷은 즉시 제거되고 같은 달 exclusion 이 기록된다
+- 같은 달 리포트/휴가/출석 경로는 이 exclusion 을 존중해 사용자를 자동 복구하지 않는다
 - `WakeUpMembership.status` 는 `stopped` 로 바뀐다
-- 이후 월에는 `Users` 자동 생성 대상에서 제외된다
+- 같은 달에는 `/기상등록`으로 다시 참여할 수 없고, 다음 달부터 다시 등록할 수 있다
 
 ```mermaid
 sequenceDiagram
@@ -283,7 +284,9 @@ sequenceDiagram
         B-->>U: "현재 진행 중인 기상스터디 참여가 없습니다"
     else active membership 존재
         B->>DB: WakeUpMembership.status = stopped
-        B-->>U: "현재 월 기록은 유지되고 다음 달부터 자동 등록되지 않습니다"
+        B->>DB: 현재 월 exclusion 기록
+        B->>DB: 현재 월 Users 삭제
+        B-->>U: "이번 달 참여는 즉시 중단되며 다음 달부터 다시 등록할 수 있습니다"
     end
 ```
 
@@ -764,7 +767,8 @@ SO THAT 같은 명령으로 등록과 수정을 모두 처리할 수 있다
 - 본인 데이터만 수정 가능
 - 기상시간은 05:00~09:00 범위만 허용
 - 같은 날에는 한 번만 변경 가능
-- 과거에 중단한 사용자도 같은 `/기상등록`으로 현재 월 참여를 다시 시작할 수 있다
+- 이전 달에 중단한 사용자는 같은 `/기상등록`으로 다시 참여할 수 있다
+- 같은 달에 `/기상중단`한 사용자는 다음 달이 되기 전까지 `/기상등록`으로 다시 참여할 수 없다
 
 ```mermaid
 sequenceDiagram
