@@ -421,7 +421,101 @@ describe('reporting service', () => {
     expect(updatedUser?.absencecount).toBe(2);
   });
 
-  it('공휴일에는 출석 집계를 건너뛰고 카운트를 변경하지 않는다', async () => {
+  it('주말 attended 로그는 absencecount를 우선 차감한다', async () => {
+    vi.setSystemTime(new Date('2025-12-07T13:00:00'));
+
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 1,
+      absencecount: 2,
+    });
+
+    await TestAttendanceLog.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonthday: '20251207',
+      threadid: 'thread-1',
+      messageid: 'message-1',
+      commentedat: '2025-12-06T22:00:00Z',
+      status: 'attended',
+    });
+
+    const { attendanceMessage, hallOfFameMessage } = await buildChallengeReport();
+    const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+
+    expect(attendanceMessage).toBeNull();
+    expect(hallOfFameMessage).toBeNull();
+    expect(updatedUser?.latecount).toBe(1);
+    expect(updatedUser?.absencecount).toBe(1);
+  });
+
+  it('주말 attended 로그는 absencecount가 없으면 latecount를 차감한다', async () => {
+    vi.setSystemTime(new Date('2025-12-07T13:00:00'));
+
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 2,
+      absencecount: 0,
+    });
+
+    await TestAttendanceLog.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonthday: '20251207',
+      threadid: 'thread-1',
+      messageid: 'message-1',
+      commentedat: '2025-12-06T22:00:00Z',
+      status: 'attended',
+    });
+
+    const { attendanceMessage } = await buildChallengeReport();
+    const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+
+    expect(attendanceMessage).toBeNull();
+    expect(updatedUser?.latecount).toBe(1);
+    expect(updatedUser?.absencecount).toBe(0);
+  });
+
+  it('주말 late 로그는 패널티를 추가하지 않는다', async () => {
+    vi.setSystemTime(new Date('2025-12-07T13:00:00'));
+
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 1,
+      absencecount: 2,
+    });
+
+    await TestAttendanceLog.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonthday: '20251207',
+      threadid: 'thread-1',
+      messageid: 'message-1',
+      commentedat: '2025-12-06T22:15:00Z',
+      status: 'late',
+    });
+
+    const { attendanceMessage } = await buildChallengeReport();
+    const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+
+    expect(attendanceMessage).toBeNull();
+    expect(updatedUser?.latecount).toBe(1);
+    expect(updatedUser?.absencecount).toBe(2);
+  });
+
+  it('공휴일 attended 로그는 주말과 같은 보너스 규칙을 적용한다', async () => {
     vi.setSystemTime(new Date('2026-01-01T13:00:00'));
 
     await TestUsers.create({
@@ -434,11 +528,52 @@ describe('reporting service', () => {
       absencecount: 2,
     });
 
+    await TestAttendanceLog.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonthday: '20260101',
+      threadid: 'thread-1',
+      messageid: 'message-1',
+      commentedat: '2025-12-31T22:00:00Z',
+      status: 'attended',
+    });
+
     const { attendanceMessage, hallOfFameMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202601' } });
 
     expect(attendanceMessage).toBeNull();
     expect(hallOfFameMessage).toBeNull();
+    expect(updatedUser?.latecount).toBe(1);
+    expect(updatedUser?.absencecount).toBe(1);
+  });
+
+  it('공휴일 absent 로그도 패널티를 추가하지 않는다', async () => {
+    vi.setSystemTime(new Date('2026-01-01T13:00:00'));
+
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202601',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 1,
+      absencecount: 2,
+    });
+
+    await TestAttendanceLog.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonthday: '20260101',
+      threadid: 'thread-1',
+      messageid: 'message-1',
+      commentedat: '2025-12-31T22:31:00Z',
+      status: 'absent',
+    });
+
+    const { attendanceMessage } = await buildChallengeReport();
+    const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202601' } });
+
+    expect(attendanceMessage).toBeNull();
     expect(updatedUser?.latecount).toBe(1);
     expect(updatedUser?.absencecount).toBe(2);
   });

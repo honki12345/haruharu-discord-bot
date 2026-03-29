@@ -34,6 +34,16 @@
 | `#cam-study`     | 캠스터디 전용 텍스트 채널                | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음 |
 | `음성: 캠스터디` | 캠스터디 전용 음성 채널                  | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음 |
 
+### 채널별 고정/반복 안내 메시지
+
+| 채널          | 메시지 유형      | 설명                                                                   | 출처                                       |
+| ------------- | ---------------- | ---------------------------------------------------------------------- | ------------------------------------------ |
+| `#start-here` | 고정 안내        | 서버 소개와 프로그램 요약 고정 안내                                    | 운영 수동 관리, `USER_STORIES`             |
+| `#apply`      | 고정 안내        | 참여 방법과 신청 명령어 고정 안내                                      | 운영 수동 관리, `USER_STORIES`             |
+| `#wake-up`    | 반복 자동 메시지 | 매일 06:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내 | `src/daily-attendance.ts`                  |
+| `#wake-up`    | 반복 자동 메시지 | 평일 13:00 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영           | `src/services/reporting.ts`                |
+| `#ops`        | 반복 운영 메시지 | 신청 승인/거절 안내와 운영 처리 메시지                                 | `src/services/participationApplication.ts` |
+
 ---
 
 ## 프로젝트 구조
@@ -251,7 +261,7 @@ haruharu-discord-bot/
 **스케줄러:**
 
 - 운영 daily message/thread 생성: 매일 06:00
-- 기상 챌린지 리포트: 매일 13:00
+- 기상 챌린지 집계/리포트: 매일 13:00
 - 캠스터디 리포트: 매일 23:59
 - 캠스터디 active session heartbeat: 1분 간격
 
@@ -259,6 +269,7 @@ haruharu-discord-bot/
 
 - 운영 daily message/thread 중복 방지와 재탐색은 `src/daily-attendance.ts`가 담당한다.
 - 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
+- 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, 출석 성공 시 `absencecount` 우선 1회 차감 후 없으면 `latecount`를 1회 차감한다.
 - `ClientReady` 직후에는 저장된 `CamStudyActiveSession`과 현재 voice state를 비교해 세션을 복구/종료 정산한다.
 - heartbeat는 `lastobservedat`를 주기적으로 갱신해 재배포 중 종료 이벤트를 놓쳤을 때 손실 범위를 제한한다.
 - 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
@@ -351,10 +362,10 @@ flowchart TD
 
 #### daily-attendance.ts
 
-| 항목   | 내용                                                                                        |
-| ------ | ------------------------------------------------------------------------------------------- |
-| 역할   | 운영 채널용 daily message 본문, thread 이름 규칙, today thread 재탐색/중복 방지 로직을 제공 |
-| 사용처 | `ready.ts` 운영 daily message/thread 자동 생성 스케줄                                       |
+| 항목   | 내용                                                                                                      |
+| ------ | --------------------------------------------------------------------------------------------------------- |
+| 역할   | 운영 채널용 daily message 본문, thread 이름 규칙, thread guide, today thread 재탐색/중복 방지 로직을 제공 |
+| 사용처 | `ready.ts` 운영 daily message/thread 자동 생성 스케줄                                                     |
 
 #### daily-message.ts
 
@@ -684,6 +695,8 @@ flowchart TD
 - `/apply-cam` 성공 시 `@cam-study` 역할과 `CamStudyUsers`가 함께 맞춰지고, 이후 역할 변경은 `guildMemberUpdate`가 계속 동기화한다.
 - `/approve-application`, `/reject-application`은 `#ops`에서 deprecated 안내만 반환한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
+- 주말/공휴일에도 `#wake-up` daily message/thread는 생성된다.
+- 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `AttendanceLog.status='attended'` 인 사용자만 결석 1회 우선 차감 후 없으면 지각 1회를 차감한다.
 
 ### package.json 스크립트
 
