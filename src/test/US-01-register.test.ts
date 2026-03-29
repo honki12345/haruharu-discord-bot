@@ -306,4 +306,69 @@ describe('US-01: /register 커맨드', () => {
     expect(changeLog).toBeNull();
     expect(interaction.getLastReply()).toContain('역할');
   });
+
+  it('TC-R11: 기존 @wake-up 역할이 있던 사용자는 register rollback 시 역할을 잃지 않는다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'existing-role-user',
+      username: '기존역할사용자',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+    });
+    await TestUsers.create({
+      userid: 'existing-role-user',
+      username: '기존역할사용자',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    const changeLogCreateSpy = vi
+      .spyOn(TestWaketimeChangeLog, 'create')
+      .mockRejectedValueOnce(new Error('change log write failed'));
+
+    const member = {
+      roles: {
+        cache: {
+          has: vi.fn().mockReturnValue(true),
+        },
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const guild = {
+      members: {
+        fetch: vi.fn().mockResolvedValue(member),
+      },
+    };
+
+    const { executeRegisterWithRoleSync } = await import('../services/challengeSelfService.js');
+
+    await expect(
+      executeRegisterWithRoleSync({
+        userId: 'existing-role-user',
+        username: '기존역할사용자',
+        waketime: '0715',
+        guild: guild as never,
+      }),
+    ).rejects.toThrow('change log write failed');
+
+    changeLogCreateSpy.mockRestore();
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'existing-role-user' } });
+    const user = await TestUsers.findOne({ where: { userid: 'existing-role-user', yearmonth: '202512' } });
+    const changeLog = await TestWaketimeChangeLog.findOne({
+      where: { userid: 'existing-role-user', yearmonthday: '20251207' },
+    });
+
+    expect(member.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(member.roles.remove).not.toHaveBeenCalled();
+    expect(membership?.status).toBe('active');
+    expect(membership?.waketime).toBe('0700');
+    expect(user?.waketime).toBe('0700');
+    expect(changeLog).toBeNull();
+  });
 });

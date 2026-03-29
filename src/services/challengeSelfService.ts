@@ -62,7 +62,8 @@ type CommandResult = {
   reply: string;
 };
 
-type WakeUpRoleResult = CommandResult | { member: GuildMember };
+type GuildMemberResult = CommandResult | { member: GuildMember };
+type WakeUpRoleResult = CommandResult | { member: GuildMember; hadRoleBeforeMutation: boolean };
 const wakeUpUserLocks = new Map<string, Promise<void>>();
 
 const runChallengeTransaction = async <T>(callback: (transaction: Transaction) => Promise<T>) => {
@@ -492,7 +493,7 @@ const persistStopWakeUp = async ({
     };
   });
 
-const fetchWakeUpGuildMember = async (guild: Guild | null, userId: string): Promise<WakeUpRoleResult> => {
+const fetchWakeUpGuildMember = async (guild: Guild | null, userId: string): Promise<GuildMemberResult> => {
   if (!guild) {
     return { reply: '서버 안에서만 기상스터디 참여를 처리할 수 있습니다' };
   }
@@ -506,15 +507,19 @@ const fetchWakeUpGuildMember = async (guild: Guild | null, userId: string): Prom
   }
 };
 
+const hasWakeUpRole = (member: GuildMember) => member.roles.cache?.has(wakeUpRoleId) ?? false;
+
 const grantWakeUpRole = async (guild: Guild | null, userId: string): Promise<WakeUpRoleResult> => {
   const fetchedMember = await fetchWakeUpGuildMember(guild, userId);
   if ('reply' in fetchedMember) {
     return fetchedMember;
   }
 
+  const hadRoleBeforeMutation = hasWakeUpRole(fetchedMember.member);
+
   try {
     await fetchedMember.member.roles.add(wakeUpRoleId);
-    return fetchedMember;
+    return { member: fetchedMember.member, hadRoleBeforeMutation };
   } catch (error) {
     logger.error('failed to grant wake-up role', { error, userId, roleId: wakeUpRoleId });
     return { reply: '@wake-up 역할을 부여하지 못했어요. 봇 권한과 역할 설정을 확인한 뒤 다시 시도해 주세요.' };
@@ -527,9 +532,11 @@ const revokeWakeUpRole = async (guild: Guild | null, userId: string): Promise<Wa
     return fetchedMember;
   }
 
+  const hadRoleBeforeMutation = hasWakeUpRole(fetchedMember.member);
+
   try {
     await fetchedMember.member.roles.remove(wakeUpRoleId);
-    return fetchedMember;
+    return { member: fetchedMember.member, hadRoleBeforeMutation };
   } catch (error) {
     logger.error('failed to revoke wake-up role', { error, userId, roleId: wakeUpRoleId });
     return { reply: '@wake-up 역할을 회수하지 못했어요. 봇 권한과 역할 설정을 확인한 뒤 다시 시도해 주세요.' };
@@ -573,14 +580,16 @@ const executeRegisterWithRoleSync = async ({
     } catch (error) {
       logger.error('register persistence failed after wake-up role grant', { error, userId, roleId: wakeUpRoleId });
 
-      try {
-        await roleResult.member.roles.remove(wakeUpRoleId);
-      } catch (rollbackError) {
-        logger.error('failed to rollback wake-up role after register persistence error', {
-          rollbackError,
-          userId,
-          roleId: wakeUpRoleId,
-        });
+      if (!roleResult.hadRoleBeforeMutation) {
+        try {
+          await roleResult.member.roles.remove(wakeUpRoleId);
+        } catch (rollbackError) {
+          logger.error('failed to rollback wake-up role after register persistence error', {
+            rollbackError,
+            userId,
+            roleId: wakeUpRoleId,
+          });
+        }
       }
 
       throw error;
