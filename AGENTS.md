@@ -91,7 +91,8 @@
 - 기상시간 self-service는 `/register` 하나로 기상 참여 시작/재시작과 기상시간 등록/수정을 처리하되 하루 1회 제한을 지켜야 한다.
 - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`와 기상 self-service 전용 온보딩 채널에서만 실행되도록 유지한다.
 - self-service 명령(`/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`)은 사용자에게는 `ephemeral`로 응답하고, 운영 확인용 결과는 `testChannelId`에도 남긴다.
-- 기상 self-service 중단은 `/stop-wakeup` 으로 처리하고, 현재 월 기록은 유지한 채 이후 월 자동 등록만 중단해야 한다.
+- 기상 self-service 중단은 `/stop-wakeup` 으로 처리하고, 현재 월 참여도 즉시 중단해야 한다.
+- `/stop-wakeup` 은 현재 월 `Users` 스냅샷을 제거하고 같은 달 exclusion 을 남겨 그 달 `/register` 재등록과 자동 복구를 막아야 한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - 캠스터디 등록 원본은 `@cam-study` 역할과 `guildMemberUpdate` 동기화로 본다.
 - 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서만 실행되도록 유지한다.

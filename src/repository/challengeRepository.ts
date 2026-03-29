@@ -18,10 +18,9 @@ const findChallengeUserExclusion = (userid: string, yearmonth: string) =>
 const listChallengeUserExclusions = (yearmonth: string) => ChallengeUserExclusion.findAll({ where: { yearmonth } });
 
 const createChallengeUserExclusion = (userid: string, yearmonth: string) =>
-  ChallengeUserExclusion.findOrCreate({
-    where: { userid, yearmonth },
-    defaults: { userid, yearmonth },
-  });
+  ChallengeUserExclusion.bulkCreate([{ userid, yearmonth }], { ignoreDuplicates: true });
+
+const deleteChallengeUser = (userid: string, yearmonth: string) => Users.destroy({ where: { userid, yearmonth } });
 
 const listChallengeAttendanceLogs = (yearmonthday: string) => AttendanceLog.findAll({ where: { yearmonthday } });
 
@@ -107,6 +106,7 @@ export {
   bulkCreateWakeUpMemberships,
   createWakeUpMembership,
   createWaketimeChangeLog,
+  deleteChallengeUser,
   listChallengeAttendanceLogs,
   findChallengeUser,
   findChallengeUserExclusion,

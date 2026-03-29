@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  TestChallengeUserExclusion,
   TestUsers,
   TestVacationLog,
   TestWakeUpMembership,
@@ -81,7 +82,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(interaction.getLastReply()).toContain('휴가를 등록');
   });
 
-  it('TC-WM03: 중단한 사용자는 다음 달 리포트에서 자동 등록되지 않는다', async () => {
+  it('TC-WM03: /stop-wakeup 은 현재 월 참가를 즉시 중단하고 현재 월 자동 복구도 막는다', async () => {
     await TestWakeUpMembership.create({
       userid: 'stopped-user',
       username: '박민수',
@@ -92,14 +93,13 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     await TestUsers.create({
       userid: 'stopped-user',
       username: '박민수',
-      yearmonth: '202512',
+      yearmonth: '202601',
       waketime: '0700',
       vacances: 5,
       latecount: 0,
       absencecount: 0,
     });
 
-    vi.setSystemTime(new Date('2025-12-20T07:05:00Z'));
     const stopInteraction = createMockInteraction({
       userId: 'stopped-user',
       globalName: '박민수',
@@ -108,22 +108,60 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     const { command: stopCommand } = await import('../commands/haruharu/stop-wakeup.js');
     await stopCommand.execute(stopInteraction as never);
 
-    vi.setSystemTime(new Date('2026-01-08T07:05:00Z'));
     const { buildChallengeReport } = await import('../services/reporting.js');
     const { attendanceMessage } = await buildChallengeReport();
 
     const membership = await TestWakeUpMembership.findOne({ where: { userid: 'stopped-user' } });
+    const exclusion = await TestChallengeUserExclusion.findOne({
+      where: { userid: 'stopped-user', yearmonth: '202601' },
+    });
     const currentMonthUser = await TestUsers.findOne({
       where: { userid: 'stopped-user', yearmonth: '202601' },
     });
 
     expect(membership?.status).toBe('stopped');
+    expect(exclusion).not.toBeNull();
     expect(currentMonthUser).toBeNull();
     expect(attendanceMessage).not.toContain('박민수');
     expect(stopInteraction.getLastReply()).toContain('중단');
   });
 
-  it('TC-WM04: 중단 후 다시 register 하면 membership이 재활성화되고 현재 월 스냅샷이 생성된다', async () => {
+  it('TC-WM04: 같은 달에 /stop-wakeup 한 사용자는 그 달에 다시 /register 할 수 없다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'return-user',
+      username: '최민지',
+      waketime: '0700',
+      status: 'stopped',
+      stoppedat: '2026-01-08T07:05:00.000Z',
+    });
+    await TestChallengeUserExclusion.create({
+      userid: 'return-user',
+      yearmonth: '202601',
+    });
+
+    const interaction = createMockInteraction({
+      userId: 'return-user',
+      globalName: '최민지',
+      options: {
+        waketime: '0800',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'return-user' } });
+    const currentMonthUser = await TestUsers.findOne({
+      where: { userid: 'return-user', yearmonth: '202601' },
+    });
+
+    expect(membership?.status).toBe('stopped');
+    expect(membership?.waketime).toBe('0700');
+    expect(currentMonthUser).toBeNull();
+    expect(interaction.getLastReply()).toContain('다음 달부터 다시 등록');
+  });
+
+  it('TC-WM05: 이전 달에 중단한 사용자는 다음 달에 /register 로 다시 참여할 수 있다', async () => {
     await TestWakeUpMembership.create({
       userid: 'return-user',
       username: '최민지',
@@ -154,7 +192,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(interaction.getLastReply()).toContain('등록했습니다');
   });
 
-  it('TC-WM05: 신규 /register 후 다음 달에도 자동 이월된다', async () => {
+  it('TC-WM06: 신규 /register 후 다음 달에도 자동 이월된다', async () => {
     vi.setSystemTime(new Date('2025-12-07T07:05:00Z'));
     const registerInteraction = createMockInteraction({
       userId: 'new-user',
@@ -181,7 +219,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(registerInteraction.getLastReply()).toContain('등록했습니다');
   });
 
-  it('TC-WM06: 같은 userid/yearmonth Users 스냅샷은 중복 저장되지 않는다', async () => {
+  it('TC-WM07: 같은 userid/yearmonth Users 스냅샷은 중복 저장되지 않는다', async () => {
     await TestUsers.create({
       userid: 'unique-user',
       username: '유일사용자',
@@ -205,7 +243,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     ).rejects.toThrow();
   });
 
-  it('TC-WM07: /delete로 제거된 월 스냅샷은 리포트 자동 생성으로 되살아나지 않는다', async () => {
+  it('TC-WM08: /delete로 제거된 월 스냅샷은 리포트 자동 생성으로 되살아나지 않는다', async () => {
     await TestWakeUpMembership.create({
       userid: 'deleted-user',
       username: '삭제대상',
@@ -245,7 +283,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(attendanceMessage).not.toContain('삭제대상');
   });
 
-  it('TC-WM08: membership이 없는 기존 Users 참가자도 다음 달 자동 이월 대상에 포함된다', async () => {
+  it('TC-WM09: membership이 없는 기존 Users 참가자도 다음 달 자동 이월 대상에 포함된다', async () => {
     vi.setSystemTime(new Date('2025-12-07T07:05:00Z'));
     await TestUsers.create({
       userid: 'legacy-user',
@@ -272,7 +310,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(attendanceMessage).toContain('기존참가자: 결석');
   });
 
-  it('TC-WM09: legacy Users만 있는 참가자도 첫 리포트 전 /stop-wakeup 으로 중단할 수 있다', async () => {
+  it('TC-WM10: legacy Users만 있는 참가자도 첫 리포트 전 /stop-wakeup 으로 중단할 수 있다', async () => {
     vi.setSystemTime(new Date('2025-12-20T07:05:00Z'));
     await TestUsers.create({
       userid: 'legacy-stop-user',
@@ -300,7 +338,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(stopInteraction.getLastReply()).toContain('중단했습니다');
   });
 
-  it('TC-WM10: legacy Users backfill 경로는 동시 /stop-wakeup 요청에도 unique 충돌 없이 idempotent 하다', async () => {
+  it('TC-WM11: legacy Users backfill 경로는 동시 /stop-wakeup 요청에도 unique 충돌 없이 idempotent 하다', async () => {
     vi.setSystemTime(new Date('2025-12-20T07:05:00Z'));
     await TestUsers.create({
       userid: 'legacy-concurrent-user',

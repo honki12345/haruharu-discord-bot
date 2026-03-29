@@ -30,11 +30,11 @@ export const command = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const { Users } = await import('../../repository/Users.js');
+    const { findChallengeUser, deleteChallengeUser } = await import('../../repository/challengeRepository.js');
     const { createChallengeUserExclusion } = await import('../../services/challengeSelfService.js');
     const userid = interaction.options.getString('userid')!;
     const yearmonth = interaction.options.getString('yearmonth')!;
-    const foundUser = await Users.findOne({ where: { userid, yearmonth } });
+    const foundUser = await findChallengeUser(userid, yearmonth);
 
     if (!foundUser) {
       return await interaction.reply('챌린저 삭제 실패: 존재하지 않는 회원입니다');
@@ -45,7 +45,7 @@ export const command = {
       logger.info(`delete 명령행에 입력한 값: userid: ${userid}`);
 
       await createChallengeUserExclusion(userid, yearmonth);
-      await Users.destroy({ where: { userid, yearmonth } });
+      await deleteChallengeUser(userid, yearmonth);
       await interaction.reply(`${foundUser.username}님 ${yearmonth} 챌린저 정보를 삭제했습니다`);
     } catch (e) {
       logger.error(`challenge 삭제 실패`, { e });
