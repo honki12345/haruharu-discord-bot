@@ -55,6 +55,7 @@ haruharu-discord-bot/
 │   ├── runtime.ts               # Discord client/커맨드/이벤트 로더
 │   ├── config.ts                # 런타임 설정 로더
 │   ├── deployConfig.ts          # 슬래시 커맨드 배포용 최소 설정 로더
+│   ├── backfill-attendance.ts   # 운영 출석 누락 로그/반응 1회성 backfill helper
 │   ├── logger.ts                # Winston 로깅 설정
 │   ├── attendance.ts            # 출석 판정 및 이모지 유틸리티
 │   ├── daily-attendance.ts      # 운영 daily message/thread 생성 및 재탐색 유틸리티
@@ -77,7 +78,7 @@ haruharu-discord-bot/
 │   │   ├── ready.ts             # 봇 시작, DB 동기화, 리포트 스케줄러 등록
 │   │   ├── guildMemberUpdate.ts # @cam-study 역할 기반 참가자 동기화
 │   │   ├── interactionCreate.ts # 슬래시 커맨드 핸들러
-│   │   ├── messageCreate.ts     # 출석 demo thread 댓글 감지
+│   │   ├── messageCreate.ts     # 운영/데모 출석 thread 첫 댓글 감지 및 공식 AttendanceLog 기록
 │   │   └── camStudyHandler.ts   # 음성 채널 상태 감지 및 캠스터디 서비스 위임
 │   │
 │   ├── services/
@@ -354,10 +355,15 @@ flowchart TD
 
 #### messageCreate.ts
 
-| 항목   | 내용                                                                        |
-| ------ | --------------------------------------------------------------------------- |
-| 트리거 | 일반 메시지 생성                                                            |
-| 기능   | 테스트 채널의 출석 demo thread에서 첫 댓글을 감지하고 출석 상태 이모지 반응 |
+| 항목   | 내용                                                                                                  |
+| ------ | ----------------------------------------------------------------------------------------------------- |
+| 트리거 | 일반 메시지 생성                                                                                      |
+| 기능   | 운영 `#wake-up` 출석 thread와 테스트 채널 출석 demo thread의 첫 댓글을 감지하고 출석 상태 이모지 반응 |
+
+**구현 메모:**
+
+- 운영 출석 thread의 첫 공식 판정(`✅`, `🟡`, `❌`)은 즉시 `AttendanceLog`에 저장한다.
+- `⏰`, `❓` 같은 임시 반응은 최종 출석으로 고정하지 않으며, 이후 댓글의 공식 판정을 허용한다.
 
 #### daily-attendance.ts
 
@@ -372,6 +378,13 @@ flowchart TD
 | ------ | --------------------------------------------------------------- |
 | 역할   | daily message에 넣을 질문 100개를 보관하고 랜덤으로 하나를 선택 |
 | 사용처 | `/demo-daily-message` 커맨드, 운영 daily message 본문 생성      |
+
+#### backfill-attendance.ts
+
+| 항목   | 내용                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------- |
+| 역할   | 운영자가 누락된 출석 댓글에 대해 `AttendanceLog`와 봇 반응 이모지를 함께 1회성 backfill 할 때 사용하는 helper |
+| 사용처 | 배포된 artifact에서 `node dist/backfill-attendance.js <input.json>` 형태로 수동 실행                          |
 
 ---
 

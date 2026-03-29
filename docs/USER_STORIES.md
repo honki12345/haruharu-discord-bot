@@ -389,6 +389,7 @@ sequenceDiagram
 
 - `/check-in`, `/check-out`는 더 이상 등록되지 않는다.
 - 공식 기상 출석 입력은 daily message에 연결된 오늘의 출석 thread 첫 댓글만 사용한다.
+- 운영 출석 thread의 첫 공식 판정 댓글은 `messageCreate` 시점에 이모지 반응과 함께 `AttendanceLog`로 즉시 저장된다.
 - 과거 `TimeLog` 데이터는 집계 원본이 아닌 레거시 기록 호환용으로만 유지한다.
 
 ---

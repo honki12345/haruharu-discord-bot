@@ -9,6 +9,7 @@
     "pm2": "npm run build && NODE_ENV=production pm2 start dist/index.js --name haruharu-bot",
     "deploy": "git pull && npm run build && pm2 reload haruharu-bot",
     "deploy:commands": "npm run build && node \"dist/deploy-commands.js\"",
+    "backfill:attendance": "node \"dist/backfill-attendance.js\"",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write src",
