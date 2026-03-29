@@ -14,7 +14,7 @@
 - 데이터 저장은 SQLite + Sequelize 모델(`src/repository`)로 처리한다.
 - 캠스터디는 진행 중 세션을 `CamStudyActiveSession`으로 별도 저장하고, 재기동 시 `ready.ts`에서 복구한다.
 - 테스트는 Vitest를 사용하며 기본 테스트, bot boot smoke test, 통합 테스트를 분리한다.
-- 운영 배포는 GitHub Actions `workflow_dispatch` + CI build artifact/runtime metadata + SSH + PM2 조합을 기준으로 한다.
+- 운영 배포는 GitHub Actions `workflow_dispatch` + production 호환 빌드 환경(`ubuntu-22.04`, Node.js 24)에서 만든 artifact/runtime metadata + SSH + PM2 조합을 기준으로 한다.
 
 ## 우선 참고 문서
 
@@ -152,7 +152,7 @@
 - workflow는 역할을 분리한다.
   - `ci.yml`: lint / prettier / unit test / smoke test / integration test
   - `dependency-review.yml`: 의존성 변경 PR 리뷰
-  - `deploy-production.yml`: verify 뒤 production artifact와 runtime metadata를 만들고 서버 호환성 검증 후 반영한 뒤 readiness 확인
+  - `deploy-production.yml`: `ubuntu-22.04` + Node.js 24 verify 뒤 production artifact와 runtime metadata를 만들고 서버 호환성 검증 후 반영한 뒤 readiness 확인
 
 ## 구현 컨벤션
 
