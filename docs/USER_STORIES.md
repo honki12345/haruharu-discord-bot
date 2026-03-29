@@ -11,6 +11,7 @@ SO THAT 해당 사용자가 출석 체크를 할 수 있다
 ```
 
 **인수 조건:**
+
 - 사용자 ID, 년월, 기상시간, 이름을 입력받는다
 - 기상시간은 05:00~09:00 범위만 허용
 - 기본 휴가일수는 5일
@@ -55,6 +56,7 @@ SO THAT 오늘의 출석이 기록된다
 ```
 
 **인수 조건:**
+
 - 등록된 기상시간 ±30분 내에만 체크인 가능
 - ±10분 내: 정시 출석
 - 10~30분 후: 지각 처리
@@ -124,6 +126,7 @@ SO THAT 출석이 완료된다
 ```
 
 **인수 조건:**
+
 - 체크인 완료 후에만 체크아웃 가능
 - 기상시간 + 1시간 ±10분 내에만 가능
 - 이미지 파일 첨부 필수
@@ -189,7 +192,8 @@ SO THAT 해당 챌린저가 추가 휴식일을 가질 수 있다
 ```
 
 **인수 조건:**
-- 기존 휴가일수에 지정한 수만큼 추가
+
+- 사용자에게 지급된 총 휴가일수에 지정한 수만큼 추가
 - 등록된 사용자만 대상
 
 ```mermaid
@@ -223,8 +227,10 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 ```
 
 **인수 조건:**
-- 출석/지각/결석 인원 집계
+
+- 출석/지각/휴가/결석 인원 집계
 - 주말 및 공휴일 제외
+- 휴가 등록된 날짜는 결석으로 처리하지 않음
 - 결석자는 결석 횟수 증가
 - 지각자는 지각 횟수 증가
 
@@ -261,6 +267,8 @@ sequenceDiagram
             else 모두 정시
                 B->>B: 출석자 목록에 추가
             end
+        else 휴가 등록됨
+            B->>B: 휴가자 목록에 추가
         else 체크인 또는 체크아웃 미완료
             B->>DB: Users.absencecount++
             B->>B: 결석자 목록에 추가
@@ -268,7 +276,7 @@ sequenceDiagram
     end
 
     B->>C: 리포트 메시지 전송
-    Note over C: 📊 출석 현황 (12/06)<br/>✅ 출석: 홍길동, 김철수<br/>⏰ 지각: 이영희<br/>❌ 결석: 박민수
+    Note over C: 📊 출석 현황 (12/06)<br/>✅ 출석: 홍길동, 김철수<br/>⏰ 지각: 이영희<br/>🌴 휴가: 박민수<br/>❌ 결석: 최민지
 ```
 
 ---
@@ -282,8 +290,9 @@ SO THAT 한 달간의 성과를 축하받을 수 있다
 ```
 
 **인수 조건:**
+
 - 매월 마지막 날 출력
-- 결석 3회 미만인 사용자만 포함 (삼진아웃 제도)
+- 결석 횟수가 해당 월 총 지급 휴가일수 이내인 사용자만 포함
 
 ```mermaid
 sequenceDiagram
@@ -303,7 +312,7 @@ sequenceDiagram
     B->>DB: 이번 달 Users 전체 조회
 
     B->>B: 완주자 필터링
-    Note right of B: absencecount < 3인 사용자만
+    Note right of B: absencecount <= vacances인 사용자만
 
     loop 완주자별
         B->>B: 명단에 추가
@@ -326,6 +335,7 @@ SO THAT 해당 사용자의 학습 시간이 추적된다
 ```
 
 **인수 조건:**
+
 - 사용자 ID와 이름을 입력받는다
 - 중복 등록 불가
 
@@ -360,6 +370,7 @@ SO THAT 별도 조작 없이 공부 시간이 측정된다
 ```
 
 **인수 조건:**
+
 - 카메라 ON: 학습 시작
 - 카메라 OFF 또는 채널 퇴장: 학습 종료
 - 5분 미만 세션은 무시
@@ -426,6 +437,7 @@ SO THAT 나의 학습량을 다른 참가자와 비교할 수 있다
 ```
 
 **인수 조건:**
+
 - 학습 시간 기준 내림차순 정렬
 - 시간 형식: "X시간 Y분"
 
@@ -463,6 +475,7 @@ SO THAT 한 주간의 학습량을 확인할 수 있다
 ```
 
 **인수 조건:**
+
 - 매주 금요일 23:59에 출력
 - 월~금 학습 시간 누적
 - 주차 번호: 2024-04-06 기준으로 계산
@@ -513,6 +526,7 @@ SO THAT 해당 사용자의 학습 시간 추적이 중단된다
 ```
 
 **인수 조건:**
+
 - 등록된 사용자만 삭제 가능
 - 기존 학습 기록은 유지됨
 
@@ -534,4 +548,104 @@ sequenceDiagram
 
     B->>DB: CamStudyUsers 삭제
     B-->>A: "delete-cam 성공"
+```
+
+---
+
+### US-13: 사용자 직접 기상시간 변경
+
+```
+AS A 챌린저
+I WANT TO 자신의 기상시간을 직접 변경
+SO THAT 운영자 요청 없이 이번 달 설정을 바로 수정할 수 있다
+```
+
+**인수 조건:**
+
+- 현재 월에 등록된 사용자만 가능
+- 본인 데이터만 변경 가능
+- 기상시간은 05:00~09:00 범위만 허용
+- 같은 날에는 한 번만 변경 가능
+
+```mermaid
+sequenceDiagram
+    participant U as 챌린저
+    participant D as Discord
+    participant B as Bot
+    participant DB as SQLite
+
+    U->>D: /set-waketime waketime:0800
+    D->>B: InteractionCreate 이벤트
+
+    B->>DB: Users 조회 (userid, 현재 yearmonth)
+    alt 미등록 사용자
+        B-->>U: "등록된 사용자가 아닙니다"
+    end
+
+    B->>B: waketime 유효성 검사 (0500~0900)
+    alt 유효하지 않은 시간
+        B-->>U: "no valid waketime"
+    end
+
+    B->>DB: WaketimeChangeLog 조회 (userid, 오늘 날짜)
+    alt 오늘 이미 변경함
+        B-->>U: "기상시간은 하루에 한 번만 변경할 수 있습니다"
+    end
+
+    B->>DB: WaketimeChangeLog 생성
+    B->>DB: Users.waketime 업데이트
+    B-->>U: "기상시간이 0800로 변경되었습니다"
+```
+
+---
+
+### US-14: 사용자 직접 휴가 등록/취소
+
+```
+AS A 챌린저
+I WANT TO 자신의 휴가를 날짜 단위로 직접 등록하거나 취소
+SO THAT 운영자 개입 없이 휴가 사용을 관리할 수 있다
+```
+
+**인수 조건:**
+
+- 등록된 사용자만 가능
+- 본인 데이터만 변경 가능
+- 날짜는 `yyyymmdd` 형식이어야 함
+- 같은 날짜 중복 등록 불가
+- 잔여 휴가가 있을 때만 등록 가능
+- 취소 시 해당 날짜 휴가 사용 기록이 제거된다
+
+```mermaid
+sequenceDiagram
+    participant U as 챌린저
+    participant D as Discord
+    participant B as Bot
+    participant DB as SQLite
+
+    U->>D: /apply-vacation date:20251208
+    D->>B: InteractionCreate 이벤트
+
+    B->>DB: Users 조회 (userid, 202512)
+    alt 미등록 사용자
+        B-->>U: "등록된 사용자가 아닙니다"
+    end
+
+    B->>DB: VacationLog 조회 (userid, 20251208)
+    alt 이미 등록함
+        B-->>U: "이미 휴가를 등록한 날짜입니다"
+    end
+
+    B->>DB: VacationLog 월별 사용 건수 조회
+    alt 잔여 휴가 없음
+        B-->>U: "잔여 휴가가 없습니다"
+    end
+
+    B->>DB: VacationLog 생성
+    B-->>U: "20251208 휴가를 등록했습니다"
+
+    U->>D: /cancel-vacation date:20251208
+    D->>B: InteractionCreate 이벤트
+    B->>DB: VacationLog 삭제
+    B-->>U: "20251208 휴가를 취소했습니다"
 ```
