@@ -122,6 +122,9 @@ describe('US-13: 운영 daily message 자동화', () => {
     expect(fetch).toHaveBeenCalledWith('valid-channel-id');
     expect(send).toHaveBeenCalledOnce();
     expect(send.mock.calls[0]?.[0]).toContain('[🌅 2026-03-29]');
+    expect(send.mock.calls[0]?.[0]).toContain('오늘의 질문:');
+    expect(send.mock.calls[0]?.[0]).toContain('👇 아래 쓰레드에 오늘 출석과 함께 답변을 남겨주세요');
+    expect(send.mock.calls[0]?.[0]).not.toContain('오늘의 한마디:');
     expect(startThread).toHaveBeenCalledWith(
       expect.objectContaining({
         name: '2026-03-29 출석',
