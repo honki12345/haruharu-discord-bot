@@ -88,6 +88,7 @@ haruharu-discord-bot/
 │       ├── TimeLog.ts           # 출석 로그 모델
 │       ├── WaketimeChangeLog.ts # 사용자 기상시간 변경 이력 모델
 │       ├── CamStudyUsers.ts     # 캠스터디 참가자 모델
+│       ├── CamStudyActiveSession.ts # 진행 중 캠스터디 세션 모델
 │       ├── CamStudyTimeLog.ts   # 일간 학습 로그 모델
 │       ├── CamStudyWeeklyTimeLog.ts # 주간 학습 로그 모델
 │       ├── ParticipationApplication.ts # 역할 기반 신청 상태 모델
@@ -230,21 +231,24 @@ haruharu-discord-bot/
 
 #### ready.ts
 
-| 항목   | 내용                                                                                                                                                                                |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                |
-| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성 및 스케줄러 등록 |
+| 항목   | 내용                                                                                                                                                                                                                 |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                 |
+| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
 
 **스케줄러:**
 
 - 운영 daily message/thread 생성: 매일 06:00
 - 기상 챌린지 리포트: 매일 13:00
 - 캠스터디 리포트: 매일 23:59
+- 캠스터디 active session heartbeat: 1분 간격
 
 **구현 메모:**
 
 - 운영 daily message/thread 중복 방지와 재탐색은 `src/daily-attendance.ts`가 담당한다.
 - 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
+- `ClientReady` 직후에는 저장된 `CamStudyActiveSession`과 현재 voice state를 비교해 세션을 복구/종료 정산한다.
+- heartbeat는 `lastobservedat`를 주기적으로 갱신해 재배포 중 종료 이벤트를 놓쳤을 때 손실 범위를 제한한다.
 - 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
 
 ### Runtime / Delivery
@@ -334,11 +338,17 @@ flowchart TD
 
 #### camStudy.ts
 
-| 항목   | 내용                                                                                                           |
-| ------ | -------------------------------------------------------------------------------------------------------------- |
-| 역할   | 음성 채널 상태 변경을 캠스터디 시작/종료 이벤트로 해석                                                         |
-| 담당   | 입장/퇴장/카메라/화면공유 활성 전이 계산, 최소 인정 시간 검증, 일간 로그 생성/갱신, 상태 전이 구조화 로그 기록 |
-| 호출처 | `src/events/camStudyHandler.ts`                                                                                |
+| 항목   | 내용                                                                                                                                                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 음성 채널 상태 변경을 캠스터디 시작/종료 이벤트로 해석                                                                                                                                 |
+| 담당   | 입장/퇴장/카메라/화면공유 활성 전이 계산, 최소 인정 시간 검증, 일간 로그 생성/갱신, 진행 중 active session 저장, 재기동 시 voice state 기반 복구/종료 정산, 상태 전이 구조화 로그 기록 |
+| 호출처 | `src/events/camStudyHandler.ts`, `src/events/ready.ts`                                                                                                                                 |
+
+비고:
+
+- 진행 중 세션은 `CamStudyActiveSession`에 `(userid, channelid, startedat, lastobservedat)` 형태로 저장한다.
+- 재배포 후 `ready.ts`는 저장된 active session과 현재 음성 채널 상태를 비교해 세션을 유지하거나 마지막 관측 시각 기준으로 종료 정산한다.
+- 종료 이벤트를 놓친 뒤 다음 시작 이벤트가 오면, 남아 있던 active session을 먼저 정리한 뒤 새 세션을 시작한다.
 
 #### challengeSelfService.ts
 
@@ -356,6 +366,11 @@ flowchart TD
 | 담당   | `Users`/`TimeLog`/`AttendanceLog`/`ParticipationApplication` 등 모델 sync, `AttendanceLog` 단일 원본 기반 기상 챌린지 출석표 생성, 휴가일 결석 제외 처리, 무댓글 사용자 결석 확정, 오늘 상태와 월 누적 `latecount` / `absencecount` / 잔여휴가를 함께 표시하는 결과표 생성, Discord 2000자 제한 초과 시 결과표 분할 전송, 월말 생존 명단 생성, 캠스터디 일일 리포트 생성, 해당 주차 일간 로그 재계산 기반 주간 집계, 스케줄 중복 실행 방지 |
 | 호출처 | `src/events/ready.ts`                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
+비고:
+
+- 캠스터디 리포트는 종료 정산된 `CamStudyTimeLog.totalminutes`만 합산한다.
+- `CamStudyActiveSession`에 남아 있는 진행 중 세션은 리포트 합계에 포함하지 않고, 제외된 사용자 ID를 로그로 남긴다.
+
 ---
 
 ### Repository (데이터 모델)
@@ -365,7 +380,7 @@ flowchart TD
 | 파일                     | 역할                                                                                                         |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | `challengeRepository.ts` | `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
-| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼                              |
+| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼     |
 
 #### Users (기상 챌린지 참가자)
 
@@ -462,6 +477,23 @@ flowchart TD
 | userid   | STRING  | Discord 사용자 ID (UNIQUE) |
 | username | STRING  | 표시 이름                  |
 
+#### CamStudyActiveSession (진행 중 캠스터디 세션)
+
+| 컬럼           | 타입    | 설명                                       |
+| -------------- | ------- | ------------------------------------------ |
+| id             | INTEGER | PK, Auto Increment                         |
+| userid         | STRING  | Discord 사용자 ID (UNIQUE)                 |
+| username       | STRING  | 표시 이름                                  |
+| channelid      | STRING  | 추적 대상 음성 채널 ID                     |
+| startedat      | STRING  | 세션 시작 시각 타임스탬프                  |
+| lastobservedat | STRING  | 마지막 heartbeat/복구 확인 시각 타임스탬프 |
+
+비고:
+
+- 한 사용자당 최대 1건만 열린 세션을 유지한다.
+- 재배포 중 종료 이벤트를 놓치면 `lastobservedat` 기준으로 종료 정산해 손실 범위를 제한한다.
+- `ready.ts`와 1분 heartbeat가 이 테이블을 복구/정리한다.
+
 #### CamStudyTimeLog (일간 학습 로그)
 
 | 컬럼         | 타입    | 설명                   |
@@ -526,18 +558,19 @@ flowchart TD
 
 #### 상수
 
-| 상수                      | 값                                  | 설명                     |
-| ------------------------- | ----------------------------------- | ------------------------ |
-| `PERMISSION_NUM_ADMIN`    | `PermissionFlagsBits.Administrator` | Discord 관리자 권한 비트 |
-| `LATE_RANGE_TIME`         | 10                                  | 정시 인정 범위 (분)      |
-| `ABSENCE_RANGE_TIME`      | 30                                  | 출석 유효 범위 (분)      |
-| `DEFAULT_VACANCES_COUNT`  | 5                                   | 기본 휴가일수            |
-| `LEAST_TIME_LIMIT`        | 5                                   | 최소 학습 인정 시간 (분) |
-| `PRINT_HOURS_CHALLENGE`   | 13                                  | 기상 챌린지 리포트 시간  |
-| `PRINT_HOURS_CAM_STUDY`   | 23                                  | 캠스터디 리포트 시간     |
-| `PRINT_MINUTES_CAM_STUDY` | 59                                  | 캠스터디 리포트 분       |
-| `ONE_DAY_MILLISECONDS`    | 86400000                            | 일일 스케줄 반복 간격    |
-| `PUBLIC_HOLIDAYS_2026`    | [...]                               | 2026년 한국 공휴일 목록  |
+| 상수                               | 값                                  | 설명                                    |
+| ---------------------------------- | ----------------------------------- | --------------------------------------- |
+| `PERMISSION_NUM_ADMIN`             | `PermissionFlagsBits.Administrator` | Discord 관리자 권한 비트                |
+| `LATE_RANGE_TIME`                  | 10                                  | 정시 인정 범위 (분)                     |
+| `ABSENCE_RANGE_TIME`               | 30                                  | 출석 유효 범위 (분)                     |
+| `DEFAULT_VACANCES_COUNT`           | 5                                   | 기본 휴가일수                           |
+| `LEAST_TIME_LIMIT`                 | 5                                   | 최소 학습 인정 시간 (분)                |
+| `CAM_STUDY_HEARTBEAT_MILLISECONDS` | 60000                               | 진행 중 캠스터디 session heartbeat 간격 |
+| `PRINT_HOURS_CHALLENGE`            | 13                                  | 기상 챌린지 리포트 시간                 |
+| `PRINT_HOURS_CAM_STUDY`            | 23                                  | 캠스터디 리포트 시간                    |
+| `PRINT_MINUTES_CAM_STUDY`          | 59                                  | 캠스터디 리포트 분                      |
+| `ONE_DAY_MILLISECONDS`             | 86400000                            | 일일 스케줄 반복 간격                   |
+| `PUBLIC_HOLIDAYS_2026`             | [...]                               | 2026년 한국 공휴일 목록                 |
 
 ---
 

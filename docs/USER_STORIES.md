@@ -462,6 +462,9 @@ SO THAT 별도 조작 없이 공부 시간이 측정된다
 - 카메라와 화면공유가 모두 OFF 이거나 채널 퇴장: 학습 종료
 - 5분 미만 세션은 무시
 - 자정을 넘기면 새 날짜로 분리 기록
+- 진행 중 세션은 `CamStudyActiveSession`에 저장한다
+- 재배포 후 봇이 다시 올라오면 저장된 active session 과 현재 voice state 를 비교해 세션을 복구하거나 종료 정산한다
+- 재배포 중 종료 이벤트를 놓치면 마지막 heartbeat(`lastobservedat`) 기준으로 손실 범위를 제한한다
 
 ```mermaid
 sequenceDiagram
@@ -480,6 +483,7 @@ sequenceDiagram
         B->>B: 종료
     end
 
+    B->>DB: CamStudyActiveSession 생성
     B->>DB: CamStudyTimeLog 조회 (userid, yearmonthday)
     alt 오늘 기록 없음
         B->>DB: CamStudyTimeLog 생성
@@ -489,27 +493,30 @@ sequenceDiagram
     B->>L: "홍길동님 study start"
 
     Note over U,VC: 학습 중...
+    B->>DB: lastobservedat heartbeat 갱신 (1분 간격)
+
+    Note over B,DB: 재배포 발생 시 active session 유지
 
     Note over U,VC: 카메라와 화면공유가 모두 OFF 또는 채널 퇴장
     VC->>B: voiceStateUpdate<br/>(selfVideo: false, streaming: false)
 
-    B->>DB: CamStudyTimeLog 조회
-    B->>B: 경과시간 = 현재시간 - timestamp
+    alt 종료 이벤트를 정상 수신
+        B->>DB: CamStudyActiveSession 조회
+        B->>B: 경과시간 = 종료시각 - startedat
+    else 재배포 후 복구 경로
+        B->>DB: 저장된 CamStudyActiveSession 조회
+        B->>VC: 현재 voice state 스캔
+        B->>B: live state 없으면 종료시각 = lastobservedat
+    end
 
     alt 경과시간 < 5분
         B->>DB: timestamp = 현재시간 (갱신만)
+        B->>DB: CamStudyActiveSession 삭제
         B->>B: 종료 (무시)
     end
 
-    B->>B: 자정 넘김 확인
-    alt 자정을 넘김
-        B->>B: 어제 날짜로 시간 분리 계산
-        B->>DB: 어제자 TimeLog 업데이트
-        B->>DB: 오늘자 TimeLog 생성/업데이트
-    else 같은 날
-        B->>DB: totalminutes += 경과시간
-    end
-
+    B->>DB: 종료 날짜 기준 CamStudyTimeLog 생성/업데이트
+    B->>DB: CamStudyActiveSession 삭제
     B->>L: "홍길동님 study end: 45분 입력완료<br/>총 공부시간: 120분"
 ```
 
@@ -527,6 +534,7 @@ SO THAT 나의 학습량을 다른 참가자와 비교할 수 있다
 
 - 학습 시간 기준 내림차순 정렬
 - 시간 형식: "X시간 Y분"
+- 진행 중 `CamStudyActiveSession`은 합계에 포함하지 않고 종료 정산된 `CamStudyTimeLog.totalminutes`만 사용한다
 
 ```mermaid
 sequenceDiagram
@@ -539,6 +547,8 @@ sequenceDiagram
     S->>B: printCamStudyInterval()
 
     B->>DB: 오늘자 CamStudyTimeLog 전체 조회
+    B->>DB: CamStudyActiveSession 조회
+    B->>B: active session 은 합계에서 제외하고 로그만 남김
 
     B->>B: totalminutes 기준 내림차순 정렬
 
@@ -566,6 +576,7 @@ SO THAT 한 주간의 학습량을 확인할 수 있다
 - 매주 금요일 23:59에 출력
 - 월~금 학습 시간 누적
 - 주차 번호: 2024-04-06 기준으로 계산
+- 진행 중 `CamStudyActiveSession`은 합계에 포함하지 않고 종료 정산된 일간/주간 누적만 사용한다
 - 같은 날짜 기준 재실행해도 주간 누적 시간이 중복 반영되지 않는다
 
 ```mermaid
