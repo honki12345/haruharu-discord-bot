@@ -3,10 +3,19 @@ import { startHereChannelId, timeStartHereChannelId } from '../../commandChannel
 import { logger } from '../../logger.js';
 
 const resolveRegisterUsername = (interaction: ChatInputCommandInteraction) => {
-  const member = interaction.member as { displayName?: string | null; nickname?: string | null } | null;
+  const member = interaction.member as {
+    displayName?: string | null;
+    nickname?: string | null;
+    nick?: string | null;
+  } | null;
 
   return (
-    member?.displayName ?? member?.nickname ?? interaction.user.globalName ?? interaction.user.username ?? 'unknown'
+    member?.displayName ??
+    member?.nickname ??
+    member?.nick ??
+    interaction.user.globalName ??
+    interaction.user.username ??
+    'unknown'
   );
 };
 

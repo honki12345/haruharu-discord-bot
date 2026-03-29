@@ -222,4 +222,35 @@ describe('US-01: /register 커맨드', () => {
     expect(membership?.username).toBe('plain-user');
     expect(interaction.getLastReply()).toContain('plain-user님');
   });
+
+  it('TC-R08: raw guild interaction에서는 member.nick을 서버 닉네임으로 사용한다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'raw-guild-user',
+      globalName: '글로벌이름',
+      username: 'plain-user',
+      memberDisplayName: null,
+      memberNick: 'raw-서버닉네임',
+      member: {
+        nick: 'raw-서버닉네임',
+        roles: {
+          add: vi.fn(),
+          remove: vi.fn(),
+        },
+        send: vi.fn(),
+      },
+      options: {
+        waketime: '0700',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const user = await TestUsers.findOne({ where: { userid: 'raw-guild-user', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'raw-guild-user' } });
+
+    expect(user?.username).toBe('raw-서버닉네임');
+    expect(membership?.username).toBe('raw-서버닉네임');
+    expect(interaction.getLastReply()).toContain('raw-서버닉네임님');
+  });
 });
