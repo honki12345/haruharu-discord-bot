@@ -51,6 +51,11 @@ describe('US-15 production delivery workflow', () => {
     const script = readRepositoryFile('scripts/deploy-production.sh');
 
     expect(script).toContain('PRODUCTION_GIT_SHA');
+    expect(script).toContain('export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"');
+    expect(script).toContain('source "${NVM_DIR}/nvm.sh"');
+    expect(script).toContain('command -v node >/dev/null');
+    expect(script).toContain('command -v npm >/dev/null');
+    expect(script).toContain('command -v pm2 >/dev/null');
     expect(script).toContain('git fetch origin --tags');
     expect(script).toContain('git checkout --detach');
     expect(script).not.toContain('git pull --ff-only origin');
@@ -62,6 +67,10 @@ describe('US-15 production delivery workflow', () => {
     expect(script).toContain('PRODUCTION_SSH_KNOWN_HOSTS');
     expect(script).toContain('StrictHostKeyChecking=yes');
     expect(script).toContain('UserKnownHostsFile');
+    expect(script).toContain('export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"');
+    expect(script).toContain('source "${NVM_DIR}/nvm.sh"');
+    expect(script).toContain('command -v node >/dev/null');
+    expect(script).toContain('command -v pm2 >/dev/null');
     expect(script).toContain('deployment-metadata');
     expect(script).toContain('current_info_log_file="$(latest_info_log_file)"');
     expect(script).toContain('grep -F "${ready_log_pattern}" "${current_info_log_file}"');

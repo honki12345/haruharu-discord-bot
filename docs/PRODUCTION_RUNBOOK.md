@@ -63,12 +63,15 @@ flowchart TD
    - `npm run test:smoke`
 4. `verify`가 끝나면 workflow가 검증된 commit SHA를 고정한다.
 5. `deploy` job이 시작되면 OCI 서버에 SSH 접속해서 아래를 수행한다.
+   - 비대화형 SSH 셸에서도 `nvm` 경로를 사용할 수 있도록 원격 스크립트가 `NVM_DIR`과 `nvm.sh`를 직접 로드한다.
+   - `node`, `npm`, `pm2`가 현재 원격 셸에서 보이지 않으면 fail-fast로 중단한다.
    - `git fetch origin --tags`
    - 검증된 commit SHA를 `git checkout --detach --force`로 정확히 checkout
    - `npm ci`
    - `npm run build`
    - PM2 프로세스 reload 또는 최초 start
 6. `Verify production readiness` 단계에서 아래를 자동 확인한다.
+   - 비대화형 SSH 셸에서 `nvm` bootstrap 후 `node`, `pm2`를 사용할 수 있는지
    - PM2에 같은 이름의 online 프로세스가 1개인지
    - 이번 배포 이후 info 로그에 새 `Ready! Logged in as`가 기록됐는지
 
