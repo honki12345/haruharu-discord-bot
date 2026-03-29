@@ -35,6 +35,8 @@ import {
   padTwoDigits,
 } from '../utils.js';
 
+const DISCORD_MESSAGE_LIMIT = 2000;
+
 const syncModels = async () => {
   await Users.sync();
   await TimeLog.sync();
@@ -87,6 +89,42 @@ const buildChallengeReportRow = (payload: {
   remainingVacances: number;
 }) =>
   `- ${payload.username}: ${formatChallengeStatusLabel(payload.status)} (월 누적 지각 ${payload.latecount}회, 결석 ${payload.absencecount}회, 잔여휴가 ${payload.remainingVacances}일)\n`;
+
+const splitDiscordMessage = (message: string) => {
+  if (message.length <= DISCORD_MESSAGE_LIMIT) {
+    return [message];
+  }
+
+  const chunks: string[] = [];
+  const lines = message.match(/[^\n]*\n|[^\n]+/g) ?? [];
+  let currentChunk = '';
+
+  const flushChunk = () => {
+    if (currentChunk) {
+      chunks.push(currentChunk);
+      currentChunk = '';
+    }
+  };
+
+  for (const line of lines) {
+    if (line.length > DISCORD_MESSAGE_LIMIT) {
+      flushChunk();
+      for (let index = 0; index < line.length; index += DISCORD_MESSAGE_LIMIT) {
+        chunks.push(line.slice(index, index + DISCORD_MESSAGE_LIMIT));
+      }
+      continue;
+    }
+
+    if (currentChunk.length + line.length > DISCORD_MESSAGE_LIMIT) {
+      flushChunk();
+    }
+
+    currentChunk += line;
+  }
+
+  flushChunk();
+  return chunks;
+};
 
 const buildChallengeReport = async () => {
   logger.info('print challenge start');
@@ -195,7 +233,11 @@ const buildChallengeReport = async () => {
 
   const hallOfFameMessage = await buildMonthlyHallOfFameMessage(year, month, date);
   logger.info(`alarm final string`, { string: attendanceMessage });
-  return { attendanceMessage, hallOfFameMessage };
+  return {
+    attendanceMessage,
+    attendanceMessages: splitDiscordMessage(attendanceMessage),
+    hallOfFameMessage,
+  };
 };
 
 const toUtcYearMonthDay = (target: Date) =>

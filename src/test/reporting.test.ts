@@ -361,6 +361,42 @@ describe('reporting service', () => {
     });
   });
 
+  it('결과표가 Discord 2000자 제한을 넘기면 여러 메시지로 분할한다', async () => {
+    vi.setSystemTime(new Date('2025-12-08T13:00:00'));
+
+    for (let index = 0; index < 40; index += 1) {
+      const userid = `user-${index}`;
+      const username = `출석자-${String(index).padStart(2, '0')}-이름이조금긴테스트사용자`;
+
+      await TestUsers.create({
+        userid,
+        username,
+        yearmonth: '202512',
+        waketime: '0700',
+        vacances: 5,
+        latecount: 0,
+        absencecount: 0,
+      });
+
+      await TestAttendanceLog.create({
+        userid,
+        username,
+        yearmonthday: '20251208',
+        threadid: `thread-${index}`,
+        messageid: `message-${index}`,
+        commentedat: '2025-12-07T22:00:00Z',
+        status: 'attended',
+      });
+    }
+
+    const { attendanceMessage, attendanceMessages } = await buildChallengeReport();
+
+    expect(attendanceMessages).not.toBeNull();
+    expect(attendanceMessages!.length).toBeGreaterThan(1);
+    expect(attendanceMessages!.every(message => message.length <= 2000)).toBe(true);
+    expect(attendanceMessages!.join('')).toBe(attendanceMessage);
+  });
+
   it('주말에는 출석 집계를 건너뛰고 카운트를 변경하지 않는다', async () => {
     vi.setSystemTime(new Date('2025-12-07T13:00:00'));
 
