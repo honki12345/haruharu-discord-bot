@@ -6,7 +6,16 @@ export const command = {
   data: new SlashCommandBuilder()
     .setName('register')
     .setDescription('register or update your challenge waketime')
-    .addStringOption(option => option.setName('waketime').setDescription('set waketime HHmm').setRequired(true)),
+    .setNameLocalizations({ ko: '기상등록' })
+    .setDescriptionLocalizations({ ko: '자신의 기상시간을 등록하거나 수정합니다' })
+    .addStringOption(option =>
+      option
+        .setName('waketime')
+        .setDescription('set waketime HHmm')
+        .setNameLocalizations({ ko: '기상시간' })
+        .setDescriptionLocalizations({ ko: '기상시간을 입력합니다 (HHmm)' })
+        .setRequired(true),
+    ),
   async execute(interaction: ChatInputCommandInteraction) {
     const waketime = interaction.options.getString('waketime')!;
     const userId = interaction.user.id;

@@ -23,16 +23,16 @@
 
 ### Discord 운영 채널 구조
 
-| 채널             | 역할                             | 비고                          |
-| ---------------- | -------------------------------- | ----------------------------- |
-| `#start-here`    | 환영 및 서버 소개                | 읽기 전용 권장                |
-| `#apply`         | 참여 방법 안내 및 신청 명령 실행 | `/apply-wakeup`, `/apply-cam` |
-| `#qna`           | 질문/응답                        | 일반 문의 채널                |
-| `#announcements` | 운영 공지                        | 관리자 전용 작성 권장         |
-| `#ops`           | 신청 승인/거절 및 운영 처리      | 관리자 전용                   |
-| `#wake-up`       | 기상인증 전용 채널               | `@wake-up` 역할 기반 접근     |
-| `#cam-study`     | 캠스터디 전용 텍스트 채널        | `@cam-study` 역할 기반 접근   |
-| `음성: 캠스터디` | 캠스터디 전용 음성 채널          | `@cam-study` 역할 기반 접근   |
+| 채널             | 역할                        | 비고                        |
+| ---------------- | --------------------------- | --------------------------- |
+| `#start-here`    | 환영 및 서버 소개           | 읽기 전용 권장              |
+| `#apply`         | 참여 방법 안내              | 운영 신청 흐름 정리용       |
+| `#qna`           | 질문/응답                   | 일반 문의 채널              |
+| `#announcements` | 운영 공지                   | 관리자 전용 작성 권장       |
+| `#ops`           | 신청 승인/거절 및 운영 처리 | 관리자 전용                 |
+| `#wake-up`       | 기상인증 전용 채널          | `@wake-up` 역할 기반 접근   |
+| `#cam-study`     | 캠스터디 전용 텍스트 채널   | `@cam-study` 역할 기반 접근 |
+| `음성: 캠스터디` | 캠스터디 전용 음성 채널     | `@cam-study` 역할 기반 접근 |
 
 ---
 
@@ -56,14 +56,14 @@ haruharu-discord-bot/
 │   │   └── haruharu/
 │   │       ├── register.ts      # 사용자 기상 챌린지 등록/수정
 │   │       ├── apply-vacation.ts # 사용자 휴가 등록
+│   │       ├── apply-wakeup.ts  # 사용자 기상인증 참여 신청
+│   │       ├── apply-cam.ts     # 사용자 캠스터디 참여 신청
 │   │       ├── add-vacances.ts  # 휴가 추가
+│   │       ├── approve-application.ts # 참여 신청 승인
+│   │       ├── reject-application.ts # 참여 신청 거절
 │   │       ├── delete.ts        # 챌린저 삭제
-│   │       ├── apply-wakeup.ts  # 기상인증 참여 신청
-│   │       ├── apply-cam.ts     # 캠스터디 참여 신청
 │   │       ├── register-cam.ts  # 캠스터디 등록
 │   │       ├── delete-cam.ts    # 캠스터디 삭제
-│   │       ├── approve-application.ts # 신청 승인 및 역할 부여
-│   │       ├── reject-application.ts  # 신청 거절 및 재신청 안내
 │   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
 │   │       └── ping.ts          # 헬스체크
 │   │
@@ -128,95 +128,101 @@ haruharu-discord-bot/
 
 ### Commands (슬래시 커맨드)
 
+한국어 locale Discord 클라이언트에서는 아래 `한국어 표시명(ko)`로 보인다. 봇 내부 라우팅과 option 조회에는 기존 영어 key를 그대로 사용한다.
+
 #### 기상 챌린지 커맨드
 
-| 커맨드            | 권한   | 설명                                 |
-| ----------------- | ------ | ------------------------------------ |
-| `/register`       | 사용자 | 자신의 현재 월 기상 챌린지 등록/수정 |
-| `/apply-vacation` | 사용자 | 자신의 특정 날짜 휴가 등록           |
-| `/add-vacances`   | 관리자 | 휴가일수 추가                        |
-| `/delete`         | 관리자 | 챌린저 삭제                          |
+| 내부 key          | 한국어 표시명(ko)   | 권한   | 설명                                 |
+| ----------------- | ------------------- | ------ | ------------------------------------ |
+| `/register`       | `/기상등록`         | 사용자 | 자신의 현재 월 기상 챌린지 등록/수정 |
+| `/apply-vacation` | `/휴가신청`         | 사용자 | 자신의 특정 날짜 휴가 등록           |
+| `/add-vacances`   | `/admin-휴가추가`   | 관리자 | 휴가일수 추가                        |
+| `/delete`         | `/admin-챌린저삭제` | 관리자 | 챌린저 삭제                          |
+
+#### 역할 기반 참여 신청 커맨드
+
+| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                     |
+| ---------------------- | ----------------- | ------ | ------------------------ |
+| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 참여 신청       |
+| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 신청       |
+| `/approve-application` | `/admin-신청승인` | 관리자 | 역할 기반 참여 신청 승인 |
+| `/reject-application`  | `/admin-신청거절` | 관리자 | 역할 기반 참여 신청 거절 |
 
 #### 캠스터디 커맨드
 
-| 커맨드          | 권한   | 설명                    |
-| --------------- | ------ | ----------------------- |
-| `/apply-cam`    | 사용자 | 캠스터디 채널 접근 신청 |
-| `/register-cam` | 관리자 | 캠스터디 등록           |
-| `/delete-cam`   | 관리자 | 캠스터디 삭제           |
-
-#### 온보딩/운영 커맨드
-
-| 커맨드                 | 권한   | 설명                          |
-| ---------------------- | ------ | ----------------------------- |
-| `/apply-wakeup`        | 사용자 | 기상인증 채널 접근 신청       |
-| `/approve-application` | 관리자 | 참여 신청 승인 및 역할 부여   |
-| `/reject-application`  | 관리자 | 참여 신청 거절 및 재신청 안내 |
+| 내부 key        | 한국어 표시명(ko)     | 권한   | 설명          |
+| --------------- | --------------------- | ------ | ------------- |
+| `/register-cam` | `/admin-캠스터디등록` | 관리자 | 캠스터디 등록 |
+| `/delete-cam`   | `/admin-캠스터디삭제` | 관리자 | 캠스터디 삭제 |
 
 #### 유틸리티 커맨드
 
-| 커맨드                | 권한   | 설명                                                                   |
-| --------------------- | ------ | ---------------------------------------------------------------------- |
-| `/ping`               | 관리자 | 봇 상태 확인                                                           |
-| `/demo-daily-message` | 관리자 | 테스트 채널에 랜덤 질문이 포함된 daily message + 출석 demo thread 생성 |
+| 내부 key              | 한국어 표시명(ko)      | 권한   | 설명                                                                   |
+| --------------------- | ---------------------- | ------ | ---------------------------------------------------------------------- |
+| `/ping`               | `/admin-상태확인`      | 관리자 | 봇 상태 확인                                                           |
+| `/demo-daily-message` | `/admin-demo-출석생성` | 관리자 | 테스트 채널에 랜덤 질문이 포함된 daily message + 출석 demo thread 생성 |
 
 ---
 
 ### 커맨드 파라미터 상세
 
-#### `/register`
+#### `/register` (`/기상등록`)
 
-| 파라미터 | 필수 | 설명                       |
-| -------- | ---- | -------------------------- |
-| waketime | O    | 기상시간 (HHmm, 0500~0900) |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                       |
+| ------------- | ----------------- | ---- | -------------------------- |
+| waketime      | 기상시간          | O    | 기상시간 (HHmm, 0500~0900) |
 
-#### `/apply-vacation`
+#### `/apply-vacation` (`/휴가신청`)
 
-| 파라미터 | 필수 | 설명                      |
-| -------- | ---- | ------------------------- |
-| date     | O    | 휴가 대상 날짜 (yyyymmdd) |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                      |
+| ------------- | ----------------- | ---- | ------------------------- |
+| date          | 날짜              | O    | 휴가 대상 날짜 (yyyymmdd) |
 
-#### `/add-vacances`
+#### `/apply-wakeup` (`/기상인증신청`)
 
-| 파라미터  | 필수 | 설명                 |
-| --------- | ---- | -------------------- |
-| userid    | O    | Discord 사용자 ID    |
-| yearmonth | O    | 년월 (yyyymm)        |
-| count     | O    | 추가 지급할 휴가일수 |
+- 별도 파라미터 없음
+- `#apply` 채널에서만 실행 가능
 
-#### `/delete`, `/delete-cam`
+#### `/apply-cam` (`/캠스터디신청`)
 
-| 파라미터 | 필수 | 설명              |
-| -------- | ---- | ----------------- |
-| userid   | O    | Discord 사용자 ID |
+- 별도 파라미터 없음
+- `#apply` 채널에서만 실행 가능
 
-#### `/register-cam`
+#### `/add-vacances` (`/admin-휴가추가`)
 
-| 파라미터 | 필수 | 설명              |
-| -------- | ---- | ----------------- |
-| userid   | O    | Discord 사용자 ID |
-| username | O    | 표시 이름         |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                 |
+| ------------- | ----------------- | ---- | -------------------- |
+| userid        | 사용자id          | O    | Discord 사용자 ID    |
+| yearmonth     | 년월              | O    | 년월 (yyyymm)        |
+| count         | 추가일수          | O    | 추가 지급할 휴가일수 |
 
-#### `/apply-wakeup`, `/apply-cam`
+#### `/approve-application` (`/admin-신청승인`)
 
-| 파라미터 | 필수 | 설명                                  |
-| -------- | ---- | ------------------------------------- |
-| 없음     | -    | 명령 실행 사용자 자신을 기준으로 신청 |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
+| ------------- | ----------------- | ---- | ----------------- |
+| userid        | 사용자id          | O    | Discord 사용자 ID |
+| program       | 프로그램          | O    | 대상 프로그램     |
 
-#### `/approve-application`
+#### `/reject-application` (`/admin-신청거절`)
 
-| 파라미터 | 필수 | 설명                       |
-| -------- | ---- | -------------------------- |
-| userid   | O    | 승인할 Discord 사용자 ID   |
-| program  | O    | `wake-up` 또는 `cam-study` |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
+| ------------- | ----------------- | ---- | ----------------- |
+| userid        | 사용자id          | O    | Discord 사용자 ID |
+| program       | 프로그램          | O    | 대상 프로그램     |
+| reason        | 사유              | O    | 거절 사유         |
 
-#### `/reject-application`
+#### `/delete`, `/delete-cam` (`/admin-챌린저삭제`, `/admin-캠스터디삭제`)
 
-| 파라미터 | 필수 | 설명                       |
-| -------- | ---- | -------------------------- |
-| userid   | O    | 거절할 Discord 사용자 ID   |
-| program  | O    | `wake-up` 또는 `cam-study` |
-| reason   | O    | 거절 사유                  |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
+| ------------- | ----------------- | ---- | ----------------- |
+| userid        | 사용자id          | O    | Discord 사용자 ID |
+
+#### `/register-cam` (`/admin-캠스터디등록`)
+
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
+| ------------- | ----------------- | ---- | ----------------- |
+| userid        | 사용자id          | O    | Discord 사용자 ID |
+| username      | 이름              | O    | 표시 이름         |
 
 ---
 
@@ -243,19 +249,19 @@ haruharu-discord-bot/
 
 ### Runtime / Delivery
 
-| 파일 | 역할 |
-|------|------|
-| `src/index.ts` | 프로세스 진입점. `bootstrapClient()` 호출과 Discord 로그인 시작만 담당 |
-| `src/runtime.ts` | Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집, smoke boot 지원 |
-| `src/deploy-commands.ts` | `src/runtime.ts` 로더를 재사용해 slash command JSON을 생성하고 Discord에 등록 |
+| 파일                     | 역할                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `src/index.ts`           | 프로세스 진입점. `bootstrapClient()` 호출과 Discord 로그인 시작만 담당                    |
+| `src/runtime.ts`         | Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집, smoke boot 지원 |
+| `src/deploy-commands.ts` | `src/runtime.ts` 로더를 재사용해 slash command JSON을 생성하고 Discord에 등록             |
 
 ### GitHub Actions
 
-| Workflow | 트리거 | 역할 |
-|----------|--------|------|
-| `CI` | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
-| `Dependency Review` | `pull_request` + package manifest 변경 | 취약점/라이선스 정책 검토 |
-| `Deploy Production` | `workflow_dispatch` | verify 후 OCI 서버에 SSH 배포하고 PM2/ready 로그를 확인 |
+| Workflow            | 트리거                                      | 역할                                                                                    |
+| ------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `CI`                | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
+| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                               |
+| `Deploy Production` | `workflow_dispatch`                         | verify 후 OCI 서버에 SSH 배포하고 PM2/ready 로그를 확인                                 |
 
 ### Production 배포 흐름
 
@@ -285,8 +291,6 @@ flowchart TD
 **채널 라우팅 메모:**
 
 - 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
-- `/apply-wakeup`, `/apply-cam`은 `#apply` 전용 채널에서만 실행된다.
-- `/approve-application`, `/reject-application`은 `#ops` 전용 채널에서만 실행된다.
 
 #### camStudyHandler.ts
 
@@ -343,14 +347,6 @@ flowchart TD
 | 역할   | 사용자 직접 `/register` upsert 와 휴가 등록 정책 처리                                                            |
 | 담당   | 사용자 기준 등록/수정, 기상시간 범위 검증, register 하루 1회 변경 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
 | 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/apply-vacation.ts`                                   |
-
-#### participationApplication.ts
-
-| 항목   | 내용                                                                                                                                                                         |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 참여 신청 저장, 운영 알림, 승인/거절, 역할 부여 및 신청자 안내                                                                                                               |
-| 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 운영 채널 공지, 신청자 안내 메시지 처리                                                             |
-| 호출처 | `src/commands/haruharu/apply-wakeup.ts`, `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts` |
 
 #### reporting.ts
 
@@ -580,41 +576,42 @@ flowchart TD
 
 - 사용자 직접 변경 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 수정한다.
 - `/register`는 사용자가 자신의 월별 기상시간을 신규 등록하거나 수정하는 단일 명령이다.
+- `/register`는 Discord 한국어 locale에서 `/기상등록`으로 표시된다.
 - `/register`는 같은 날 두 번째 변경을 거부한다.
 - `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산한다.
-- `/apply-vacation`은 날짜 단위(`yyyymmdd`)로 동작한다.
-- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행되고, 신청 결과는 `ephemeral`로 응답한다.
-- `/approve-application`, `/reject-application`은 `#ops`에서만 실행되고, 승인 시 역할이 자동 부여된다.
+- `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 날짜 단위(`yyyymmdd`)로 동작한다.
+- 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.
+- 데모 전용 커맨드는 Discord 한국어 locale에서 `admin-demo-...` 접두어로 표시된다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 
 ### package.json 스크립트
 
-| 스크립트               | 설명                                                                                    |
-| ---------------------- | --------------------------------------------------------------------------------------- |
-| `npm run build`        | `dist`를 정리한 뒤 TypeScript를 컴파일                                                  |
-| `npm start`            | TypeScript 컴파일 후 봇 실행                                                            |
-| `npm run pm2`          | 빌드 후 PM2로 프로덕션 프로세스 시작                                                    |
-| `npm run deploy`       | 최신 코드를 pull한 뒤 다시 빌드하고 PM2 프로세스를 reload                               |
-| `npm run deploy:commands` | slash command를 다시 등록                                                            |
-| `npm run local:ci`     | GitHub Actions CI와 같은 로컬 검증 실행 (`lint` + `prettier --check` + `build` + `test`) |
-| `npm run lint`         | ESLint 검사                                                                             |
-| `npm run lint:fix`     | ESLint 자동 수정                                                                        |
-| `npm run test:smoke`   | Discord 로그인 없이 bot boot smoke test 실행                                            |
-| `npm run format`       | Prettier 포맷팅                                                                         |
+| 스크립트                  | 설명                                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run build`           | `dist`를 정리한 뒤 TypeScript를 컴파일                                                   |
+| `npm start`               | TypeScript 컴파일 후 봇 실행                                                             |
+| `npm run pm2`             | 빌드 후 PM2로 프로덕션 프로세스 시작                                                     |
+| `npm run deploy`          | 최신 코드를 pull한 뒤 다시 빌드하고 PM2 프로세스를 reload                                |
+| `npm run deploy:commands` | slash command를 다시 등록                                                                |
+| `npm run local:ci`        | GitHub Actions CI와 같은 로컬 검증 실행 (`lint` + `prettier --check` + `build` + `test`) |
+| `npm run lint`            | ESLint 검사                                                                              |
+| `npm run lint:fix`        | ESLint 자동 수정                                                                         |
+| `npm run test:smoke`      | Discord 로그인 없이 bot boot smoke test 실행                                             |
+| `npm run format`          | Prettier 포맷팅                                                                          |
 
 ---
 
 ## 기술 스택
 
-| 구분         | 기술                                                          |
-| ------------ | ------------------------------------------------------------- |
-| 언어         | TypeScript                                                    |
-| 런타임       | Node.js 20+                                                   |
-| Discord API  | discord.js 14                                                 |
-| 데이터베이스 | SQLite3 + Sequelize                                           |
-| 로깅         | Winston + Daily Rotate                                        |
-| 코드 품질    | ESLint + Prettier                                             |
-| 배포         | GitHub-hosted runner + SSH + PM2                              |
+| 구분         | 기술                                                            |
+| ------------ | --------------------------------------------------------------- |
+| 언어         | TypeScript                                                      |
+| 런타임       | Node.js 20+                                                     |
+| Discord API  | discord.js 14                                                   |
+| 데이터베이스 | SQLite3 + Sequelize                                             |
+| 로깅         | Winston + Daily Rotate                                          |
+| 코드 품질    | ESLint + Prettier                                               |
+| 배포         | GitHub-hosted runner + SSH + PM2                                |
 | CI/CD        | GitHub Actions (`CI`, `Dependency Review`, `Deploy Production`) |
 
 ---
