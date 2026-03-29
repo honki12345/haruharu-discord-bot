@@ -1,6 +1,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { startHereChannelId, timeStartHereChannelId } from '../../commandChannelConfig.js';
 import { logger } from '../../logger.js';
+import { replyWithEphemeralAudit } from '../../services/selfServiceAudit.js';
 
 export const command = {
   cooldown: 5,
@@ -32,10 +33,18 @@ export const command = {
         username,
         waketime,
       });
-      await interaction.reply(result.reply);
+      await replyWithEphemeralAudit({
+        commandName: command.data.name,
+        interaction,
+        content: result.reply,
+      });
     } catch (e) {
       logger.error(`register 등록 실패`, { e });
-      await interaction.reply(`register 등록 실패`);
+      await replyWithEphemeralAudit({
+        commandName: command.data.name,
+        interaction,
+        content: 'register 등록 실패',
+      });
     }
   },
 };

@@ -8,12 +8,14 @@
 - 기상 챌린지는 `/register <waketime>`로 참여를 시작하고, `/stop-wakeup`으로 이후 월 자동 참여를 중단합니다.
 - `/apply-cam`은 `@cam-study` 역할과 캠스터디 참가자 상태를 즉시 활성화합니다.
 - 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서 실행합니다.
+- self-service 명령(`/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`) 응답은 사용자에게만 보이는 `ephemeral`로 처리하고, 같은 결과를 운영 확인용으로 `testChannelId`에도 남깁니다.
 
 ## 캠스터디
 
 - self-service 온보딩
   - `/apply-cam`은 `#start-here`에서 실행합니다.
   - `/apply-cam`을 실행하면 `@cam-study` 역할과 캠스터디 등록이 즉시 활성화됩니다.
+  - 응답은 신청자에게만 보이는 `ephemeral`로 반환하고, 성공/실패 결과는 `testChannelId`에도 기록합니다.
   - 역할이 제거되면 새 세션 추적은 중단되고, 이미 진행 중이던 세션만 종료 시점까지 정산됩니다.
 
 - 공부시간
@@ -37,6 +39,7 @@
 
 - self-service 온보딩
   - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`와 기상 self-service 안내 채널에서 실행합니다.
+  - 세 명령의 응답은 사용자에게만 보이는 `ephemeral`로 반환하고, 성공/실패 결과는 `testChannelId`에도 기록합니다.
   - 기상 참여 시작은 `/register`로 처리합니다.
   - `#start-here`에 남아 있는 stale `/apply-wakeup` 등록은 `/register` 사용 안내로 전환됩니다.
   - 참여 중단은 `/stop-wakeup`으로 처리합니다.
