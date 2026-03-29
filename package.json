@@ -4,9 +4,10 @@
   "description": "",
   "main": "src/index.ts",
   "scripts": {
-    "start": "tsc && node \"dist/index.js\"",
-    "pm2": "tsc && NODE_ENV=production pm2 start dist/index.js --name haruharu-bot",
-    "deploy": "git pull && tsc && pm2 reload haruharu-bot",
+    "build": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
+    "start": "npm run build && node \"dist/index.js\"",
+    "pm2": "npm run build && NODE_ENV=production pm2 start dist/index.js --name haruharu-bot",
+    "deploy": "git pull && npm run build && pm2 reload haruharu-bot",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write src",
