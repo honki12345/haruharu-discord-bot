@@ -139,7 +139,7 @@
 - 구현 설명은 `docs/PROJECT.md`, 요구사항 변화는 `docs/USER_STORIES.md`를 우선 갱신한다.
 - 구현 계획 문서는 `docs/plan` 아래에 이슈 단위로 추가한다.
 - 프로세스 변경은 각 전용 문서(`COMMIT_CONVENTION`, `BRANCH_CONVENTION`, `pull_request_template`)를 수정한다.
-- 공휴일 로직이나 연도 상수 변경 시 `docs/HOLIDAY_POLICY.md`도 함께 맞춘다.
+- 주말/공휴일 보너스 정책이나 공휴일 연도 상수 변경 시 `docs/HOLIDAY_POLICY.md`도 함께 맞춘다.
 - 문서가 필요 없다고 판단했으면 PR 본문에 그 이유를 명시한다.
 
 ### `.github`
@@ -286,6 +286,7 @@
 - DB 컬럼/테이블 변경: `AGENTS.md`, `docs/PROJECT.md`, 관련 테스트
 - self-service 정책 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `README.md`
 - 정책/운영 규칙 변경: `AGENTS.md`, 해당 정책 문서
+- 주말/공휴일 보너스 정책 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `docs/HOLIDAY_POLICY.md`, `README.md`
 - CI/CD 또는 배포 절차 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `docs/PRODUCTION_RUNBOOK.md`
 - 구현 계획 문서 추가/수정: `AGENTS.md`, `docs/plan/*`
 - GitHub 이슈/PR 프로세스 변경: `AGENTS.md`, `.github/*`, 필요 시 `docs/pull_request_template.md`
