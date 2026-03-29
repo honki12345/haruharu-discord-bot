@@ -281,7 +281,43 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
     expect(interaction.getLastReply()).toContain('자동 참여 처리 중 오류');
   });
 
-  it('TC-RA07: /approve-application은 deprecated 안내만 반환한다', async () => {
+  it('TC-RA07: 이미 역할이 있는 /apply-cam 재시도에서 persist 실패가 나도 기존 role/row를 롤백하지 않는다', async () => {
+    await TestCamStudyUsers.create({
+      userid: 'test-user-id',
+      username: '기존이름',
+    });
+    ParticipationApplication.create.mockRejectedValueOnce(new Error('db boom'));
+
+    const applicantMember = {
+      roles: {
+        cache: {
+          has: vi.fn().mockReturnValue(true),
+        },
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/apply-cam.js');
+    await command.execute(interaction as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'test-user-id' } });
+    expect(applicantMember.roles.add).not.toHaveBeenCalled();
+    expect(applicantMember.roles.remove).not.toHaveBeenCalled();
+    expect(user).not.toBeNull();
+    expect(interaction.getLastReply()).toContain('자동 참여 처리 중 오류');
+  });
+
+  it('TC-RA08: /approve-application은 deprecated 안내만 반환한다', async () => {
     const { command } = await import('../commands/haruharu/approve-application.js');
     expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false, false]);
 
@@ -298,7 +334,7 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
     expect(interaction.getLastReply()).toContain('deprecated');
   });
 
-  it('TC-RA08: /reject-application은 deprecated 안내만 반환한다', async () => {
+  it('TC-RA09: /reject-application은 deprecated 안내만 반환한다', async () => {
     const { command } = await import('../commands/haruharu/reject-application.js');
     expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false, false, false]);
 

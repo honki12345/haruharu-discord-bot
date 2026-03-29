@@ -511,6 +511,46 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
         expect(users).toHaveLength(1);
         expect(users[0]?.username).toBe('최신이름');
       });
+
+      it('TC-RC04: upsertCamStudyUser는 같은 userid 동시 요청에서도 1건만 유지한다', async () => {
+        const originalCreate = TestCamStudyUsers.create.bind(TestCamStudyUsers);
+        let releaseFirstCreate!: () => void;
+        const firstCreateGate = new Promise<void>(resolve => {
+          releaseFirstCreate = resolve;
+        });
+        let firstCreateBlocked = false;
+
+        const createSpy = vi.spyOn(TestCamStudyUsers, 'create').mockImplementation(async (values, options) => {
+          if (!firstCreateBlocked) {
+            firstCreateBlocked = true;
+            await firstCreateGate;
+          }
+
+          return originalCreate(values, options);
+        });
+
+        const firstUpsert = upsertCamStudyUser({
+          userid: 'cam_user1',
+          username: '홍길동',
+        });
+
+        const secondUpsert = upsertCamStudyUser({
+          userid: 'cam_user1',
+          username: '홍길동',
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        releaseFirstCreate();
+        await Promise.all([firstUpsert, secondUpsert]);
+
+        const users = await TestCamStudyUsers.findAll({
+          where: { userid: 'cam_user1' },
+          order: [['id', 'ASC']],
+        });
+
+        expect(users).toHaveLength(1);
+        createSpy.mockRestore();
+      });
     });
 
     describe('US-11: 캠스터디 탈퇴', () => {

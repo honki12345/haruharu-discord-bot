@@ -7,42 +7,68 @@ const findCamStudyUser = (userid: string) => CamStudyUsers.findOne({ where: { us
 
 const listCamStudyUsers = () => CamStudyUsers.findAll();
 
+const camStudyUserUpsertLocks = new Map<string, Promise<void>>();
+
+const withCamStudyUserUpsertLock = async <T>(userid: string, task: () => Promise<T>) => {
+  const previousLock = camStudyUserUpsertLocks.get(userid) ?? Promise.resolve();
+  let releaseCurrentLock!: () => void;
+  const currentLock = new Promise<void>(resolve => {
+    releaseCurrentLock = resolve;
+  });
+  const queuedLock = previousLock.then(() => currentLock);
+
+  camStudyUserUpsertLocks.set(userid, queuedLock);
+  await previousLock;
+
+  try {
+    return await task();
+  } finally {
+    releaseCurrentLock();
+
+    if (camStudyUserUpsertLocks.get(userid) === queuedLock) {
+      camStudyUserUpsertLocks.delete(userid);
+    }
+  }
+};
+
 const upsertCamStudyUser = async (payload: { userid: string; username: string }) => {
   const sequelize = CamStudyUsers.sequelize;
   if (!sequelize) {
     throw new Error('CamStudyUsers sequelize instance is not initialized');
   }
 
-  return sequelize.transaction(async transaction => {
-    const existingUsers = await CamStudyUsers.findAll({
-      where: { userid: payload.userid },
-      order: [['id', 'ASC']],
-      transaction,
-    });
-
-    if (!existingUsers.length) {
-      return CamStudyUsers.create(payload, { transaction });
-    }
-
-    const [primaryUser, ...duplicateUsers] = existingUsers;
-    if (primaryUser.username !== payload.username) {
-      primaryUser.username = payload.username;
-      await primaryUser.save({ transaction });
-    }
-
-    if (duplicateUsers.length) {
-      await CamStudyUsers.destroy({
-        where: {
-          id: {
-            [Op.in]: duplicateUsers.map(user => user.id),
-          },
-        },
+  return withCamStudyUserUpsertLock(payload.userid, async () =>
+    sequelize.transaction(async transaction => {
+      const existingUsers = await CamStudyUsers.findAll({
+        where: { userid: payload.userid },
+        order: [['id', 'ASC']],
         transaction,
       });
-    }
 
-    return primaryUser;
-  });
+      if (!existingUsers.length) {
+        return CamStudyUsers.create(payload, { transaction });
+      }
+
+      const [primaryUser, ...duplicateUsers] = existingUsers;
+      if (primaryUser.username !== payload.username) {
+        primaryUser.username = payload.username;
+        await primaryUser.save({ transaction });
+      }
+
+      if (duplicateUsers.length) {
+        await CamStudyUsers.destroy({
+          where: {
+            id: {
+              [Op.in]: duplicateUsers.map(user => user.id),
+            },
+          },
+          transaction,
+        });
+      }
+
+      return primaryUser;
+    }),
+  );
 };
 
 const removeCamStudyUser = (userid: string) => CamStudyUsers.destroy({ where: { userid } });

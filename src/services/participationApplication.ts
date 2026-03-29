@@ -141,14 +141,18 @@ const submitParticipationApplication = async (
     };
   }
 
-  try {
-    await member.roles.add(roleId);
-  } catch (error) {
-    logger.error('failed to add role for participation activation', { error, userid, program, roleId });
-    return {
-      content: '역할을 부여하지 못했어요. 봇 권한과 역할 설정을 확인한 뒤 다시 시도해 주세요.',
-      ephemeral: true,
-    };
+  const hadRoleBeforeActivation = member.roles.cache?.has(roleId) ?? false;
+
+  if (!hadRoleBeforeActivation) {
+    try {
+      await member.roles.add(roleId);
+    } catch (error) {
+      logger.error('failed to add role for participation activation', { error, userid, program, roleId });
+      return {
+        content: '역할을 부여하지 못했어요. 봇 권한과 역할 설정을 확인한 뒤 다시 시도해 주세요.',
+        ephemeral: true,
+      };
+    }
   }
 
   try {
@@ -163,7 +167,7 @@ const submitParticipationApplication = async (
   } catch (error) {
     logger.error('failed to finalize participation activation', { error, userid, program });
 
-    if (program === 'cam-study') {
+    if (!hadRoleBeforeActivation && program === 'cam-study') {
       try {
         await removeCamStudyUser(userid);
       } catch (rollbackSyncError) {
@@ -175,15 +179,17 @@ const submitParticipationApplication = async (
       }
     }
 
-    try {
-      await member.roles.remove(roleId);
-    } catch (rollbackError) {
-      logger.error('failed to rollback participation activation role', {
-        rollbackError,
-        userid,
-        program,
-        roleId,
-      });
+    if (!hadRoleBeforeActivation) {
+      try {
+        await member.roles.remove(roleId);
+      } catch (rollbackError) {
+        logger.error('failed to rollback participation activation role', {
+          rollbackError,
+          userid,
+          program,
+          roleId,
+        });
+      }
     }
 
     return {
