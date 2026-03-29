@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.verify.outputs.verified_sha }}
+          ref: ${{ inputs.ref }}
 
       - name: Resolve verified commit SHA
         id: resolve-sha

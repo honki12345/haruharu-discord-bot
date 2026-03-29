@@ -20,6 +20,8 @@ describe('US-15 production delivery workflow', () => {
   it('production deploy workflow는 verify에서 확인한 정확한 commit sha와 known_hosts를 deploy에 전달해야 한다', () => {
     const workflow = readRepositoryFile('.github/workflows/deploy-production.yml');
 
+    expect(workflow).toContain('ref: ${{ inputs.ref }}');
+    expect(workflow).not.toContain('ref: ${{ needs.verify.outputs.verified_sha }}');
     expect(workflow).toContain('id: resolve-sha');
     expect(workflow).toContain('git rev-parse HEAD');
     expect(workflow).toContain('outputs:');
@@ -61,7 +63,11 @@ describe('US-15 production delivery workflow', () => {
     expect(script).toContain('StrictHostKeyChecking=yes');
     expect(script).toContain('UserKnownHostsFile');
     expect(script).toContain('deployment-metadata');
+    expect(script).toContain('current_info_log_file="$(latest_info_log_file)"');
+    expect(script).toContain('grep -F "${ready_log_pattern}" "${current_info_log_file}"');
     expect(script).toContain('[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].log');
+    expect(script).not.toContain('while IFS= read -r candidate; do');
+    expect(script).not.toContain('grep -F "${ready_log_pattern}" "${candidate}"');
     expect(script).not.toContain("find logs -maxdepth 1 -type f -name '*.log'");
     expect(script).not.toContain('xargs ls -t');
   });

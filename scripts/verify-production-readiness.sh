@@ -89,25 +89,24 @@ if [[ "${online_count}" != "1" ]]; then
 fi
 
 find_new_ready_log_entry() {
-  local candidate
+  local current_info_log_file
   local start_byte
 
-  while IFS= read -r candidate; do
-    if [[ -z "${candidate}" ]]; then
-      continue
-    fi
+  current_info_log_file="$(latest_info_log_file)"
+  if [[ -z "${current_info_log_file}" ]]; then
+    return 1
+  fi
 
-    if [[ "${candidate}" == "${PREVIOUS_INFO_LOG_FILE:-}" ]]; then
-      start_byte=$(( ${PREVIOUS_INFO_LOG_SIZE:-0} + 1 ))
-      if (( start_byte > 1 )) && (( $(wc -c < "${candidate}") < start_byte )); then
-        continue
-      fi
-      tail -c +"${start_byte}" "${candidate}" | grep -F "${ready_log_pattern}" >/dev/null && return 0
-      continue
+  if [[ "${current_info_log_file}" == "${PREVIOUS_INFO_LOG_FILE:-}" ]]; then
+    start_byte=$(( ${PREVIOUS_INFO_LOG_SIZE:-0} + 1 ))
+    if (( start_byte > 1 )) && (( $(wc -c < "${current_info_log_file}") < start_byte )); then
+      start_byte=1
     fi
+    tail -c +"${start_byte}" "${current_info_log_file}" | grep -F "${ready_log_pattern}" >/dev/null
+    return $?
+  fi
 
-    grep -F "${ready_log_pattern}" "${candidate}" >/dev/null && return 0
-  done < <(find logs -maxdepth 1 -type f -name "${info_log_pattern}" -print | sort)
+  grep -F "${ready_log_pattern}" "${current_info_log_file}" >/dev/null
 
   return 1
 }
