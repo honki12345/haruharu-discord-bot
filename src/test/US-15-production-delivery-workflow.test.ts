@@ -76,6 +76,8 @@ describe('US-15 production delivery workflow', () => {
     expect(script).toContain('process.versions.modules');
     expect(script).toContain('mktemp -d');
     expect(script).toContain('artifact-staging');
+    expect(script).toContain("<<'NODE_METADATA_EOF'");
+    expect(script).not.toContain('node - "${staging_root}/artifact-metadata.json" <<\'EOF\'');
     expect(script).toContain('mv "${staging_root}/dist" "${app_dir}/dist"');
     expect(script).toContain('PRODUCTION_APP_DIR must be an absolute path');
     expect(script).toContain('"${app_dir}" == "/"');

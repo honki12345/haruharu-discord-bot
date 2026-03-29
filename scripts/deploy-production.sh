@@ -115,7 +115,7 @@ if [[ ! -d "${staging_root}/dist" ]] || [[ ! -f "${staging_root}/package.json" ]
   exit 1
 fi
 
-node - "${staging_root}/artifact-metadata.json" <<'EOF'
+node - "${staging_root}/artifact-metadata.json" <<'NODE_METADATA_EOF'
 const fs = require('fs');
 
 const buildMetadata = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
@@ -146,7 +146,7 @@ if (mismatches.length > 0) {
   console.error(mismatches.join('\n'));
   process.exit(1);
 }
-EOF
+NODE_METADATA_EOF
 
 cp "${staging_root}/artifact-metadata.json" "${artifact_metadata_path}"
 
