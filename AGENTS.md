@@ -34,6 +34,7 @@
 │   ├── index.ts                  # 봇 런타임 진입점
 │   ├── runtime.ts                # Discord client/커맨드/이벤트 로더와 smoke boot 진입점
 │   ├── deploy-commands.ts        # Discord 슬래시 커맨드 등록
+│   ├── backfill-attendance.ts    # 운영 출석 누락 로그/반응 1회성 backfill helper
 │   ├── attendance.ts             # 출석 판정/이모지 유틸리티
 │   ├── daily-attendance.ts       # 운영 daily message/thread 생성 및 재탐색 유틸리티
 │   ├── daily-message.ts          # daily message 질문 풀/랜덤 선택
@@ -106,12 +107,19 @@
 - Discord 이벤트당 파일 하나를 유지한다.
 - `ready.ts`는 부팅, 테이블 sync, 매일 04:00 운영 daily message/thread 생성 스케줄, 기상 결과표 thread 댓글 전송을 포함한 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅을 담당한다.
+- `messageCreate.ts`는 운영 `#wake-up` 출석 thread와 테스트 `출석-demo` thread의 첫 댓글을 감지하고, 운영 thread 첫 공식 판정은 `AttendanceLog`로 즉시 저장한다.
 - `interactionCreate.ts`는 배포 전환 중 stale 슬래시 등록이 남을 수 있는 경우, 무응답으로 끝내지 말고 migration 안내를 우선 반환한다. 현재는 stale `/apply-wakeup` 에 대해 `/register` 안내를 반환한다.
 - `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 감지해서 `CamStudyUsers`를 자동 동기화하고, 활성 세션 중 역할 회수면 삭제를 종료 시점까지 미룬다.
 - `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 역할 회수 뒤 종료 시점 정리까지 포함해 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
 - `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#start-here`/기상 self-service 온보딩 채널/`test` 같은 전용 채널에 묶이는지 문서에 남긴다.
+
+### `src/backfill-attendance.ts`
+
+- production 서버는 source 없이 `dist` artifact만 유지할 수 있으므로, 운영 1회성 보정 helper는 build 없이 `node dist/backfill-attendance.js <input.json>`로 실행 가능해야 한다.
+- helper는 Discord message fetch, 출석 상태 계산, `AttendanceLog.findOrCreate`, 봇 반응 추가를 같은 입력 기준으로 순서대로 수행해야 한다.
+- helper는 이미 같은 `(userid, yearmonthday)`의 다른 공식 `AttendanceLog`가 있으면 중복 보정을 막기 위해 실패하도록 유지한다.
 
 ### `src/daily-attendance.ts`
 

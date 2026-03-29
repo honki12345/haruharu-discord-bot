@@ -1,12 +1,12 @@
-import { Events, Message } from 'discord.js';
-import { createRequire } from 'node:module';
+import { AnyThreadChannel, Events, Message } from 'discord.js';
 import { classifyAttendanceStatus, getAttendanceStatusEmoji, getAttendanceStatusLabel } from '../attendance.js';
+import { checkChannelId, testChannelId } from '../config.js';
+import { buildAttendanceThreadName } from '../daily-attendance.js';
 import { logger } from '../logger.js';
+import { AttendanceLog } from '../repository/AttendanceLog.js';
 import { Users } from '../repository/Users.js';
 import { ensureWakeUpMembershipSnapshot } from '../services/challengeSelfService.js';
-
-const jsonRequire = createRequire(import.meta.url);
-const { testChannelId } = jsonRequire('../../config.json');
+import { getYearMonthDay, padTwoDigits } from '../utils.js';
 
 const DEMO_THREAD_SUFFIX = '출석-demo';
 const FINAL_ATTENDANCE_EMOJIS = new Set(['✅', '🟡', '❌']);
@@ -51,6 +51,22 @@ const hasRememberedFinalAttendance = (threadId: string, userId: string) => {
   return finalizedAttendanceCache.get(threadId)?.has(userId) ?? false;
 };
 
+const getProductionAttendanceThreadName = (at: Date) => {
+  return buildAttendanceThreadName(at.getFullYear(), padTwoDigits(at.getMonth() + 1), padTwoDigits(at.getDate()));
+};
+
+const resolveAttendanceScope = (channel: AnyThreadChannel, at: Date) => {
+  if (channel.parentId === testChannelId && channel.name.endsWith(DEMO_THREAD_SUFFIX)) {
+    return 'demo' as const;
+  }
+
+  if (channel.parentId === checkChannelId && channel.name === getProductionAttendanceThreadName(at)) {
+    return 'production' as const;
+  }
+
+  return null;
+};
+
 const findPriorFinalAttendance = async (message: Message) => {
   const botUserId = message.client?.user?.id;
   let before: string | undefined;
@@ -91,7 +107,7 @@ const findPriorFinalAttendance = async (message: Message) => {
   return false;
 };
 
-const processAttendanceMessage = async (message: Message, attendanceKey: string) => {
+const processAttendanceMessage = async (message: Message, attendanceKey: string, scope: 'demo' | 'production') => {
   inFlightAttendanceKeys.add(attendanceKey);
 
   try {
@@ -102,6 +118,8 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string)
     const createdAt = new Date(message.createdTimestamp);
     const year = createdAt.getFullYear();
     const month = String(createdAt.getMonth() + 1).padStart(2, '0');
+    const date = padTwoDigits(createdAt.getDate());
+    const yearmonthday = getYearMonthDay(year, month, date);
     await ensureWakeUpMembershipSnapshot(message.author.id, `${year}${month}`);
     const user = await Users.findOne({
       where: {
@@ -111,7 +129,8 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string)
     });
 
     if (!user) {
-      logger.info('attendance demo ignored for unregistered user', {
+      logger.info('attendance ignored for unregistered user', {
+        scope,
         userid: message.author.id,
         threadId: message.channel.id,
       });
@@ -123,7 +142,8 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string)
     try {
       status = classifyAttendanceStatus(user.waketime, createdAt);
     } catch (error) {
-      logger.warn('attendance demo ignored for invalid waketime', {
+      logger.warn('attendance ignored for invalid waketime', {
+        scope,
         userid: user.userid,
         username: user.username,
         waketime: user.waketime,
@@ -135,6 +155,32 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string)
       return;
     }
 
+    if (scope === 'production' && status !== 'too-early') {
+      const [attendanceLog, created] = await AttendanceLog.findOrCreate({
+        where: {
+          userid: user.userid,
+          yearmonthday,
+        },
+        defaults: {
+          userid: user.userid,
+          username: user.username,
+          yearmonthday,
+          threadid: message.channel.id,
+          messageid: message.id,
+          commentedat: createdAt.toISOString(),
+          status,
+        },
+      });
+
+      if (!created) {
+        rememberFinalAttendance(message.channel.id, message.author.id);
+        if (attendanceLog.messageid !== message.id) {
+          return;
+        }
+        status = attendanceLog.status;
+      }
+    }
+
     const emoji = getAttendanceStatusEmoji(status);
     await message.react(emoji);
 
@@ -142,7 +188,8 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string)
       rememberFinalAttendance(message.channel.id, message.author.id);
     }
 
-    logger.info('attendance demo recognized', {
+    logger.info('attendance recognized', {
+      scope,
       userid: user.userid,
       username: user.username,
       status,
@@ -164,7 +211,7 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string)
     }
 
     if (shouldProcessPending && pendingMessage) {
-      await processAttendanceMessage(pendingMessage, attendanceKey);
+      await processAttendanceMessage(pendingMessage, attendanceKey, scope);
     }
   }
 };
@@ -176,7 +223,8 @@ export const event = {
       return;
     }
 
-    if (message.channel.parentId !== testChannelId || !message.channel.name.endsWith(DEMO_THREAD_SUFFIX)) {
+    const scope = resolveAttendanceScope(message.channel, new Date(message.createdTimestamp));
+    if (!scope) {
       return;
     }
 
@@ -190,6 +238,6 @@ export const event = {
       return;
     }
 
-    await processAttendanceMessage(message, attendanceKey);
+    await processAttendanceMessage(message, attendanceKey, scope);
   },
 };

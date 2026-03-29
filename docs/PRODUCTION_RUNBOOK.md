@@ -98,8 +98,39 @@ flowchart TD
 
 1. Discord에서 `/ping` 명령으로 운영 응답을 확인한다.
 2. 필요 시 등록/체크인/체크아웃 허용 채널에서 명령 라우팅이 정상인지 확인한다.
-3. 운영 채널에서 daily message/thread, messageCreate demo, cam-study 이벤트 영향이 없는지 확인한다.
+3. 운영 채널에서 daily message/thread, 운영 출석 thread messageCreate 반응/AttendanceLog 기록, cam-study 이벤트 영향이 없는지 확인한다.
 4. OCI 서버에서 `pm2 status`와 최근 로그를 한 번 더 점검한다.
+
+## 운영 출석 누락 1회성 보정
+
+- 서버가 source 없이 `dist` artifact만 유지하는 배포 구조라면, 출석 누락 보정 helper도 build 없이 `dist` 엔트리포인트로 직접 실행한다.
+- 입력 JSON 예시:
+
+```json
+{
+  "entries": [
+    {
+      "threadId": "123456789012345678",
+      "messageId": "123456789012345679",
+      "userId": "123456789012345670"
+    }
+  ]
+}
+```
+
+- 실행 명령:
+
+```bash
+node dist/backfill-attendance.js ./attendance-backfill.json
+```
+
+- helper는 각 댓글에 대해 아래를 순서대로 수행한다.
+  - Discord에서 thread/message fetch
+  - 해당 날짜의 `Users` snapshot 조회
+  - 댓글 시각 기준 출석 상태 계산
+  - `AttendanceLog.findOrCreate(...)`
+  - 봇 계정 반응(`✅`, `🟡`, `❌`, 필요 시 `⏰`) 추가
+- 이미 같은 `(userid, yearmonthday)`의 다른 공식 `AttendanceLog`가 있으면 중복 보정을 막기 위해 실패시킨다.
 
 ## 롤백 절차
 

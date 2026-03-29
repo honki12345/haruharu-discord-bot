@@ -5,8 +5,16 @@ const mockUsers = {
   findOne: vi.fn(),
 };
 
+const mockAttendanceLog = {
+  findOrCreate: vi.fn(),
+};
+
 vi.mock('../repository/Users.js', () => ({
   Users: mockUsers,
+}));
+
+vi.mock('../repository/AttendanceLog.js', () => ({
+  AttendanceLog: mockAttendanceLog,
 }));
 
 vi.mock('../logger.js', () => ({
@@ -69,6 +77,7 @@ describe('US-12: daily message 데모', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-24T07:05:00'));
     mockUsers.findOne.mockReset();
+    mockAttendanceLog.findOrCreate.mockReset();
   });
 
   it('demo-daily-message 커맨드는 테스트 채널에 메시지와 쓰레드를 생성한다', async () => {
@@ -253,6 +262,106 @@ describe('US-12: daily message 데모', () => {
     await event.execute(message as never);
 
     expect(react).toHaveBeenCalledWith('✅');
+  });
+
+  it('운영 출석 쓰레드의 첫 댓글에는 출석 이모지를 달고 AttendanceLog를 저장한다', async () => {
+    mockUsers.findOne.mockResolvedValue({
+      userid: 'prod-user',
+      username: '운영유저',
+      waketime: '0700',
+    });
+    mockAttendanceLog.findOrCreate.mockResolvedValue([{}, true]);
+
+    const react = vi.fn();
+    const message = {
+      id: 'message-prod-1',
+      createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+      author: {
+        id: 'prod-user',
+        bot: false,
+      },
+      inGuild: () => true,
+      react,
+      channel: {
+        id: 'prod-thread-1',
+        parentId: 'valid-check-channel-id',
+        name: '2026-03-24 출석',
+        isThread: () => true,
+        messages: {
+          fetch: vi.fn().mockResolvedValue(
+            new Collection([
+              [
+                'message-prod-1',
+                {
+                  id: 'message-prod-1',
+                  author: { id: 'prod-user', bot: false },
+                  createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+                  reactions: {
+                    cache: new Collection(),
+                  },
+                },
+              ],
+            ]),
+          ),
+        },
+      },
+    };
+
+    const { event } = await import('../events/messageCreate.js');
+    await event.execute(message as never);
+
+    expect(react).toHaveBeenCalledWith('✅');
+    expect(mockAttendanceLog.findOrCreate).toHaveBeenCalledWith({
+      where: {
+        userid: 'prod-user',
+        yearmonthday: '20260324',
+      },
+      defaults: expect.objectContaining({
+        userid: 'prod-user',
+        username: '운영유저',
+        yearmonthday: '20260324',
+        threadid: 'prod-thread-1',
+        messageid: 'message-prod-1',
+        status: 'attended',
+      }),
+    });
+  });
+
+  it('운영 채널의 지난 날짜 출석 쓰레드 댓글은 공식 출석으로 처리하지 않는다', async () => {
+    mockUsers.findOne.mockResolvedValue({
+      userid: 'prod-user',
+      username: '운영유저',
+      waketime: '0700',
+    });
+    mockAttendanceLog.findOrCreate.mockResolvedValue([{}, true]);
+
+    const react = vi.fn();
+    const message = {
+      id: 'message-prod-stale',
+      createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+      author: {
+        id: 'prod-user',
+        bot: false,
+      },
+      inGuild: () => true,
+      react,
+      channel: {
+        id: 'prod-thread-stale',
+        parentId: 'valid-check-channel-id',
+        name: '2026-03-23 출석',
+        isThread: () => true,
+        messages: {
+          fetch: vi.fn(),
+        },
+      },
+    };
+
+    const { event } = await import('../events/messageCreate.js');
+    await event.execute(message as never);
+
+    expect(react).not.toHaveBeenCalled();
+    expect(mockAttendanceLog.findOrCreate).not.toHaveBeenCalled();
+    expect(mockUsers.findOne).not.toHaveBeenCalled();
   });
 
   it('같은 사용자의 두 번째 댓글은 무시한다', async () => {
