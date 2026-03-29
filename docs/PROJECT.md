@@ -32,6 +32,7 @@ haruharu-discord-bot/
 │   ├── deployConfig.ts          # 슬래시 커맨드 배포용 최소 설정 로더
 │   ├── logger.ts                # Winston 로깅 설정
 │   ├── attendance.ts            # 출석 판정 및 이모지 유틸리티
+│   ├── daily-attendance.ts      # 운영 daily message/thread 생성 및 재탐색 유틸리티
 │   ├── daily-message.ts         # daily message 질문 풀과 랜덤 선택 유틸리티
 │   ├── utils.ts                 # 분리된 유틸 모듈 배럴 export
 │   ├── deploy-commands.ts       # 슬래시 커맨드 등록
@@ -164,13 +165,15 @@ haruharu-discord-bot/
 | 항목 | 내용 |
 |------|------|
 | 트리거 | 봇 Discord 연결 완료 |
-| 기능 | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `CamStudy*`), 서비스 기반 리포트 스케줄러 등록 |
+| 기능 | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `CamStudy*`), 운영 daily message/thread 생성 및 각종 스케줄러 등록 |
 
 **스케줄러:**
+- 운영 daily message/thread 생성: 매일 06:00
 - 기상 챌린지 리포트: 매일 13:00
 - 캠스터디 리포트: 매일 23:59
 
 **구현 메모:**
+- 운영 daily message/thread 중복 방지와 재탐색은 `src/daily-attendance.ts`가 담당한다.
 - 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
 - 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
 
@@ -197,11 +200,17 @@ haruharu-discord-bot/
 | 트리거 | 일반 메시지 생성 |
 | 기능 | 테스트 채널의 출석 demo thread에서 첫 댓글을 감지하고 출석 상태 이모지 반응 |
 
+#### daily-attendance.ts
+| 항목 | 내용 |
+|------|------|
+| 역할 | 운영 채널용 daily message 본문, thread 이름 규칙, today thread 재탐색/중복 방지 로직을 제공 |
+| 사용처 | `ready.ts` 운영 daily message/thread 자동 생성 스케줄 |
+
 #### daily-message.ts
 | 항목 | 내용 |
 |------|------|
 | 역할 | daily message에 넣을 질문 100개를 보관하고 랜덤으로 하나를 선택 |
-| 사용처 | `/demo-daily-message` 커맨드 |
+| 사용처 | `/demo-daily-message` 커맨드, 운영 daily message 본문 생성 |
 
 ---
 

@@ -1,13 +1,37 @@
 import { Client, Events } from 'discord.js';
-import { logger } from '../logger.js';
 import { checkChannelId, logChannelId, resultChannelId } from '../config.js';
+import { ensureTodayAttendanceThread } from '../daily-attendance.js';
+import { logger } from '../logger.js';
 import { buildCamStudyReports, buildChallengeReport, scheduleDailyReports, syncModels } from '../services/reporting.js';
+import { calculateRemainingTimeDailyMessage, getYearMonthDate, ONE_DAY_MILLISECONDS } from '../utils.js';
+
+const ensureDailyAttendanceThreadInterval = async (client: Client) => {
+  try {
+    await ensureTodayAttendanceThread(client, checkChannelId);
+  } catch {
+    // ensureTodayAttendanceThread logs failures itself; swallow here to keep scheduling alive.
+  }
+};
 
 export const event = {
   name: Events.ClientReady,
   once: true,
   async execute(client: Client) {
     await syncModels();
+    const { hours } = getYearMonthDate();
+
+    if (Number(hours) >= 6) {
+      await ensureDailyAttendanceThreadInterval(client);
+    }
+
+    const remainingTimeDailyMessage = calculateRemainingTimeDailyMessage();
+    setTimeout(() => {
+      void ensureDailyAttendanceThreadInterval(client);
+      setInterval(() => {
+        void ensureDailyAttendanceThreadInterval(client);
+      }, ONE_DAY_MILLISECONDS);
+    }, remainingTimeDailyMessage);
+
     scheduleDailyReports(
       async () => {
         const { attendanceMessage, hallOfFameMessage } = await buildChallengeReport();

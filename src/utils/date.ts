@@ -1,5 +1,11 @@
 import { logger } from '../logger.js';
-import { HARUHARU_TIMES, PRINT_HOURS_CAM_STUDY, PRINT_HOURS_CHALLENGE, PRINT_MINUTES_CAM_STUDY } from './constants.js';
+import {
+  HARUHARU_TIMES,
+  PRINT_HOURS_CAM_STUDY,
+  PRINT_HOURS_CHALLENGE,
+  PRINT_HOURS_DAILY_MESSAGE,
+  PRINT_MINUTES_CAM_STUDY,
+} from './constants.js';
 
 const padTwoDigits = (value: number) => value.toString().padStart(2, '0');
 
@@ -62,12 +68,15 @@ const calculateRemainingTime = (hours: number, minutes: number, logLabel: string
 
 const calculateRemainingTimeChallenge = () => calculateRemainingTime(PRINT_HOURS_CHALLENGE, 0, 'challenge');
 
+const calculateRemainingTimeDailyMessage = () => calculateRemainingTime(PRINT_HOURS_DAILY_MESSAGE, 0, 'daily message');
+
 const calculateRemainingTimeCamStudy = () =>
   calculateRemainingTime(PRINT_HOURS_CAM_STUDY, PRINT_MINUTES_CAM_STUDY, 'cam study');
 
 export {
   calculateRemainingTimeCamStudy,
   calculateRemainingTimeChallenge,
+  calculateRemainingTimeDailyMessage,
   calculateWeekTimes,
   getFileName,
   getFormattedYesterday,
