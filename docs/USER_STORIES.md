@@ -410,7 +410,8 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 - `late` 상태는 `latecount` 증가
 - `absent` 상태 또는 무댓글 사용자는 `absencecount` 증가
 - 결과표에 사용자별 오늘 상태와 월 누적 `latecount`, `absencecount`, 잔여휴가를 함께 표시
-- 결과표가 Discord 2000자 제한을 넘기면 줄 경계를 기준으로 여러 메시지로 나눠 순서대로 전송
+- 평일 결과표는 당일 출석 thread 댓글로 전송한다
+- 결과표가 Discord 2000자 제한을 넘기면 줄 경계를 기준으로 여러 메시지로 나눠 같은 thread에 순서대로 전송
 - 주말/공휴일에는 결과 메시지를 공지하지 않는다
 - 주말/공휴일에는 무댓글, `late`, `absent`로 새 패널티를 추가하지 않는다
 - 주말/공휴일 `attended`는 `absencecount`를 우선 1 감소시키고, 차감할 결석이 없으면 `latecount`를 1 감소시킨다
@@ -421,6 +422,7 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
     participant C as Check Channel
+    participant T as Attendance Thread
 
     Note over S: 매일 13:00 트리거
     S->>B: buildChallengeReport()
@@ -444,6 +446,7 @@ sequenceDiagram
         B-->>S: 결과 메시지 없이 종료
     else 평일
         B->>B: 출석 현황 집계
+        B->>C: 오늘 출석 thread 재탐색 또는 확보
 
         loop 각 사용자별
             alt 휴가 등록됨
@@ -463,15 +466,15 @@ sequenceDiagram
         end
 
         alt 결과표가 2000자 이하
-            B->>C: 리포트 메시지 1건 전송
+            B->>T: 리포트 메시지 1건 전송
         else 결과표가 2000자 초과
             B->>B: 줄 경계 기준으로 메시지 분할
             loop 분할된 각 메시지
-                B->>C: 리포트 메시지 순차 전송
+                B->>T: 리포트 메시지 순차 전송
             end
         end
     end
-    Note over C: ### 20251208 출석표<br/>- 홍길동: 출석 (월 누적 지각 0회, 결석 0회, 잔여휴가 5일)<br/>- 이영희: 지각 (월 누적 지각 3회, 결석 1회, 잔여휴가 5일)<br/>- 박민수: 휴가 (월 누적 지각 0회, 결석 0회, 잔여휴가 4일)<br/>- 최민지: 결석 (월 누적 지각 0회, 결석 2회, 잔여휴가 5일)
+    Note over T: ### 20251208 출석표<br/>- 홍길동: 출석 (월 누적 지각 0회, 결석 0회, 잔여휴가 5일)<br/>- 이영희: 지각 (월 누적 지각 3회, 결석 1회, 잔여휴가 5일)<br/>- 박민수: 휴가 (월 누적 지각 0회, 결석 0회, 잔여휴가 4일)<br/>- 최민지: 결석 (월 누적 지각 0회, 결석 2회, 잔여휴가 5일)
 ```
 
 ---

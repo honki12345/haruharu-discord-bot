@@ -319,20 +319,40 @@ describe('US-13: 운영 daily message 자동화', () => {
     expect(hasHeartbeatScheduler).toBe(true);
   });
 
-  it('challenge 결과표가 여러 메시지로 분할되면 순서대로 모두 전송한다', async () => {
-    const send = vi.fn().mockResolvedValue(undefined);
-    mockBuildChallengeReport.mockResolvedValueOnce({
-      attendanceMessage: 'chunk-1chunk-2',
-      attendanceMessages: ['chunk-1', 'chunk-2'],
-      hallOfFameMessage: null,
+  it('challenge 결과표는 당일 출석 thread 댓글로 전송한다', async () => {
+    const threadSend = vi.fn().mockResolvedValue(undefined);
+    const checkChannelSend = vi.fn();
+    const fetch = vi.fn().mockResolvedValue({
+      type: 0,
+      id: 'valid-channel-id',
+      send: checkChannelSend,
+      threads: {
+        fetchActive: vi.fn().mockResolvedValue({
+          threads: new Collection([
+            [
+              'attendance-thread',
+              {
+                id: 'attendance-thread',
+                name: '2026-03-29 출석',
+                send: threadSend,
+                toString: () => '<#attendance-thread>',
+              },
+            ],
+          ]),
+        }),
+        fetchArchived: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+      },
     });
 
     const { event } = await import('../events/ready.js');
 
     await event.execute({
       channels: {
+        fetch,
         cache: {
-          get: vi.fn().mockImplementation((id: string) => (id === 'valid-channel-id' ? { send } : { send: vi.fn() })),
+          get: vi.fn().mockReturnValue(undefined),
         },
       },
       user: {
@@ -345,8 +365,151 @@ describe('US-13: 운영 daily message 자동화', () => {
 
     await challengeReportRunner();
 
-    expect(send).toHaveBeenNthCalledWith(1, 'chunk-1');
-    expect(send).toHaveBeenNthCalledWith(2, 'chunk-2');
+    expect(fetch).toHaveBeenCalledWith('valid-channel-id');
+    expect(checkChannelSend).not.toHaveBeenCalled();
+    expect(threadSend).toHaveBeenCalledOnce();
+    expect(threadSend).toHaveBeenCalledWith('attendance report');
+  });
+
+  it('challenge 결과표가 여러 메시지로 분할되면 같은 thread에 순서대로 모두 전송한다', async () => {
+    const threadSend = vi.fn().mockResolvedValue(undefined);
+    const checkChannelSend = vi.fn();
+    mockBuildChallengeReport.mockResolvedValueOnce({
+      attendanceMessage: 'chunk-1chunk-2',
+      attendanceMessages: ['chunk-1', 'chunk-2'],
+      hallOfFameMessage: null,
+    });
+    const fetch = vi.fn().mockResolvedValue({
+      type: 0,
+      id: 'valid-channel-id',
+      send: checkChannelSend,
+      threads: {
+        fetchActive: vi.fn().mockResolvedValue({
+          threads: new Collection([
+            [
+              'attendance-thread',
+              {
+                id: 'attendance-thread',
+                name: '2026-03-29 출석',
+                send: threadSend,
+                toString: () => '<#attendance-thread>',
+              },
+            ],
+          ]),
+        }),
+        fetchArchived: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+      },
+    });
+
+    const { event } = await import('../events/ready.js');
+
+    await event.execute({
+      channels: {
+        fetch,
+        cache: {
+          get: vi.fn().mockReturnValue(undefined),
+        },
+      },
+      user: {
+        tag: 'haruharu#0001',
+      },
+    } as never);
+
+    const challengeReportRunner = mockScheduleDailyReports.mock.calls[0]?.[0];
+    expect(challengeReportRunner).toBeTypeOf('function');
+
+    await challengeReportRunner();
+
+    expect(checkChannelSend).not.toHaveBeenCalled();
+    expect(threadSend).toHaveBeenNthCalledWith(1, 'chunk-1');
+    expect(threadSend).toHaveBeenNthCalledWith(2, 'chunk-2');
+  });
+
+  it('출석 로그가 없어도 당일 thread 이름으로 재탐색해 결과표를 전송한다', async () => {
+    const archivedThreadSend = vi.fn().mockResolvedValue(undefined);
+    const fetch = vi.fn().mockResolvedValue({
+      type: 0,
+      id: 'valid-channel-id',
+      send: vi.fn(),
+      threads: {
+        fetchActive: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+        fetchArchived: vi.fn().mockResolvedValue({
+          threads: new Collection([
+            [
+              'archived-thread',
+              {
+                id: 'archived-thread',
+                name: '2026-03-29 출석',
+                send: archivedThreadSend,
+                toString: () => '<#archived-thread>',
+              },
+            ],
+          ]),
+        }),
+      },
+    });
+
+    const { event } = await import('../events/ready.js');
+
+    await event.execute({
+      channels: {
+        fetch,
+        cache: {
+          get: vi.fn().mockReturnValue(undefined),
+        },
+      },
+      user: {
+        tag: 'haruharu#0001',
+      },
+    } as never);
+
+    const challengeReportRunner = mockScheduleDailyReports.mock.calls[0]?.[0];
+    expect(challengeReportRunner).toBeTypeOf('function');
+
+    await challengeReportRunner();
+
+    expect(fetch).toHaveBeenCalledWith('valid-channel-id');
+    expect(archivedThreadSend).toHaveBeenCalledOnce();
+    expect(archivedThreadSend).toHaveBeenCalledWith('attendance report');
+  });
+
+  it('월말 생존명단 전송 위치는 결과 채널 본문으로 유지한다', async () => {
+    const resultChannelSend = vi.fn().mockResolvedValue(undefined);
+    mockBuildChallengeReport.mockResolvedValueOnce({
+      attendanceMessage: null,
+      attendanceMessages: null,
+      hallOfFameMessage: 'hall of fame',
+    });
+
+    const { event } = await import('../events/ready.js');
+
+    await event.execute({
+      channels: {
+        fetch: vi.fn(),
+        cache: {
+          get: vi
+            .fn()
+            .mockImplementation((id: string) =>
+              id === 'valid-result-channel-id' ? { send: resultChannelSend } : undefined,
+            ),
+        },
+      },
+      user: {
+        tag: 'haruharu#0001',
+      },
+    } as never);
+
+    const challengeReportRunner = mockScheduleDailyReports.mock.calls[0]?.[0];
+    expect(challengeReportRunner).toBeTypeOf('function');
+
+    await challengeReportRunner();
+
+    expect(resultChannelSend).toHaveBeenCalledOnce();
+    expect(resultChannelSend).toHaveBeenCalledWith('hall of fame');
   });
 
   it('06시 이후에 부팅되면 오늘 운영 daily message 생성을 즉시 시도한다', async () => {
