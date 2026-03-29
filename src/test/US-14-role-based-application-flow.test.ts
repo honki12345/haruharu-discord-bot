@@ -209,7 +209,45 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
 
     expect(applicantMember.roles.add).not.toHaveBeenCalled();
     expect(interaction.getReplies()[0]).toMatchObject({
-      content: expect.stringContaining('이미 활성화'),
+      content: expect.stringContaining('전용 채널'),
+      ephemeral: true,
+    });
+  });
+
+  it('TC-RA03-1: 이미 approved 상태인 /apply-wakeup은 /register 다음 행동을 다시 안내한다', async () => {
+    applications.set('test-user-id:wake-up', {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'wake-up',
+      status: 'approved',
+      reason: null,
+    });
+
+    const applicantMember = {
+      roles: {
+        cache: {
+          has: vi.fn().mockReturnValue(true),
+        },
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/apply-wakeup.js');
+    await command.execute(interaction as never);
+
+    expect(applicantMember.roles.add).not.toHaveBeenCalled();
+    expect(interaction.getReplies()[0]).toMatchObject({
+      content: expect.stringContaining('/register'),
       ephemeral: true,
     });
   });
