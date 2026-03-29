@@ -26,10 +26,19 @@ const PROGRAM_METADATA: Record<
 const isUniqueConstraintError = (error: unknown) =>
   typeof error === 'object' && error !== null && 'name' in error && error.name === 'SequelizeUniqueConstraintError';
 
-const buildApprovedReply = (label: string) => ({
-  content: `${label} 참여가 이미 활성화되어 있어요. 전용 채널을 확인해 주세요.`,
-  ephemeral: true,
-});
+const buildApprovedReply = (program: ParticipationProgram) => {
+  if (program === 'wake-up') {
+    return {
+      content: '기상인증 참여가 이미 활성화되어 있어요. `/register`로 기상시간을 등록하거나 수정해 주세요.',
+      ephemeral: true,
+    };
+  }
+
+  return {
+    content: '캠스터디 참여가 이미 활성화되어 있어요. 전용 채널을 확인해 주세요.',
+    ephemeral: true,
+  };
+};
 
 const buildActivatedReply = (program: ParticipationProgram) => {
   if (program === 'wake-up') {
@@ -112,7 +121,6 @@ const submitParticipationApplication = async (
 ) => {
   const userid = interaction.user.id;
   const username = interaction.user.globalName ?? interaction.user.username ?? 'unknown';
-  const { label } = PROGRAM_METADATA[program];
   const existingApplication = await ParticipationApplication.findOne({
     where: { userid, program },
   });
@@ -157,7 +165,7 @@ const submitParticipationApplication = async (
         await upsertCamStudyUser({ userid, username });
       }
 
-      return buildApprovedReply(label);
+      return buildApprovedReply(program);
     }
 
     if (program === 'cam-study') {
@@ -166,7 +174,7 @@ const submitParticipationApplication = async (
 
     const persistResult = await persistApprovedApplication(existingApplication, userid, username, program);
     if (persistResult === 'already-approved') {
-      return buildApprovedReply(label);
+      return buildApprovedReply(program);
     }
   } catch (error) {
     logger.error('failed to finalize participation activation', { error, userid, program });
