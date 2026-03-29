@@ -143,6 +143,39 @@ describe('config.ts', () => {
     });
   });
 
+  it('repository sequelize 설정은 model instance 메서드를 깨뜨리는 global raw query를 사용하지 않는다', async () => {
+    vi.doMock('node:module', async importOriginal => {
+      const original = await importOriginal<typeof import('node:module')>();
+      return {
+        ...original,
+        createRequire: () => (path: string) => {
+          if (path.includes('config.json')) {
+            return {
+              token: 'token',
+              clientId: 'client-id',
+              guildId: 'guild-id',
+              checkChannelId: 'check-channel',
+              testChannelId: 'test-channel',
+              logChannelId: 'log-channel',
+              resultChannelId: 'result-channel',
+              voiceChannelId: 'voice-channel',
+              startHereChannelId: 'start-here-channel',
+              timeStartHereChannelId: 'time-start-here-channel',
+              wakeUpRoleId: 'wake-up-role',
+              camStudyRoleId: 'cam-study-role',
+            };
+          }
+
+          return original.createRequire(import.meta.url)(path);
+        },
+      };
+    });
+
+    const { sequelize } = await import('../repository/config.js');
+
+    expect(sequelize.options.query?.raw).not.toBe(true);
+  });
+
   it('command deploy 경로는 opsChannelId 없이도 command payload 로딩에 성공한다', async () => {
     vi.doMock('node:module', async importOriginal => {
       const original = await importOriginal<typeof import('node:module')>();

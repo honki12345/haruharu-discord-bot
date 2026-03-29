@@ -13,6 +13,7 @@ import {
   listActiveWakeUpMemberships,
   listChallengeUserExclusions,
   listWakeUpMembershipsByUserIds,
+  updateChallengeUser,
   updateWakeUpMembership,
 } from '../repository/challengeRepository.js';
 import { isValidWakeTime } from '../attendance.js';
@@ -73,7 +74,7 @@ const createChallengeUserSnapshot = async ({
   });
 
   if (!created && (user.username !== username || user.waketime !== waketime)) {
-    await user.update({ username, waketime });
+    await updateChallengeUser(userId, yearmonth, { username, waketime });
   }
 
   return [user, created] as const;
@@ -242,7 +243,7 @@ const executeRegister = async ({
   }
 
   await createWaketimeChangeLog({ userid: userId, yearmonthday, waketime });
-  await user.update({ username, waketime });
+  await updateChallengeUser(userId, yearmonth, { username, waketime });
 
   return { reply: `${username}님 기상시간을 수정했습니다. 기준월: ${yearmonth}, 기상시간: ${waketime}` };
 };
