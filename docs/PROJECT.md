@@ -305,6 +305,9 @@ flowchart TD
   I --> J[Manual /ping if needed]
 ```
 
+- `scripts/verify-production-readiness.sh`는 `runtime/production-deployment-metadata.env`를 읽어 직전 배포가 본 info 로그 파일과 바이트 오프셋을 복원한다.
+- 같은 일별 info 로그 파일을 재사용하면 이전 오프셋 뒤에서만 `Ready! Logged in as`를 찾고, 새 일별 info 로그 파일이 생기면 새 파일 전체를 검사한다.
+
 #### interactionCreate.ts
 
 | 항목   | 내용                                                                   |

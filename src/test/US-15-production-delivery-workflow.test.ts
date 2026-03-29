@@ -1,4 +1,6 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -35,6 +37,63 @@ const expectWorkflowJobRuntime = (
 
   if (options?.nodeVersion) {
     expect(jobBlock).toContain(`node-version: '${options.nodeVersion}'`);
+  }
+};
+
+const extractShellFunction = (script: string, functionName: string) => {
+  const match = script.match(new RegExp(`^${escapeRegExp(functionName)}\\(\\) \\{[\\s\\S]*?^\\}`, 'm'));
+
+  expect(match, `Failed to extract ${functionName} from readiness script`).not.toBeNull();
+
+  return match![0];
+};
+
+const runReadinessDetectionScenario = (options: {
+  currentLogFileName: string;
+  currentLogContent: string;
+  previousLogFileName?: string;
+  previousLogContent?: string;
+  previousInfoLogFile?: string;
+  previousInfoLogSize?: number;
+}) => {
+  const script = readRepositoryFile('scripts/verify-production-readiness.sh');
+  const harness = [
+    'set -euo pipefail',
+    extractShellFunction(script, 'find_new_ready_log_entry'),
+    extractShellFunction(script, 'latest_info_log_file'),
+    'if find_new_ready_log_entry; then',
+    '  exit 0',
+    'fi',
+    'exit 1',
+  ].join('\n\n');
+
+  const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'haruharu-readiness-'));
+  const logsDirectory = path.join(tempDirectory, 'logs');
+
+  try {
+    fs.mkdirSync(logsDirectory);
+
+    if (options.previousLogFileName && options.previousLogContent !== undefined) {
+      fs.writeFileSync(path.join(logsDirectory, options.previousLogFileName), options.previousLogContent);
+    }
+
+    fs.writeFileSync(path.join(logsDirectory, options.currentLogFileName), options.currentLogContent);
+
+    return spawnSync('bash', ['-lc', harness], {
+      cwd: tempDirectory,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        info_log_pattern: '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].log',
+        ready_log_pattern: 'Ready! Logged in as',
+        ...(options.previousInfoLogFile ? { PREVIOUS_INFO_LOG_FILE: options.previousInfoLogFile } : {}),
+        ...(options.previousInfoLogSize !== undefined
+          ? { PREVIOUS_INFO_LOG_SIZE: String(options.previousInfoLogSize) }
+          : {}),
+      },
+    });
+  } finally {
+    fs.rmSync(tempDirectory, { recursive: true, force: true });
   }
 };
 
@@ -189,6 +248,31 @@ describe('US-15 production delivery workflow', () => {
     expect(script).not.toContain('grep -F "${ready_log_pattern}" "${candidate}"');
     expect(script).not.toContain("find logs -maxdepth 1 -type f -name '*.log'");
     expect(script).not.toContain('xargs ls -t');
+  });
+
+  it('readiness helper는 새 info 로그 파일에서 ready 로그를 찾으면 성공해야 한다', () => {
+    const result = runReadinessDetectionScenario({
+      previousLogFileName: '2026-03-28.log',
+      previousLogContent: '{"message":"older deployment"}\n',
+      previousInfoLogFile: 'logs/2026-03-28.log',
+      previousInfoLogSize: Buffer.byteLength('{"message":"older deployment"}\n'),
+      currentLogFileName: '2026-03-29.log',
+      currentLogContent: '{"message":"Ready! Logged in as HaruHaru"}\n',
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+  });
+
+  it('readiness helper는 같은 info 로그 파일 재사용 시 이전 바이트 오프셋 이전의 ready 로그를 무시해야 한다', () => {
+    const previousSegment = '{"message":"Ready! Logged in as old deployment"}\n';
+    const result = runReadinessDetectionScenario({
+      previousInfoLogFile: 'logs/2026-03-29.log',
+      previousInfoLogSize: Buffer.byteLength(previousSegment),
+      currentLogFileName: '2026-03-29.log',
+      currentLogContent: `${previousSegment}{"message":"after deploy but not ready"}\n`,
+    });
+
+    expect(result.status, result.stderr).toBe(1);
   });
 
   it('runbook은 known_hosts와 verified sha 기반 배포 흐름을 설명해야 한다', () => {

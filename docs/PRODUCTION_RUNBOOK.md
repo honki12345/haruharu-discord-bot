@@ -84,6 +84,13 @@ flowchart TD
    - 비대화형 SSH 셸에서 `nvm` bootstrap 후 `node`, `pm2`를 사용할 수 있는지
    - PM2에 같은 이름의 online 프로세스가 1개인지
    - 이번 배포 이후 info 로그에 새 `Ready! Logged in as`가 기록됐는지
+   - 직전 배포와 같은 일별 info 로그 파일을 재사용하면 이전 배포 시점의 바이트 오프셋 뒤만 검사하고, 새 일별 info 로그 파일이 생기면 새 파일 전체에서 ready 로그를 검사한다
+
+### Readiness 로그 판정 메모
+
+- readiness 스크립트는 `runtime/production-deployment-metadata.env`의 `PREVIOUS_INFO_LOG_FILE`, `PREVIOUS_INFO_LOG_SIZE`를 읽어 이번 배포 이후에 추가된 ready 로그만 본다.
+- 새 로그 파일이 생성된 배포에서는 이전 오프셋을 이어서 쓰지 않고, 최신 info 로그 파일 전체에서 `Ready! Logged in as`를 찾는다.
+- 2026-03-29 이전에는 새 로그 파일 분기 반환값 버그 때문에 ready 로그가 있어도 `Could not find a new ready log entry for haruharu-bot` false negative가 날 수 있었다. 같은 증상이 다시 보이면 스크립트 버전과 최근 배포 시점 로그 파일 교체 여부를 먼저 확인한다.
 
 ## 배포 후 수동 검증
 
