@@ -1,9 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import './test-setup.js';
 import { logger } from '../logger.js';
-import { buildChallengeReport, scheduleDailyReports, syncModels } from '../services/reporting.js';
+import { buildCamStudyReports, buildChallengeReport, scheduleDailyReports, syncModels } from '../services/reporting.js';
 import { ONE_DAY_MILLISECONDS } from '../utils.js';
-import { TestAttendanceLog, TestTimeLog, TestUsers, clearAllTables, testSequelize } from './test-setup.js';
+import {
+  TestAttendanceLog,
+  TestCamStudyTimeLog,
+  TestCamStudyUsers,
+  TestCamStudyWeeklyTimeLog,
+  TestTimeLog,
+  TestUsers,
+  clearAllTables,
+  testSequelize,
+} from './test-setup.js';
 
 describe('reporting service', () => {
   beforeEach(async () => {
@@ -132,5 +141,38 @@ describe('reporting service', () => {
     await syncModels();
 
     expect(attendanceLogSyncSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('캠스터디 주간 집계를 같은 날 두 번 실행해도 중복 누적하지 않는다', async () => {
+    vi.setSystemTime(new Date('2025-12-10T23:59:00'));
+
+    await TestCamStudyUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+    });
+
+    await TestCamStudyTimeLog.bulkCreate([
+      {
+        userid: 'user1',
+        username: '홍길동',
+        yearmonthday: '20251208',
+        timestamp: Date.now().toString(),
+        totalminutes: 60,
+      },
+      {
+        userid: 'user1',
+        username: '홍길동',
+        yearmonthday: '20251210',
+        timestamp: Date.now().toString(),
+        totalminutes: 30,
+      },
+    ]);
+
+    await buildCamStudyReports();
+    await buildCamStudyReports();
+
+    const weeklyLogs = await TestCamStudyWeeklyTimeLog.findAll();
+    expect(weeklyLogs).toHaveLength(1);
+    expect(weeklyLogs[0]?.totalminutes).toBe(90);
   });
 });

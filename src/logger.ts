@@ -51,6 +51,16 @@ export const logger = winston.createLogger({
       zippedArchive: true,
     }),
   ],
+  rejectionHandlers: [
+    new winstonDaily({
+      level: 'error',
+      datePattern: 'YYYY-MM-DD',
+      dirname: logDir,
+      filename: `%DATE%.rejection.log`,
+      maxFiles: 30,
+      zippedArchive: true,
+    }),
+  ],
 });
 
 // NODE_ENV=production node index

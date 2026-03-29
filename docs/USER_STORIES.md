@@ -11,6 +11,7 @@ SO THAT 그날의 출석 진입점이 하나로 유지된다
 ```
 
 **인수 조건:**
+
 - 운영 채널에 매일 오전 06:00 daily message와 출석 thread를 생성한다
 - 같은 날짜에는 daily message/thread를 한 번만 생성한다
 - 봇 재시작 후에도 오늘 thread를 다시 찾아 재사용할 수 있다
@@ -49,6 +50,7 @@ SO THAT 해당 사용자가 출석 체크를 할 수 있다
 ```
 
 **인수 조건:**
+
 - 사용자 ID, 년월, 기상시간, 이름을 입력받는다
 - 기상시간은 05:00~09:00 범위만 허용
 - 기본 휴가일수는 5일
@@ -93,6 +95,7 @@ SO THAT 오늘의 출석이 기록된다
 ```
 
 **인수 조건:**
+
 - 등록된 기상시간 ±30분 내에만 체크인 가능
 - ±10분 내: 정시 출석
 - 10~30분 후: 지각 처리
@@ -162,6 +165,7 @@ SO THAT 출석이 완료된다
 ```
 
 **인수 조건:**
+
 - 체크인 완료 후에만 체크아웃 가능
 - 기상시간 + 1시간 ±10분 내에만 가능
 - 이미지 파일 첨부 필수
@@ -227,6 +231,7 @@ SO THAT 해당 챌린저가 추가 휴식일을 가질 수 있다
 ```
 
 **인수 조건:**
+
 - 기존 휴가일수에 지정한 수만큼 추가
 - 등록된 사용자만 대상
 
@@ -261,6 +266,7 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 ```
 
 **인수 조건:**
+
 - 출석/지각/결석 인원 집계
 - 주말 및 공휴일 제외
 - 결석자는 결석 횟수 증가
@@ -320,6 +326,7 @@ SO THAT 한 달간의 성과를 축하받을 수 있다
 ```
 
 **인수 조건:**
+
 - 매월 마지막 날 출력
 - 결석 3회 미만인 사용자만 포함 (삼진아웃 제도)
 
@@ -364,6 +371,7 @@ SO THAT 해당 사용자의 학습 시간이 추적된다
 ```
 
 **인수 조건:**
+
 - 사용자 ID와 이름을 입력받는다
 - 중복 등록 불가
 
@@ -393,13 +401,14 @@ sequenceDiagram
 
 ```
 AS A 캠스터디 참가자
-I WANT TO 음성 채널에서 카메라를 켜면 자동으로 시간이 기록
+I WANT TO 음성 채널에서 카메라 또는 화면공유를 켜면 자동으로 시간이 기록
 SO THAT 별도 조작 없이 공부 시간이 측정된다
 ```
 
 **인수 조건:**
-- 카메라 ON: 학습 시작
-- 카메라 OFF 또는 채널 퇴장: 학습 종료
+
+- 카메라 ON 또는 화면공유 ON: 학습 시작
+- 카메라와 화면공유가 모두 OFF 이거나 채널 퇴장: 학습 종료
 - 5분 미만 세션은 무시
 - 자정을 넘기면 새 날짜로 분리 기록
 
@@ -411,8 +420,8 @@ sequenceDiagram
     participant DB as SQLite
     participant L as Log Channel
 
-    Note over U,VC: 음성 채널 입장 + 카메라 ON
-    VC->>B: voiceStateUpdate<br/>(streaming: true)
+    Note over U,VC: 음성 채널 입장 + 카메라 또는 화면공유 ON
+    VC->>B: voiceStateUpdate<br/>(selfVideo: true 또는 streaming: true)
 
     B->>DB: CamStudyUsers 조회 (userid)
     alt 미등록 사용자
@@ -430,8 +439,8 @@ sequenceDiagram
 
     Note over U,VC: 학습 중...
 
-    Note over U,VC: 카메라 OFF 또는 채널 퇴장
-    VC->>B: voiceStateUpdate<br/>(streaming: false)
+    Note over U,VC: 카메라와 화면공유가 모두 OFF 또는 채널 퇴장
+    VC->>B: voiceStateUpdate<br/>(selfVideo: false, streaming: false)
 
     B->>DB: CamStudyTimeLog 조회
     B->>B: 경과시간 = 현재시간 - timestamp
@@ -464,6 +473,7 @@ SO THAT 나의 학습량을 다른 참가자와 비교할 수 있다
 ```
 
 **인수 조건:**
+
 - 학습 시간 기준 내림차순 정렬
 - 시간 형식: "X시간 Y분"
 
@@ -501,9 +511,11 @@ SO THAT 한 주간의 학습량을 확인할 수 있다
 ```
 
 **인수 조건:**
+
 - 매주 금요일 23:59에 출력
 - 월~금 학습 시간 누적
 - 주차 번호: 2024-04-06 기준으로 계산
+- 같은 날짜 기준 재실행해도 주간 누적 시간이 중복 반영되지 않는다
 
 ```mermaid
 sequenceDiagram
@@ -523,16 +535,9 @@ sequenceDiagram
     B->>B: 주차 번호 계산
     Note right of B: weektimes = (현재 - 2024-04-06) / 7일
 
-    B->>DB: CamStudyWeeklyTimeLog 조회 (weektimes)
-
-    loop 각 참가자별
-        B->>DB: 오늘 일간 시간 조회
-        alt 주간 기록 존재
-            B->>DB: totalminutes += 오늘 시간
-        else 주간 기록 없음
-            B->>DB: CamStudyWeeklyTimeLog 생성
-        end
-    end
+    B->>DB: 해당 주차 CamStudyTimeLog 조회
+    B->>B: 참가자별 주간 totalminutes 재계산
+    B->>DB: CamStudyWeeklyTimeLog 재생성 또는 덮어쓰기
 
     B->>B: 주간 totalminutes 기준 정렬
 
@@ -551,6 +556,7 @@ SO THAT 해당 사용자의 학습 시간 추적이 중단된다
 ```
 
 **인수 조건:**
+
 - 등록된 사용자만 삭제 가능
 - 기존 학습 기록은 유지됨
 

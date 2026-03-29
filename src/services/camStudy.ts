@@ -15,6 +15,7 @@ import {
 
 interface VoiceStateSnapshot {
   channelId: string | null;
+  selfVideo: boolean;
   streaming: boolean;
   userId: string;
 }
@@ -29,19 +30,22 @@ const resolveCamStudyTransition = (
   newState: VoiceStateSnapshot,
   configuredChannelId: string,
 ) => {
+  const wasOldStateActive = oldState.selfVideo || oldState.streaming;
   const wasOldStateInChannel = oldState.channelId === configuredChannelId;
-  const wasOldStateVideoOn = oldState.streaming;
-  const wasOldStateVideoOff = !oldState.streaming;
+  const wasOldStateInactive = !wasOldStateActive;
+  const isNewStateActive = newState.selfVideo || newState.streaming;
   const isNotNewStateInChannel = newState.channelId !== configuredChannelId;
   const isNewStateInChannel = newState.channelId === configuredChannelId;
-  const isNewStateVideoOff = !newState.streaming;
-  const isNewStateVideoOn = newState.streaming;
+  const isNewStateInactive = !isNewStateActive;
 
   return {
-    shouldEndByQuit: isNotNewStateInChannel && wasOldStateVideoOn && wasOldStateInChannel,
-    shouldEndByTurnOff: wasOldStateInChannel && wasOldStateVideoOn && isNewStateInChannel && isNewStateVideoOff,
-    shouldStart: wasOldStateInChannel && wasOldStateVideoOff && isNewStateInChannel && isNewStateVideoOn,
+    isNewStateActive,
+    wasOldStateActive,
+    shouldEndByQuit: isNotNewStateInChannel && wasOldStateActive && wasOldStateInChannel,
+    shouldEndByTurnOff: wasOldStateInChannel && wasOldStateActive && isNewStateInChannel && isNewStateInactive,
+    shouldStart: isNewStateInChannel && isNewStateActive && (!wasOldStateInChannel || wasOldStateInactive),
     userEnteredConfiguredChannel: isNewStateInChannel,
+    wasOldStateInChannel,
   };
 };
 
@@ -51,6 +55,18 @@ const processCamStudyStateChange = async (
   configuredChannelId: string,
 ): Promise<CamStudyEventResult | null> => {
   const transition = resolveCamStudyTransition(oldState, newState, configuredChannelId);
+  logger.info('cam study transition evaluated', {
+    newChannelId: newState.channelId,
+    newSelfVideo: newState.selfVideo,
+    newStreaming: newState.streaming,
+    oldChannelId: oldState.channelId,
+    oldSelfVideo: oldState.selfVideo,
+    oldStreaming: oldState.streaming,
+    shouldEndByQuit: transition.shouldEndByQuit,
+    shouldEndByTurnOff: transition.shouldEndByTurnOff,
+    shouldStart: transition.shouldStart,
+    userId: newState.userId,
+  });
   const user = await findCamStudyUser(newState.userId);
 
   if (!user) {
@@ -78,13 +94,24 @@ const processCamStudyStateChange = async (
           totalminutes: passedMinutes,
         });
 
+        logger.info('cam study session rolled over from yesterday', {
+          passedMinutes,
+          today,
+          userId: user.userid,
+          yesterday: getFormattedYesterday(),
+        });
+
         return {
           target: 'voice-channel',
           message: `${user.username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`,
         };
       }
 
-      logger.info('비정상 공부 종료', { oldState }, { newState });
+      logger.warn('cam study session ended without active log', {
+        newChannelId: newState.channelId,
+        oldChannelId: oldState.channelId,
+        userId: user.userid,
+      });
       return {
         target: 'voice-channel',
         message: `${user.username}님 study end: 공부시간 정상 입력안됨`,
@@ -93,7 +120,12 @@ const processCamStudyStateChange = async (
 
     const timeDiffInMinutes = getTimeDiffFromNowInMinutes(Number(timelog.timestamp));
     if (timeDiffInMinutes < LEAST_TIME_LIMIT) {
-      logger.info(`5분 이내 입력 안함, timeDiffInMinutes: ${timeDiffInMinutes}`);
+      logger.info('cam study session ignored because duration is below limit', {
+        minMinutes: LEAST_TIME_LIMIT,
+        timeDiffInMinutes,
+        today,
+        userId: user.userid,
+      });
       await updateCamStudyTimeLog(user.userid, today, { timestamp: timestampNowString });
       return {
         target: 'voice-channel',
@@ -107,6 +139,13 @@ const processCamStudyStateChange = async (
       totalminutes: totalMinutes,
     });
 
+    logger.info('cam study session ended', {
+      addedMinutes: timeDiffInMinutes,
+      today,
+      totalMinutes,
+      userId: user.userid,
+    });
+
     return {
       target: 'voice-channel',
       message: `${user.username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`,
@@ -114,11 +153,21 @@ const processCamStudyStateChange = async (
   }
 
   if (!transition.shouldStart) {
+    logger.info('cam study transition ignored', {
+      newChannelId: newState.channelId,
+      oldChannelId: oldState.channelId,
+      today,
+      userId: newState.userId,
+    });
     return null;
   }
 
   if (timelog) {
-    logger.info(`userid: ${user.userid} study start => update timestamp ${timestampNowString}`);
+    logger.info('cam study session restarted', {
+      timestamp: timestampNowString,
+      today,
+      userId: user.userid,
+    });
     await updateCamStudyTimeLog(user.userid, today, { timestamp: timestampNowString });
   } else {
     await createCamStudyTimeLog({
@@ -129,6 +178,15 @@ const processCamStudyStateChange = async (
       totalminutes: 0,
     });
   }
+
+  logger.info('cam study session started', {
+    isNewStateActive: transition.isNewStateActive,
+    timestamp: timestampNowString,
+    today,
+    userId: user.userid,
+    wasOldStateActive: transition.wasOldStateActive,
+    wasOldStateInChannel: transition.wasOldStateInChannel,
+  });
 
   return {
     target: 'voice-channel',
