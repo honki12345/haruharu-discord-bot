@@ -185,13 +185,15 @@ haruharu-discord-bot/
 비고:
 
 - `WakeUpMembership`를 생성 또는 재활성화하고, 현재 월 `Users` 스냅샷이 없으면 자동 생성한다.
+- 같은 달에 `/stop-wakeup`으로 중단한 사용자는 다음 달부터 다시 등록할 수 있다.
 - 같은 날 두 번째 변경은 `WaketimeChangeLog`로 거부한다.
 - `#start-here`, `#time-start-here`에서만 실행 가능하다.
 
 #### `/stop-wakeup` (`/기상중단`)
 
 - 별도 파라미터 없음
-- 현재 월 기록은 유지하고, 이후 월 `Users` 자동 생성만 중단한다.
+- 현재 월 `Users` 스냅샷을 제거하고 같은 달 exclusion 을 기록해 현재 월 참여를 즉시 중단한다.
+- 같은 달에는 `/register`로 다시 참여할 수 없고, 다음 달부터 다시 등록할 수 있다.
 - `WakeUpMembership` 이 아직 없고 latest `Users` 스냅샷만 있는 legacy 참가자도 backfill 후 중단 처리한다.
 - `#start-here`, `#time-start-here`에서만 실행 가능하다.
 
@@ -399,7 +401,7 @@ flowchart TD
 | 항목   | 내용                                                                                                                                                                                                                                                                                                      |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                                                                                                                           |
-| 담당   | `WakeUpMembership` 생성/재활성화/중단, latest `Users` 기반 membership backfill, legacy 참가자의 `/stop-wakeup` 중단 처리, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 현재 월 휴가 날짜 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
+| 담당   | `WakeUpMembership` 생성/재활성화/중단, latest `Users` 기반 membership backfill, legacy 참가자의 `/stop-wakeup` 중단 처리, `/stop-wakeup` 현재 월 exclusion 기록과 스냅샷 제거, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 같은 달 `/stop-wakeup` 재등록 차단, 현재 월 `Users` 스냅샷 생성, 현재 월 휴가 날짜 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
 | 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                                                                                                                                    |
 
 #### participationApplication.ts
@@ -449,6 +451,7 @@ flowchart TD
 
 - `(userid)` 조합은 UNIQUE이며 기상 챌린지 참여 상태를 사용자당 1건으로 유지한다.
 - `/register`가 이 테이블을 생성하거나 `stopped -> active`로 재활성화하고, 최근 등록 기상시간을 함께 갱신한다.
+- 같은 달 `/stop-wakeup`으로 중단된 membership 은 다음 달이 되기 전까지 `/register`로 재활성화할 수 없다.
 - membership 이 아직 없는 레거시 운영 데이터는 최신 `Users.yearmonth` 스냅샷을 기준으로 자동 backfill 된다.
 - 일일 리포트와 휴가 self-service는 활성 membership의 현재 월 `Users` 스냅샷을 필요 시 자동 생성한다.
 
@@ -470,7 +473,7 @@ flowchart TD
 - `(userid, yearmonth)` 조합은 UNIQUE이며 같은 월 스냅샷 중복 생성을 막는다.
 - 활성 membership 자동 backfill 은 이 테이블과 월별 exclusion 을 함께 확인한 뒤 누락된 사용자만 생성한다.
 
-#### ChallengeUserExclusion (관리자 월별 삭제 exclusion)
+#### ChallengeUserExclusion (월별 제외 exclusion)
 
 | 컬럼      | 타입    | 설명                    |
 | --------- | ------- | ----------------------- |
@@ -481,8 +484,8 @@ flowchart TD
 비고:
 
 - `(userid, yearmonth)` 조합은 UNIQUE이며 같은 달 exclusion 중복 생성을 막는다.
-- `/delete`는 이 테이블을 기록한 뒤 `Users` 월 스냅샷을 제거한다.
-- 자동 스냅샷 생성은 이 테이블에 있는 월을 건너뛰어 관리자 삭제가 같은 달 리포트에서 되살아나지 않도록 한다.
+- `/delete`와 `/stop-wakeup`은 이 테이블을 기록한 뒤 `Users` 월 스냅샷을 제거한다.
+- 자동 스냅샷 생성은 이 테이블에 있는 월을 건너뛰어 같은 달 리포트나 self-service 경로에서 사용자가 되살아나지 않도록 한다.
 
 #### TimeLog (출석 로그)
 
@@ -710,8 +713,9 @@ flowchart TD
 - `/register`는 Discord 한국어 locale에서 `/기상등록`으로 표시된다.
 - `/register`는 같은 날 두 번째 변경을 거부한다.
 - `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산하고 현재 월 `Users` 스냅샷을 보장한다.
+- `/register`는 같은 달 `/stop-wakeup`으로 중단한 사용자의 재등록을 거부하고 다음 달부터 다시 시작하게 한다.
 - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`, `#time-start-here`에서만 실행된다.
-- `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 미래 월 자동 참여만 중단한다.
+- `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 현재 월 참여를 즉시 중단하고 같은 달 재등록을 막는다.
 - `/delete`는 지정한 `(userid, yearmonth)`를 exclusion 으로 기록해 같은 달 자동 스냅샷 생성이 사용자를 다시 만들지 않게 한다.
 - `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 현재 월 날짜 단위(`yyyymmdd`)로 동작한다.
 - 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.
