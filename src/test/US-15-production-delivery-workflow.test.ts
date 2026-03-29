@@ -79,8 +79,18 @@ describe('US-15 production delivery workflow', () => {
     expect(script).toContain("<<'NODE_METADATA_EOF'");
     expect(script).not.toContain('node - "${staging_root}/artifact-metadata.json" <<\'EOF\'');
     expect(script).toContain('mv "${staging_root}/dist" "${app_dir}/dist"');
+    expect(script).toContain('resolved_app_dir="$(cd "${app_dir}" && pwd -P)"');
+    expect(script).toContain('"${resolved_app_dir}" == "/"');
     expect(script).toContain('PRODUCTION_APP_DIR must be an absolute path');
     expect(script).toContain('"${app_dir}" == "/"');
+    expect(script).toContain('"${staging_root}/node_modules"');
+    expect(script).toContain(
+      'Artifact validation failed: dist, node_modules, package.json, or artifact-metadata.json missing',
+    );
+    expect(script).toContain('const compareVersions = (left, right) => {');
+    expect(script).toContain(
+      'compareVersions(runtimeMetadata.glibcVersionRuntime, buildMetadata.glibcVersionRuntime) < 0',
+    );
     expect(script).not.toContain('command -v npm >/dev/null');
     expect(script).not.toContain('git fetch origin --tags');
     expect(script).not.toContain('git checkout --detach');
@@ -117,6 +127,9 @@ describe('US-15 production delivery workflow', () => {
     expect(runbook).toContain('artifact');
     expect(runbook).toContain('Node');
     expect(runbook).toContain('platform');
+    expect(runbook).toContain('realpath');
+    expect(runbook).toContain('glibc');
+    expect(runbook).toContain('node_modules');
     expect(runbook).toContain('branch, tag, commit SHA');
   });
 });

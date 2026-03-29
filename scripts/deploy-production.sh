@@ -64,9 +64,6 @@ app_dir="$1"
 deploy_git_sha="$2"
 pm2_app_name="$3"
 artifact_path="$4"
-metadata_dir="${app_dir}/runtime"
-metadata_path="${metadata_dir}/production-deployment-metadata.env"
-artifact_metadata_path="${metadata_dir}/production-artifact-metadata.json"
 info_log_pattern='[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].log'
 
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
@@ -92,6 +89,18 @@ if [[ "${app_dir}" == "/" ]]; then
   exit 1
 fi
 
+mkdir -p "${app_dir}"
+resolved_app_dir="$(cd "${app_dir}" && pwd -P)"
+if [[ -z "${resolved_app_dir}" ]] || [[ "${resolved_app_dir}" == "/" ]]; then
+  echo "PRODUCTION_APP_DIR must not resolve to /" >&2
+  exit 1
+fi
+
+app_dir="${resolved_app_dir}"
+metadata_dir="${app_dir}/runtime"
+metadata_path="${metadata_dir}/production-deployment-metadata.env"
+artifact_metadata_path="${metadata_dir}/production-artifact-metadata.json"
+
 mkdir -p "${app_dir}" "${metadata_dir}" "${app_dir}/logs"
 cd "${app_dir}"
 
@@ -110,8 +119,8 @@ trap cleanup_remote EXIT
 
 tar -xzf "${artifact_path}" -C "${staging_root}"
 
-if [[ ! -d "${staging_root}/dist" ]] || [[ ! -f "${staging_root}/package.json" ]] || [[ ! -f "${staging_root}/artifact-metadata.json" ]]; then
-  echo "Artifact validation failed: dist, package.json, or artifact-metadata.json missing" >&2
+if [[ ! -d "${staging_root}/dist" ]] || [[ ! -d "${staging_root}/node_modules" ]] || [[ ! -f "${staging_root}/package.json" ]] || [[ ! -f "${staging_root}/artifact-metadata.json" ]]; then
+  echo "Artifact validation failed: dist, node_modules, package.json, or artifact-metadata.json missing" >&2
   exit 1
 fi
 
@@ -128,6 +137,29 @@ const runtimeMetadata = {
   glibcVersionRuntime: report?.header?.glibcVersionRuntime ?? null,
 };
 
+const compareVersions = (left, right) => {
+  const leftParts = String(left)
+    .split('.')
+    .map((part) => Number.parseInt(part, 10) || 0);
+  const rightParts = String(right)
+    .split('.')
+    .map((part) => Number.parseInt(part, 10) || 0);
+  const maxLength = Math.max(leftParts.length, rightParts.length);
+
+  for (let index = 0; index < maxLength; index += 1) {
+    const leftPart = leftParts[index] ?? 0;
+    const rightPart = rightParts[index] ?? 0;
+
+    if (leftPart === rightPart) {
+      continue;
+    }
+
+    return leftPart < rightPart ? -1 : 1;
+  }
+
+  return 0;
+};
+
 const mismatches = [];
 for (const key of ['platform', 'arch', 'nodeModuleVersion']) {
   if (buildMetadata[key] !== runtimeMetadata[key]) {
@@ -141,6 +173,16 @@ if (buildLibcFamily !== runtimeLibcFamily) {
   mismatches.push(`libcFamily: build=${buildLibcFamily} runtime=${runtimeLibcFamily}`);
 }
 
+if (
+  buildMetadata.glibcVersionRuntime &&
+  runtimeMetadata.glibcVersionRuntime &&
+  compareVersions(runtimeMetadata.glibcVersionRuntime, buildMetadata.glibcVersionRuntime) < 0
+) {
+  mismatches.push(
+    `glibcVersionRuntime: build=${buildMetadata.glibcVersionRuntime} runtime=${runtimeMetadata.glibcVersionRuntime}`,
+  );
+}
+
 if (mismatches.length > 0) {
   console.error('Artifact runtime compatibility check failed.');
   console.error(mismatches.join('\n'));
@@ -152,9 +194,7 @@ cp "${staging_root}/artifact-metadata.json" "${artifact_metadata_path}"
 
 rm -rf dist node_modules package.json package-lock.json
 mv "${staging_root}/dist" "${app_dir}/dist"
-if [[ -e "${staging_root}/node_modules" ]]; then
-  mv "${staging_root}/node_modules" "${app_dir}/node_modules"
-fi
+mv "${staging_root}/node_modules" "${app_dir}/node_modules"
 mv "${staging_root}/package.json" "${app_dir}/package.json"
 if [[ -e "${staging_root}/package-lock.json" ]]; then
   mv "${staging_root}/package-lock.json" "${app_dir}/package-lock.json"
