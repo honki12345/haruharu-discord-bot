@@ -53,12 +53,23 @@ export const event = {
     scheduleDailyReports(
       async () => {
         const { attendanceMessage, attendanceMessages, hallOfFameMessage } = await buildChallengeReport();
-        const checkChannel = client.channels.cache.get(checkChannelId);
         const resultChannel = client.channels.cache.get(resultChannelId);
 
-        if (attendanceMessage && checkChannel && 'send' in checkChannel) {
-          for (const message of attendanceMessages ?? [attendanceMessage]) {
-            await checkChannel.send(message);
+        if (attendanceMessage) {
+          try {
+            const attendanceThreadResult = await ensureTodayAttendanceThread(client, checkChannelId);
+            const attendanceThread = attendanceThreadResult?.thread;
+
+            if (attendanceThread && 'send' in attendanceThread) {
+              for (const message of attendanceMessages ?? [attendanceMessage]) {
+                await attendanceThread.send(message);
+              }
+            }
+          } catch (error) {
+            logger.error('Failed to send scheduled challenge report to attendance thread', {
+              channelId: checkChannelId,
+              error,
+            });
           }
         }
         if (hallOfFameMessage && resultChannel && 'send' in resultChannel) {
