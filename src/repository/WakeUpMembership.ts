@@ -5,7 +5,7 @@ class WakeUpMembership extends Model<InferAttributes<WakeUpMembership>, InferCre
   declare id: CreationOptional<number>;
   declare userid: string;
   declare username: string;
-  declare waketime: string | null;
+  declare waketime: string;
   declare status: 'active' | 'stopped';
   declare stoppedat: string | null;
 }
@@ -28,7 +28,7 @@ WakeUpMembership.init(
     },
     waketime: {
       type: DataTypes.STRING(4),
-      allowNull: true,
+      allowNull: false,
     },
     status: {
       type: DataTypes.STRING(32),

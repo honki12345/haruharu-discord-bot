@@ -8,49 +8,6 @@ import {
   testSequelize,
 } from './test-setup.js';
 
-type ProgramType = 'wake-up' | 'cam-study';
-type ApplicationStatus = 'pending' | 'approved' | 'rejected';
-
-interface ParticipationApplicationRecord {
-  userid: string;
-  username: string;
-  program: ProgramType;
-  status: ApplicationStatus;
-  reason: string | null;
-}
-
-const applications = new Map<string, ParticipationApplicationRecord>();
-const getApplicationKey = (userid: string, program: ProgramType) => `${userid}:${program}`;
-
-vi.mock('../repository/ParticipationApplication.js', () => ({
-  ParticipationApplication: {
-    findOne: vi.fn(async ({ where }: { where: { userid: string; program: ProgramType } }) => {
-      return applications.get(getApplicationKey(where.userid, where.program)) ?? null;
-    }),
-    create: vi.fn(async (record: ParticipationApplicationRecord) => {
-      applications.set(getApplicationKey(record.userid, record.program), record);
-      return record;
-    }),
-    update: vi.fn(
-      async (
-        values: Partial<ParticipationApplicationRecord>,
-        { where }: { where: { userid: string; program: ProgramType } },
-      ) => {
-        const current = applications.get(getApplicationKey(where.userid, where.program));
-        if (!current) {
-          return [0];
-        }
-
-        applications.set(getApplicationKey(where.userid, where.program), {
-          ...current,
-          ...values,
-        });
-        return [1];
-      },
-    ),
-  },
-}));
-
 describe('US-16: 기상스터디 상시 참여와 중단', () => {
   beforeAll(async () => {
     await testSequelize.sync({ force: true });
@@ -63,7 +20,6 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-08T07:05:00Z'));
-    applications.clear();
     await clearAllTables();
   });
 
@@ -198,19 +154,10 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(interaction.getLastReply()).toContain('등록했습니다');
   });
 
-  it('TC-WM05: /apply-wakeup 즉시 활성화 후 /register 를 거치면 다음 달에도 자동 이월된다', async () => {
+  it('TC-WM05: 신규 /register 후 다음 달에도 자동 이월된다', async () => {
     vi.setSystemTime(new Date('2025-12-07T07:05:00Z'));
-    const applyInteraction = createMockInteraction({
-      userId: 'apply-user',
-      globalName: '오하늘',
-      channelId: 'valid-apply-channel-id',
-    });
-
-    const { command: applyCommand } = await import('../commands/haruharu/apply-wakeup.js');
-    await applyCommand.execute(applyInteraction as never);
-
     const registerInteraction = createMockInteraction({
-      userId: 'apply-user',
+      userId: 'new-user',
       globalName: '오하늘',
       options: {
         waketime: '0715',
@@ -223,15 +170,14 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     const { buildChallengeReport } = await import('../services/reporting.js');
     await buildChallengeReport();
 
-    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'apply-user' } });
-    const previousMonthUser = await TestUsers.findOne({ where: { userid: 'apply-user', yearmonth: '202512' } });
-    const currentMonthUser = await TestUsers.findOne({ where: { userid: 'apply-user', yearmonth: '202601' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'new-user' } });
+    const previousMonthUser = await TestUsers.findOne({ where: { userid: 'new-user', yearmonth: '202512' } });
+    const currentMonthUser = await TestUsers.findOne({ where: { userid: 'new-user', yearmonth: '202601' } });
 
     expect(membership?.status).toBe('active');
     expect(membership?.waketime).toBe('0715');
     expect(previousMonthUser?.waketime).toBe('0715');
     expect(currentMonthUser?.waketime).toBe('0715');
-    expect(applyInteraction.getLastReply()).toContain('기상인증 참여가 활성화');
     expect(registerInteraction.getLastReply()).toContain('등록했습니다');
   });
 });

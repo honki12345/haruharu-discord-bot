@@ -12,7 +12,7 @@ describe('interactionCreate 이벤트', () => {
     const reply = vi.fn();
     const interaction = {
       isChatInputCommand: () => true,
-      commandName: 'apply-wakeup',
+      commandName: 'apply-cam',
       channel: {
         id: 'valid-channel-id',
       },
@@ -22,9 +22,9 @@ describe('interactionCreate 이벤트', () => {
       client: {
         commands: new Collection([
           [
-            'apply-wakeup',
+            'apply-cam',
             {
-              data: { name: 'apply-wakeup' },
+              data: { name: 'apply-cam' },
               allowedChannelIds: ['valid-apply-channel-id'],
               execute,
             },

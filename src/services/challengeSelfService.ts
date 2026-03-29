@@ -63,7 +63,7 @@ const createChallengeUserSnapshot = async ({
 
 const ensureWakeUpMembershipSnapshot = async (userId: string, yearmonth: string) => {
   const membership = await findWakeUpMembership(userId);
-  if (!membership || membership.status !== 'active' || !membership.waketime) {
+  if (!membership || membership.status !== 'active') {
     return null;
   }
 
@@ -88,7 +88,7 @@ const ensureActiveWakeUpMembershipSnapshots = async (yearmonth: string) => {
 
   for (const membership of memberships) {
     const existingUser = await findChallengeUser(membership.userid, yearmonth);
-    if (existingUser || !membership.waketime) {
+    if (existingUser) {
       continue;
     }
 

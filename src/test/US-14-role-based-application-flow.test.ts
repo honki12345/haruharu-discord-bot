@@ -1,7 +1,7 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TestWakeUpMembership, clearAllTables, createMockInteraction, testSequelize } from './test-setup.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMockInteraction } from './test-setup.js';
 
-type ProgramType = 'wake-up' | 'cam-study';
+type ProgramType = 'cam-study';
 type ApplicationStatus = 'pending' | 'approved' | 'rejected';
 
 interface ParticipationApplicationRecord {
@@ -48,14 +48,9 @@ vi.mock('../repository/ParticipationApplication.js', () => ({
 }));
 
 describe('US-14: 역할 기반 신청/승인 흐름', () => {
-  beforeAll(async () => {
-    await testSequelize.sync({ force: true });
-  });
-
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.resetModules();
     applications.clear();
-    await clearAllTables();
     ParticipationApplication.findOne.mockReset();
     ParticipationApplication.create.mockReset();
     ParticipationApplication.update.mockReset();
@@ -87,46 +82,7 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
     );
   });
 
-  it('TC-RA01: /apply-wakeup은 즉시 활성화 상태를 저장하고 membership을 active 로 만든다', async () => {
-    const opsSend = vi.fn();
-    const interaction = createMockInteraction({
-      channelId: 'valid-apply-channel-id',
-      client: {
-        channels: {
-          fetch: vi.fn().mockResolvedValue({
-            send: opsSend,
-          }),
-        },
-        users: {
-          fetch: vi.fn(),
-        },
-      },
-    });
-
-    const { command } = await import('../commands/haruharu/apply-wakeup.js');
-    await command.execute(interaction as never);
-
-    expect(applications.get('test-user-id:wake-up')).toMatchObject({
-      userid: 'test-user-id',
-      username: '테스트유저',
-      program: 'wake-up',
-      status: 'approved',
-    });
-    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'test-user-id' } });
-    expect(membership).toMatchObject({
-      userid: 'test-user-id',
-      username: '테스트유저',
-      status: 'active',
-      waketime: null,
-    });
-    expect(interaction.getReplies()[0]).toMatchObject({
-      content: expect.stringContaining('기상인증 참여가 활성화'),
-      ephemeral: true,
-    });
-    expect(opsSend).not.toHaveBeenCalled();
-  });
-
-  it('TC-RA02: /apply-cam은 신청을 pending으로 저장하고 ephemeral 응답과 운영 알림을 보낸다', async () => {
+  it('TC-RA01: /apply-cam은 신청을 pending으로 저장하고 ephemeral 응답과 운영 알림을 보낸다', async () => {
     const opsSend = vi.fn();
     const interaction = createMockInteraction({
       channelId: 'valid-apply-channel-id',
@@ -163,38 +119,13 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
     );
   });
 
-  it('TC-RA05: /apply-wakeup은 기존 stopped membership을 다시 active 로 전환한다', async () => {
-    await TestWakeUpMembership.create({
-      userid: 'test-user-id',
-      username: '테스트유저',
-      waketime: '0700',
-      status: 'stopped',
-      stoppedat: '2025-12-07T00:00:00.000Z',
-    });
-    const interaction = createMockInteraction({
-      channelId: 'valid-apply-channel-id',
-    });
-
-    const { command } = await import('../commands/haruharu/apply-wakeup.js');
-    await command.execute(interaction as never);
-
-    expect(applications.get('test-user-id:wake-up')?.status).toBe('approved');
-    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'test-user-id' } });
-    expect(membership?.status).toBe('active');
-    expect(membership?.waketime).toBe('0700');
-    expect(interaction.getReplies()[0]).toMatchObject({
-      content: expect.stringContaining('현재 월 참여 상태'),
-      ephemeral: true,
-    });
-  });
-
-  it('TC-RA06: 중복 신청 race로 create가 unique 제약에 걸려도 approved 상태로 흡수한다', async () => {
+  it('TC-RA05: 중복 신청 race로 create가 unique 제약에 걸려도 pending 상태로 흡수한다', async () => {
     const opsSend = vi.fn();
     ParticipationApplication.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
       userid: 'test-user-id',
       username: '테스트유저',
-      program: 'wake-up',
-      status: 'approved',
+      program: 'cam-study',
+      status: 'pending',
       reason: null,
     });
     ParticipationApplication.create.mockRejectedValueOnce({
@@ -215,17 +146,17 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
       },
     });
 
-    const { command } = await import('../commands/haruharu/apply-wakeup.js');
+    const { command } = await import('../commands/haruharu/apply-cam.js');
     await command.execute(interaction as never);
 
     expect(interaction.getReplies()[0]).toMatchObject({
-      content: expect.stringContaining('기상인증 참여가 활성화'),
+      content: expect.stringContaining('이미 접수'),
       ephemeral: true,
     });
     expect(opsSend).not.toHaveBeenCalled();
   });
 
-  it('TC-RA07: /apply-wakeup은 운영 채널 알림을 보내지 않는다', async () => {
+  it('TC-RA06: 운영 채널 알림은 사용자 이름에 멘션이 있어도 allowedMentions를 비활성화한다', async () => {
     const opsSend = vi.fn();
     const interaction = createMockInteraction({
       channelId: 'valid-apply-channel-id',
@@ -242,10 +173,15 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
       },
     });
 
-    const { command } = await import('../commands/haruharu/apply-wakeup.js');
+    const { command } = await import('../commands/haruharu/apply-cam.js');
     await command.execute(interaction as never);
 
-    expect(opsSend).not.toHaveBeenCalled();
+    expect(opsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('@everyone'),
+        allowedMentions: { parse: [] },
+      }),
+    );
   });
 
   it('TC-RA03: /approve-application은 cam-study pending 신청을 승인하고 역할을 부여한 뒤 사용자에게 안내를 보낸다', async () => {

@@ -31,7 +31,7 @@ export const command = {
     ),
   async execute(interaction: ChatInputCommandInteraction) {
     const userid = interaction.options.getString('userid')!;
-    const program = interaction.options.getString('program') as 'wake-up' | 'cam-study';
+    const program = interaction.options.getString('program') as 'cam-study';
     await interaction.reply({
       content: await approveParticipationApplication(interaction, userid, program),
       allowedMentions: { parse: [] },

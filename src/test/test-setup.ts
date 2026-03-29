@@ -241,7 +241,7 @@ export class TestWakeUpMembership extends Model<
   declare id: CreationOptional<number>;
   declare userid: string;
   declare username: string;
-  declare waketime: string | null;
+  declare waketime: string;
   declare status: 'active' | 'stopped';
   declare stoppedat: string | null;
 }
@@ -251,7 +251,7 @@ TestWakeUpMembership.init(
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     userid: { type: DataTypes.STRING(128), allowNull: false, unique: true },
     username: { type: DataTypes.STRING(128), allowNull: false },
-    waketime: { type: DataTypes.STRING(4), allowNull: true },
+    waketime: { type: DataTypes.STRING(4), allowNull: false },
     status: {
       type: DataTypes.STRING(32),
       allowNull: false,

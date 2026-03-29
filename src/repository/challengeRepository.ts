@@ -58,7 +58,7 @@ const listActiveWakeUpMemberships = () => WakeUpMembership.findAll({ where: { st
 const createWakeUpMembership = (payload: {
   userid: string;
   username: string;
-  waketime: string | null;
+  waketime: string;
   status: 'active' | 'stopped';
   stoppedat?: string | null;
 }) => WakeUpMembership.create(payload);

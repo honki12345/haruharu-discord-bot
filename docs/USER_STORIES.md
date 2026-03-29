@@ -38,16 +38,14 @@ sequenceDiagram
 
 ```
 AS A 서버 사용자
-I WANT TO /기상인증신청 또는 /캠스터디신청 으로 직접 신청하고 프로그램별 흐름에 맞게 활성화되길 원한다
-SO THAT 기상인증은 바로 시작하고, 캠스터디만 운영 승인 흐름을 거치길 원한다
+I WANT TO /캠스터디신청 으로 직접 신청하고 운영 승인 흐름을 거치길 원한다
+SO THAT 캠스터디 접근 권한이 운영 정책대로 관리되길 원한다
 ```
 
 **인수 조건:**
 
-- `/기상인증신청` (`/apply-wakeup`), `/캠스터디신청` (`/apply-cam`)은 `#apply`에서만 실행된다
+- `/캠스터디신청` (`/apply-cam`)은 `#apply`에서만 실행된다
 - 신청 응답은 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
-- `/기상인증신청`은 운영자 승인 없이 즉시 활성화된다
-- `/기상인증신청`은 `WakeUpMembership.status = active` 를 보장하고, 기존 기상시간이 있으면 현재 월 스냅샷도 함께 준비한다
 - `/캠스터디신청`은 운영 채널에 승인/거절용 안내가 전송된다
 - 운영자가 캠스터디를 승인하면 해당 역할이 자동 부여된다
 - 운영자가 캠스터디를 거절하면 거절 사유와 재신청 안내가 사용자에게 전달된다
@@ -61,27 +59,21 @@ sequenceDiagram
     participant O as #ops
     participant D as Discord Role
 
-    U->>A: /기상인증신청 또는 /캠스터디신청
+    U->>A: /캠스터디신청
     A->>B: InteractionCreate 이벤트
-    alt /기상인증신청
-        B->>DB: ParticipationApplication.status = approved
-        B->>DB: WakeUpMembership 활성화
-        B-->>U: ephemeral "기상인증 참여가 활성화되었어요"
-    else /캠스터디신청
-        B->>DB: ParticipationApplication.status = pending
-        B-->>U: ephemeral "신청이 접수되었어요"
-        B->>O: 승인/거절 안내 전송
+    B->>DB: ParticipationApplication.status = pending
+    B-->>U: ephemeral "신청이 접수되었어요"
+    B->>O: 승인/거절 안내 전송
 
-        alt 운영자가 승인
-            O->>B: /admin-신청승인
-            B->>DB: status = approved
-            B->>D: 역할 부여
-            B-->>U: 승인 안내
-        else 운영자가 거절
-            O->>B: /admin-신청거절
-            B->>DB: status = rejected
-            B-->>U: 거절 사유 + 재신청 안내
-        end
+    alt 운영자가 승인
+        O->>B: /admin-신청승인
+        B->>DB: status = approved
+        B->>D: 역할 부여
+        B-->>U: 승인 안내
+    else 운영자가 거절
+        O->>B: /admin-신청거절
+        B->>DB: status = rejected
+        B-->>U: 거절 사유 + 재신청 안내
     end
 ```
 
@@ -705,7 +697,7 @@ SO THAT 같은 명령으로 등록과 수정을 모두 처리할 수 있다
 - 본인 데이터만 수정 가능
 - 기상시간은 05:00~09:00 범위만 허용
 - 같은 날에는 한 번만 변경 가능
-- 이미 `/기상인증신청`으로 활성화된 사용자나 과거에 중단한 사용자도 같은 `/기상등록`으로 현재 월 참여를 이어갈 수 있다
+- 과거에 중단한 사용자도 같은 `/기상등록`으로 현재 월 참여를 다시 시작할 수 있다
 
 ```mermaid
 sequenceDiagram
@@ -755,7 +747,7 @@ SO THAT 운영자 개입 없이 휴가 사용을 관리할 수 있다
 - 날짜는 `yyyymmdd` 형식이어야 함
 - 같은 날짜 중복 등록 불가
 - 잔여 휴가가 있을 때만 등록 가능
-- 활성 membership 과 기본 기상시간이 있으면 현재 월 `Users` 스냅샷이 없어도 자동 생성 후 처리된다
+- 활성 membership 이 있으면 현재 월 `Users` 스냅샷이 없어도 자동 생성 후 처리된다
 
 ```mermaid
 sequenceDiagram

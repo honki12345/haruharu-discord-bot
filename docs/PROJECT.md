@@ -54,10 +54,9 @@ haruharu-discord-bot/
 │   │
 │   ├── commands/
 │   │   └── haruharu/
-│   │       ├── register.ts      # 사용자 기상 챌린지 등록/수정
+│   │       ├── register.ts      # 사용자 기상 챌린지 시작/재시작 및 기상시간 등록/수정
 │   │       ├── stop-wakeup.ts   # 사용자 기상 챌린지 중단
 │   │       ├── apply-vacation.ts # 사용자 휴가 등록
-│   │       ├── apply-wakeup.ts  # 사용자 기상인증 즉시 활성화
 │   │       ├── apply-cam.ts     # 사용자 캠스터디 참여 신청
 │   │       ├── add-vacances.ts  # 휴가 추가
 │   │       ├── approve-application.ts # 캠스터디 참여 신청 승인
@@ -137,7 +136,7 @@ haruharu-discord-bot/
 
 | 내부 key          | 한국어 표시명(ko)   | 권한   | 설명                                       |
 | ----------------- | ------------------- | ------ | ------------------------------------------ |
-| `/register`       | `/기상등록`         | 사용자 | 기상 참여 시작/재시작과 기본 기상시간 설정 |
+| `/register`       | `/기상등록`         | 사용자 | 기상 참여 시작/재시작과 기상시간 등록/수정 |
 | `/stop-wakeup`    | `/기상중단`         | 사용자 | 기상 챌린지 상시 참여 중단                 |
 | `/apply-vacation` | `/휴가신청`         | 사용자 | 자신의 특정 날짜 휴가 등록                 |
 | `/add-vacances`   | `/admin-휴가추가`   | 관리자 | 휴가일수 추가                              |
@@ -145,12 +144,11 @@ haruharu-discord-bot/
 
 #### 역할 기반 참여 신청 커맨드
 
-| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                      |
-| ---------------------- | ----------------- | ------ | ------------------------- |
-| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 참여 즉시 활성화 |
-| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 신청        |
-| `/approve-application` | `/admin-신청승인` | 관리자 | 캠스터디 참여 신청 승인   |
-| `/reject-application`  | `/admin-신청거절` | 관리자 | 캠스터디 참여 신청 거절   |
+| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                    |
+| ---------------------- | ----------------- | ------ | ----------------------- |
+| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 신청      |
+| `/approve-application` | `/admin-신청승인` | 관리자 | 캠스터디 참여 신청 승인 |
+| `/reject-application`  | `/admin-신청거절` | 관리자 | 캠스터디 참여 신청 거절 |
 
 #### 캠스터디 커맨드
 
@@ -180,7 +178,6 @@ haruharu-discord-bot/
 
 - `WakeUpMembership`를 생성 또는 재활성화하고, 현재 월 `Users` 스냅샷이 없으면 자동 생성한다.
 - 같은 날 두 번째 변경은 `WaketimeChangeLog`로 거부한다.
-- 이전에 `/기상인증신청`으로 즉시 활성화된 사용자도 이 명령으로 기본 기상시간을 설정한다.
 
 #### `/stop-wakeup` (`/기상중단`)
 
@@ -192,13 +189,6 @@ haruharu-discord-bot/
 | 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                      |
 | ------------- | ----------------- | ---- | ------------------------- |
 | date          | 날짜              | O    | 휴가 대상 날짜 (yyyymmdd) |
-
-#### `/apply-wakeup` (`/기상인증신청`)
-
-- 별도 파라미터 없음
-- `#apply` 채널에서만 실행 가능
-- 운영자 승인 없이 즉시 `WakeUpMembership.status = active`로 전환한다.
-- 기존 기본 기상시간이 있으면 현재 월 `Users` 스냅샷도 함께 보장한다.
 
 #### `/apply-cam` (`/캠스터디신청`)
 
@@ -370,11 +360,11 @@ flowchart TD
 
 #### challengeSelfService.ts
 
-| 항목   | 내용                                                                                                                                                               |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 역할   | 사용자 직접 기상 참여 활성화/중단, 기본 기상시간 설정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                         |
-| 담당   | `WakeUpMembership` 생성/재활성화/중단, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증      |
-| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`, `src/services/participationApplication.ts` |
+| 항목   | 내용                                                                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                               |
+| 담당   | `WakeUpMembership` 생성/재활성화/중단, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                        |
 
 #### reporting.ts
 
@@ -407,14 +397,14 @@ flowchart TD
 | id        | INTEGER | PK, Auto Increment               |
 | userid    | STRING  | Discord 사용자 ID                |
 | username  | STRING  | 표시 이름                        |
-| waketime  | STRING  | 기본 기상시간 (HHmm, nullable)   |
+| waketime  | STRING  | 최근 `/register` 기상시간 (HHmm) |
 | status    | STRING  | `active` / `stopped`             |
 | stoppedat | STRING  | 중단 시각 ISO 문자열 또는 `null` |
 
 비고:
 
 - `(userid)` 조합은 UNIQUE이며 기상 챌린지 참여 상태를 사용자당 1건으로 유지한다.
-- `/apply-wakeup`은 이 테이블을 즉시 `active`로 만들고, `/register`는 기본 기상시간을 채운다.
+- `/register`가 이 테이블을 생성하거나 `stopped -> active`로 재활성화하고, 최근 등록 기상시간을 함께 갱신한다.
 - 일일 리포트와 휴가 self-service는 활성 membership의 현재 월 `Users` 스냅샷을 필요 시 자동 생성한다.
 
 #### Users (기상 챌린지 참가자)
@@ -646,11 +636,10 @@ flowchart TD
 ## 운영 메모
 
 - 사용자 직접 변경 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 수정한다.
-- `/register`는 사용자가 기상 참여를 시작/재시작하고 기본 기상시간을 설정하는 단일 명령이다.
+- `/register`는 사용자가 기상 참여를 시작/재시작하고 기상시간을 등록/수정하는 단일 명령이다.
 - `/register`는 Discord 한국어 locale에서 `/기상등록`으로 표시된다.
 - `/register`는 같은 날 두 번째 변경을 거부한다.
 - `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산하고 현재 월 `Users` 스냅샷을 보장한다.
-- `/apply-wakeup`은 Discord 한국어 locale에서 `/기상인증신청`으로 표시되며 운영자 승인 없이 즉시 활성화된다.
 - `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 미래 월 자동 참여만 중단한다.
 - `/approve-application`, `/reject-application`은 현재 `cam-study` 프로그램에만 사용한다.
 - `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 날짜 단위(`yyyymmdd`)로 동작한다.
