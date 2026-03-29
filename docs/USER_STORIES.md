@@ -165,8 +165,8 @@ SO THAT 배포 전 검증과 배포 후 확인을 같은 절차로 반복할 수
 **인수 조건:**
 
 - production 배포는 `workflow_dispatch`로만 시작된다
-- verify job이 `lint`, `prettier`, `build`, `test`, `smoke test`를 통과해야 deploy가 실행된다
-- deploy는 GitHub-hosted runner에서 OCI 서버로 SSH 배포한다
+- verify job이 `ubuntu-22.04` + Node.js 24에서 `lint`, `prettier`, `build`, `test`, `smoke test`를 통과해야 deploy가 실행된다
+- deploy는 GitHub-hosted `ubuntu-22.04` runner에서 검증된 artifact를 OCI 서버로 SSH 배포한다
 - deploy 뒤에는 `pm2 status`와 `Ready! Logged in as` 로그를 확인한다
 - 실패 시 이전 안정 ref로 같은 workflow를 다시 실행해 롤백할 수 있다
 
@@ -179,13 +179,15 @@ sequenceDiagram
     participant D as Discord
 
     O->>GH: Run workflow_dispatch(ref)
-    GH->>GH: verify job (lint + prettier + build + test + smoke)
+    GH->>GH: verify job (ubuntu-22.04 + Node 24, lint + prettier + build + test + smoke)
 
     alt verify 실패
         GH-->>O: 배포 중단
     else verify 성공
-        GH->>OCI: SSH deploy
-        OCI->>OCI: git fetch / checkout / npm ci / npm run build
+        GH->>GH: package production artifact + runtime metadata
+        GH->>OCI: scp verified artifact
+        OCI->>OCI: validate realpath / platform / arch / Node ABI / glibc
+        OCI->>OCI: staged extract artifact and replace dist/node_modules
         OCI->>PM2: reload or start haruharu-bot
         GH->>OCI: pm2 status / ready log 확인
         O->>D: /admin-상태확인 수동 확인

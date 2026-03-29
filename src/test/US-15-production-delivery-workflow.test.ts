@@ -20,6 +20,7 @@ describe('US-15 production delivery workflow', () => {
   it('production deploy workflow는 verify에서 확인한 정확한 commit sha 기준 artifact를 만들고 deploy가 이를 사용해야 한다', () => {
     const workflow = readRepositoryFile('.github/workflows/deploy-production.yml');
 
+    expect(workflow).toContain('runs-on: ubuntu-22.04');
     expect(workflow).toContain('id: resolve-sha');
     expect(workflow).toContain('git rev-parse HEAD');
     expect(workflow).toContain('outputs:');
@@ -32,6 +33,7 @@ describe('US-15 production delivery workflow', () => {
     expect(workflow).toContain('actions/upload-artifact');
     expect(workflow).toContain('actions/download-artifact');
     expect(workflow).toContain('ref: ${{ needs.verify.outputs.verified_sha }}');
+    expect(workflow).toContain("node-version: '24'");
     expect(workflow).toContain('tar -czf');
     expect(workflow).toContain('npm prune --omit=dev');
     expect(workflow).toContain('artifact-metadata.json');
@@ -57,6 +59,8 @@ describe('US-15 production delivery workflow', () => {
   it('CI workflow는 bot boot smoke test job을 포함해야 한다', () => {
     const workflow = readRepositoryFile('.github/workflows/ci.yml');
 
+    expect(workflow).toContain('runs-on: ubuntu-22.04');
+    expect(workflow).toContain("node-version: '24'");
     expect(workflow).toMatch(/smoke/i);
     expect(workflow).toContain('npm run test:smoke');
   });

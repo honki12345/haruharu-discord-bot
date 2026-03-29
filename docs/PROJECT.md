@@ -263,16 +263,16 @@ haruharu-discord-bot/
 
 | Workflow            | 트리거                                      | 역할                                                                                    |
 | ------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `CI`                | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
+| `CI`                | `push`, `pull_request`, `workflow_dispatch` | `ubuntu-22.04` + Node.js 24에서 lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
 | `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                               |
-| `Deploy Production` | `workflow_dispatch`                         | verify 후 production artifact와 runtime metadata를 만들고 OCI 서버에서 realpath, platform, arch, Node ABI, glibc 호환성 및 staged bundle 검증 뒤 반영한 뒤 PM2/ready 로그를 확인 |
+| `Deploy Production` | `workflow_dispatch`                         | `ubuntu-22.04` + Node.js 24 verify 후 production artifact와 runtime metadata를 만들고 OCI 서버에서 realpath, platform, arch, Node ABI, glibc 호환성 및 staged bundle 검증 뒤 반영한 뒤 PM2/ready 로그를 확인 |
 
 ### Production 배포 흐름
 
 ```mermaid
 flowchart TD
   A[workflow_dispatch] --> B[verify job]
-  B --> C[lint + prettier + build + test + smoke]
+  B --> C[ubuntu-22.04 + Node 24: lint + prettier + build + test + smoke]
   C --> D[package production artifact + metadata]
   D --> E[deploy job downloads artifact]
   E --> F[SSH deploy to OCI]
@@ -641,12 +641,12 @@ flowchart TD
 | 구분         | 기술                                                            |
 | ------------ | --------------------------------------------------------------- |
 | 언어         | TypeScript                                                      |
-| 런타임       | Node.js 20+                                                     |
+| 런타임       | Node.js 24.x                                                    |
 | Discord API  | discord.js 14                                                   |
 | 데이터베이스 | SQLite3 + Sequelize                                             |
 | 로깅         | Winston + Daily Rotate                                          |
 | 코드 품질    | ESLint + Prettier                                               |
-| 배포         | GitHub-hosted runner + SSH + PM2                                |
+| 배포         | GitHub-hosted `ubuntu-22.04` runner + SSH + PM2                 |
 | CI/CD        | GitHub Actions (`CI`, `Dependency Review`, `Deploy Production`) |
 
 ---
