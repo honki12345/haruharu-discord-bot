@@ -93,6 +93,7 @@ haruharu-discord-bot/
 │       ├── CamStudyWeeklyTimeLog.ts # 주간 학습 로그 모델
 │       ├── ParticipationApplication.ts # 역할 기반 신청 상태 모델
 │       ├── WakeUpMembership.ts   # 기상 챌린지 상시 참여 상태 모델
+│       ├── ChallengeUserExclusion.ts # 관리자 월별 삭제 exclusion 모델
 │       ├── challengeRepository.ts   # 기상 챌린지 조회/갱신 헬퍼
 │       └── camStudyRepository.ts    # 캠스터디 조회/갱신 헬퍼
 │
@@ -218,7 +219,17 @@ haruharu-discord-bot/
 | program       | 프로그램          | O    | `cam-study`       |
 | reason        | 사유              | O    | 거절 사유         |
 
-#### `/delete`, `/delete-cam` (`/admin-챌린저삭제`, `/admin-캠스터디삭제`)
+#### `/delete` (`/admin-챌린저삭제`)
+
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명               |
+| ------------- | ----------------- | ---- | ------------------ |
+| userid        | 사용자id          | O    | Discord 사용자 ID  |
+| yearmonth     | 년월              | O    | 대상 년월 (yyyymm) |
+
+- 관리자 삭제는 해당 `(userid, yearmonth)` 월 스냅샷을 제거하고 exclusion 으로 기록한다.
+- 같은 달 리포트/휴가/출석 경로의 자동 스냅샷 생성은 이 exclusion 을 존중해 사용자를 다시 만들지 않는다.
+
+#### `/delete-cam` (`/admin-캠스터디삭제`)
 
 | 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
 | ------------- | ----------------- | ---- | ----------------- |
@@ -237,10 +248,10 @@ haruharu-discord-bot/
 
 #### ready.ts
 
-| 항목   | 내용                                                                                                                                                                                                                                     |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                                     |
-| 기능   | DB 테이블 동기화(`WakeUpMembership`, `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
+| 항목   | 내용                                                                                                                                                                                                                                                               |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                                                               |
+| 기능   | DB 테이블 동기화(`WakeUpMembership`, `ChallengeUserExclusion`, `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
 
 **스케줄러:**
 
@@ -360,11 +371,11 @@ flowchart TD
 
 #### challengeSelfService.ts
 
-| 항목   | 내용                                                                                                                                                          |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                               |
-| 담당   | `WakeUpMembership` 생성/재활성화/중단, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
-| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                        |
+| 항목   | 내용                                                                                                                                                                                           |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                |
+| 담당   | `WakeUpMembership` 생성/재활성화/중단, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                         |
 
 #### reporting.ts
 
@@ -385,10 +396,10 @@ flowchart TD
 
 #### Repository helper 모듈
 
-| 파일                     | 역할                                                                                                                             |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `challengeRepository.ts` | `WakeUpMembership`, `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
-| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼                         |
+| 파일                     | 역할                                                                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `challengeRepository.ts` | `WakeUpMembership`, `ChallengeUserExclusion`, `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
+| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼                                                   |
 
 #### WakeUpMembership (기상 챌린지 상시 참여 상태)
 
@@ -419,6 +430,25 @@ flowchart TD
 | vacances     | INTEGER | 총 지급 휴가일수 (기본: 5) |
 | latecount    | INTEGER | 지각 횟수                  |
 | absencecount | INTEGER | 결석 횟수                  |
+
+비고:
+
+- `(userid, yearmonth)` 조합은 UNIQUE이며 같은 월 스냅샷 중복 생성을 막는다.
+- 활성 membership 자동 backfill 은 이 테이블과 월별 exclusion 을 함께 확인한 뒤 누락된 사용자만 생성한다.
+
+#### ChallengeUserExclusion (관리자 월별 삭제 exclusion)
+
+| 컬럼      | 타입    | 설명                    |
+| --------- | ------- | ----------------------- |
+| id        | INTEGER | PK, Auto Increment      |
+| userid    | STRING  | Discord 사용자 ID       |
+| yearmonth | STRING  | 제외 대상 년월 (yyyymm) |
+
+비고:
+
+- `(userid, yearmonth)` 조합은 UNIQUE이며 같은 달 exclusion 중복 생성을 막는다.
+- `/delete`는 이 테이블을 기록한 뒤 `Users` 월 스냅샷을 제거한다.
+- 자동 스냅샷 생성은 이 테이블에 있는 월을 건너뛰어 관리자 삭제가 같은 달 리포트에서 되살아나지 않도록 한다.
 
 #### TimeLog (출석 로그)
 
@@ -641,6 +671,7 @@ flowchart TD
 - `/register`는 같은 날 두 번째 변경을 거부한다.
 - `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산하고 현재 월 `Users` 스냅샷을 보장한다.
 - `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 미래 월 자동 참여만 중단한다.
+- `/delete`는 지정한 `(userid, yearmonth)`를 exclusion 으로 기록해 같은 달 자동 스냅샷 생성이 사용자를 다시 만들지 않게 한다.
 - `/approve-application`, `/reject-application`은 현재 `cam-study` 프로그램에만 사용한다.
 - `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 날짜 단위(`yyyymmdd`)로 동작한다.
 - 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.

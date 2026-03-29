@@ -50,6 +50,12 @@ Users.init(
   {
     sequelize,
     tableName: 'users',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userid', 'yearmonth'],
+      },
+    ],
   },
 );
 

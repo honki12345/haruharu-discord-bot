@@ -289,6 +289,42 @@ sequenceDiagram
 
 ---
 
+### US-1B: 관리자 월별 챌린저 삭제
+
+```
+AS A 관리자
+I WANT TO 특정 월 챌린저를 삭제했을 때 자동 스냅샷 생성이 그 사용자를 다시 만들지 않길 원한다
+SO THAT 월별 운영 판단이 리포트 자동화에 의해 되돌아가지 않는다
+```
+
+**인수 조건:**
+
+- `/admin-챌린저삭제`는 해당 `(userid, yearmonth)`의 `Users` 스냅샷을 제거한다
+- 삭제된 `(userid, yearmonth)`는 exclusion 으로 기록된다
+- 같은 달 리포트/휴가/출석 경로의 자동 스냅샷 생성은 exclusion 을 존중한다
+- 사용자의 상시 `WakeUpMembership` 자체는 유지된다
+
+```mermaid
+sequenceDiagram
+    participant A as 관리자
+    participant D as Discord
+    participant B as Bot
+    participant DB as SQLite
+    participant R as 리포트/출석/휴가 경로
+
+    A->>D: /admin-챌린저삭제 userid:USER yearmonth:202601
+    D->>B: InteractionCreate 이벤트
+    B->>DB: ChallengeUserExclusion 기록
+    B->>DB: Users( USER, 202601 ) 삭제
+    B-->>A: "202601 챌린저 정보를 삭제했습니다"
+
+    R->>B: 같은 달 자동 스냅샷 보장 시도
+    B->>DB: exclusion 조회
+    B->>B: 202601 자동 생성 건너뜀
+```
+
+---
+
 ### US-2, US-3: 레거시 check-in/check-out 제거
 
 - `/check-in`, `/check-out`는 더 이상 등록되지 않는다.

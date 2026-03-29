@@ -732,8 +732,11 @@ describe('US-12: daily message 데모', () => {
 
     const { event } = await import('../events/messageCreate.js');
     const firstExecution = event.execute(firstMessage as never);
-    await Promise.resolve();
-    await Promise.resolve();
+    let safetyCounter = 0;
+    while (mockUsers.findOne.mock.calls.length === 0 && safetyCounter < 100) {
+      await Promise.resolve();
+      safetyCounter += 1;
+    }
     await event.execute(secondMessage as never);
 
     resolveUser?.({

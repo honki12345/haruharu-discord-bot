@@ -119,6 +119,7 @@
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
 - 기상 챌린지 상시 참여 상태와 최근 `/register` 기상시간은 `WakeUpMembership` 같은 별도 모델로 관리하고, `Users` 는 월별 집계 스냅샷으로 유지한다.
+- 관리자 `/delete` 로 제거한 `(userid, yearmonth)` 월 스냅샷은 별도 exclusion 기록으로 남겨 자동 backfill 이 같은 달 사용자를 되살리지 않도록 유지한다.
 - 역할 기반 온보딩/신청 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하며, 현재는 `cam-study` 승인 대기 흐름만 지원한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향

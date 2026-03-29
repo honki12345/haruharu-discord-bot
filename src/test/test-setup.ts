@@ -59,7 +59,43 @@ TestUsers.init(
     latecount: { type: DataTypes.INTEGER, defaultValue: 0 },
     absencecount: { type: DataTypes.INTEGER, defaultValue: 0 },
   },
-  { sequelize: testSequelize, tableName: 'users' },
+  {
+    sequelize: testSequelize,
+    tableName: 'users',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userid', 'yearmonth'],
+      },
+    ],
+  },
+);
+
+export class TestChallengeUserExclusion extends Model<
+  InferAttributes<TestChallengeUserExclusion>,
+  InferCreationAttributes<TestChallengeUserExclusion>
+> {
+  declare id: CreationOptional<number>;
+  declare userid: string;
+  declare yearmonth: string;
+}
+
+TestChallengeUserExclusion.init(
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    userid: { type: DataTypes.STRING(128), allowNull: false },
+    yearmonth: { type: DataTypes.STRING(128), allowNull: false },
+  },
+  {
+    sequelize: testSequelize,
+    tableName: 'challenge_user_exclusions',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userid', 'yearmonth'],
+      },
+    ],
+  },
 );
 
 // ============ TimeLog 모델 ============
@@ -358,6 +394,7 @@ TestCamStudyWeeklyTimeLog.init(
 
 // ============ 모킹 설정 ============
 vi.mock('../repository/Users.js', () => ({ Users: TestUsers }));
+vi.mock('../repository/ChallengeUserExclusion.js', () => ({ ChallengeUserExclusion: TestChallengeUserExclusion }));
 vi.mock('../repository/TimeLog.js', () => ({ TimeLog: TestTimeLog }));
 vi.mock('../repository/AttendanceLog.js', () => ({ AttendanceLog: TestAttendanceLog }));
 vi.mock('../repository/VacationLog.js', () => ({ VacationLog: TestVacationLog }));
@@ -421,6 +458,7 @@ export async function clearAllTables() {
     TestVacationLog,
     TestWaketimeChangeLog,
     TestWakeUpMembership,
+    TestChallengeUserExclusion,
     TestUsers,
     TestCamStudyTimeLog,
     TestCamStudyActiveSession,

@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { sequelize } from './config.js';
 import { AttendanceLog } from './AttendanceLog.js';
+import { ChallengeUserExclusion } from './ChallengeUserExclusion.js';
 import { TimeLog } from './TimeLog.js';
 import { Users } from './Users.js';
 import { VacationLog } from './VacationLog.js';
@@ -10,6 +11,17 @@ import { WaketimeChangeLog } from './WaketimeChangeLog.js';
 const findChallengeUser = (userid: string, yearmonth: string) => Users.findOne({ where: { userid, yearmonth } });
 
 const listChallengeUsers = (yearmonth: string) => Users.findAll({ where: { yearmonth } });
+
+const findChallengeUserExclusion = (userid: string, yearmonth: string) =>
+  ChallengeUserExclusion.findOne({ where: { userid, yearmonth } });
+
+const listChallengeUserExclusions = (yearmonth: string) => ChallengeUserExclusion.findAll({ where: { yearmonth } });
+
+const createChallengeUserExclusion = (userid: string, yearmonth: string) =>
+  ChallengeUserExclusion.findOrCreate({
+    where: { userid, yearmonth },
+    defaults: { userid, yearmonth },
+  });
 
 const listChallengeAttendanceLogs = (yearmonthday: string) => AttendanceLog.findAll({ where: { yearmonthday } });
 
@@ -77,15 +89,18 @@ const listMonthlySurvivors = (yearmonth: string) =>
 
 export {
   createChallengeLog,
+  createChallengeUserExclusion,
   createVacationLog,
   createWakeUpMembership,
   createWaketimeChangeLog,
   listChallengeAttendanceLogs,
   findChallengeUser,
+  findChallengeUserExclusion,
   findVacationLog,
   findWakeUpMembership,
   findWaketimeChangeLog,
   listChallengeUsers,
+  listChallengeUserExclusions,
   listActiveWakeUpMemberships,
   listMonthlySurvivors,
   listUserChallengeLogs,

@@ -1,6 +1,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { logger } from '../../logger.js';
 import { Users } from '../../repository/Users.js';
+import { createChallengeUserExclusion } from '../../services/challengeSelfService.js';
 import { PERMISSION_NUM_ADMIN } from '../../utils.js';
 
 export const command = {
@@ -41,6 +42,7 @@ export const command = {
     try {
       logger.info(`delete 명령행에 입력한 값: userid: ${userid}`);
 
+      await createChallengeUserExclusion(userid, yearmonth);
       await Users.destroy({ where: { userid, yearmonth } });
       await interaction.reply(`${foundUser.username}님 ${yearmonth} 챌린저 정보를 삭제했습니다`);
     } catch (e) {

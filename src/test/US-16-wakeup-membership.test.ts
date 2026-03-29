@@ -180,4 +180,68 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(currentMonthUser?.waketime).toBe('0715');
     expect(registerInteraction.getLastReply()).toContain('등록했습니다');
   });
+
+  it('TC-WM06: 같은 userid/yearmonth Users 스냅샷은 중복 저장되지 않는다', async () => {
+    await TestUsers.create({
+      userid: 'unique-user',
+      username: '유일사용자',
+      yearmonth: '202601',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    await expect(
+      TestUsers.create({
+        userid: 'unique-user',
+        username: '유일사용자',
+        yearmonth: '202601',
+        waketime: '0700',
+        vacances: 5,
+        latecount: 0,
+        absencecount: 0,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('TC-WM07: /delete로 제거된 월 스냅샷은 리포트 자동 생성으로 되살아나지 않는다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'deleted-user',
+      username: '삭제대상',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+    });
+    await TestUsers.create({
+      userid: 'deleted-user',
+      username: '삭제대상',
+      yearmonth: '202601',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    const deleteInteraction = createMockInteraction({
+      options: {
+        userid: 'deleted-user',
+        yearmonth: '202601',
+      },
+    });
+
+    const { command: deleteCommand } = await import('../commands/haruharu/delete.js');
+    await deleteCommand.execute(deleteInteraction as never);
+
+    const { buildChallengeReport } = await import('../services/reporting.js');
+    const { attendanceMessage } = await buildChallengeReport();
+
+    const currentMonthUser = await TestUsers.findOne({
+      where: { userid: 'deleted-user', yearmonth: '202601' },
+    });
+
+    expect(deleteInteraction.getLastReply()).toContain('삭제했습니다');
+    expect(currentMonthUser).toBeNull();
+    expect(attendanceMessage).not.toContain('삭제대상');
+  });
 });

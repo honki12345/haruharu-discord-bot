@@ -1,13 +1,16 @@
 import {
+  createChallengeUserExclusion,
   countUserVacationLogs,
   createWakeUpMembership,
   createVacationLog,
   createWaketimeChangeLog,
   findChallengeUser,
+  findChallengeUserExclusion,
   findVacationLog,
   findWakeUpMembership,
   findWaketimeChangeLog,
   listActiveWakeUpMemberships,
+  listChallengeUserExclusions,
   updateWakeUpMembership,
 } from '../repository/challengeRepository.js';
 import { isValidWakeTime } from '../attendance.js';
@@ -50,34 +53,54 @@ const createChallengeUserSnapshot = async ({
   username: string;
   waketime: string;
   yearmonth: string;
-}) =>
-  Users.create({
-    userid: userId,
-    username,
-    yearmonth,
-    waketime,
-    latecount: 0,
-    absencecount: 0,
-    vacances: DEFAULT_VACANCES_COUNT,
+}) => {
+  const [user, created] = await Users.findOrCreate({
+    where: {
+      userid: userId,
+      yearmonth,
+    },
+    defaults: {
+      userid: userId,
+      username,
+      yearmonth,
+      waketime,
+      latecount: 0,
+      absencecount: 0,
+      vacances: DEFAULT_VACANCES_COUNT,
+    },
   });
 
-const ensureWakeUpMembershipSnapshot = async (userId: string, yearmonth: string) => {
-  const membership = await findWakeUpMembership(userId);
-  if (!membership || membership.status !== 'active') {
-    return null;
+  if (!created && (user.username !== username || user.waketime !== waketime)) {
+    await user.update({ username, waketime });
   }
 
+  return [user, created] as const;
+};
+
+const ensureWakeUpMembershipSnapshot = async (userId: string, yearmonth: string) => {
   const existingUser = await findChallengeUser(userId, yearmonth);
   if (existingUser) {
     return existingUser;
   }
 
-  return createChallengeUserSnapshot({
+  const membership = await findWakeUpMembership(userId);
+  if (!membership || membership.status !== 'active') {
+    return null;
+  }
+
+  const exclusion = await findChallengeUserExclusion(userId, yearmonth);
+  if (exclusion) {
+    return null;
+  }
+
+  const [user] = await createChallengeUserSnapshot({
     userId,
     username: membership.username,
     waketime: membership.waketime,
     yearmonth,
   });
+
+  return user;
 };
 
 const ensureWakeUpMembershipSnapshotForDate = async (userId: string, yearmonthday: string) =>
@@ -85,20 +108,37 @@ const ensureWakeUpMembershipSnapshotForDate = async (userId: string, yearmonthda
 
 const ensureActiveWakeUpMembershipSnapshots = async (yearmonth: string) => {
   const memberships = await listActiveWakeUpMemberships();
-
-  for (const membership of memberships) {
-    const existingUser = await findChallengeUser(membership.userid, yearmonth);
-    if (existingUser) {
-      continue;
-    }
-
-    await createChallengeUserSnapshot({
-      userId: membership.userid,
-      username: membership.username,
-      waketime: membership.waketime,
-      yearmonth,
-    });
+  if (!memberships.length) {
+    return;
   }
+
+  const [existingUsers, exclusions] = await Promise.all([
+    Users.findAll({
+      where: { yearmonth },
+      attributes: ['userid'],
+    }),
+    listChallengeUserExclusions(yearmonth),
+  ]);
+
+  const existingUserIdSet = new Set(existingUsers.map(user => user.userid));
+  const excludedUserIdSet = new Set(exclusions.map(exclusion => exclusion.userid));
+  const snapshotsToCreate = memberships
+    .filter(membership => !existingUserIdSet.has(membership.userid) && !excludedUserIdSet.has(membership.userid))
+    .map(membership => ({
+      userid: membership.userid,
+      username: membership.username,
+      yearmonth,
+      waketime: membership.waketime,
+      latecount: 0,
+      absencecount: 0,
+      vacances: DEFAULT_VACANCES_COUNT,
+    }));
+
+  if (!snapshotsToCreate.length) {
+    return;
+  }
+
+  await Users.bulkCreate(snapshotsToCreate, { ignoreDuplicates: true });
 };
 
 const executeRegister = async ({
@@ -213,6 +253,7 @@ export {
   ensureActiveWakeUpMembershipSnapshots,
   ensureWakeUpMembershipSnapshot,
   ensureWakeUpMembershipSnapshotForDate,
+  createChallengeUserExclusion,
   executeApplyVacation,
   executeRegister,
   executeStopWakeUp,
