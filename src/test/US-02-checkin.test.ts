@@ -1,9 +1,19 @@
 /**
  * US-02: 체크인
- * 사용자는 기상 시간에 /check-in 명령어로 출석 체크를 한다.
+ * 사용자는 /check-in 호출 시 오늘의 출석 thread로 안내받는다.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { ensureTodayAttendanceThread } from '../daily-attendance.js';
 import { testSequelize, TestUsers, TestTimeLog, createMockInteraction } from './test-setup.js';
+
+vi.mock('../daily-attendance.js', () => ({
+  ensureTodayAttendanceThread: vi.fn(),
+}));
+
+const createMockAttendanceThread = () => ({
+  id: 'attendance-thread-id',
+  toString: () => '<#attendance-thread-id>',
+});
 
 describe('US-02: /check-in 커맨드', () => {
   beforeAll(async () => {
@@ -17,10 +27,10 @@ describe('US-02: /check-in 커맨드', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-12-07T07:05:00'));
+    vi.mocked(ensureTodayAttendanceThread).mockReset();
     await TestTimeLog.destroy({ where: {} });
     await TestUsers.destroy({ where: {} });
 
-    // 기본 테스트 사용자 생성
     await TestUsers.create({
       userid: 'test-user-id',
       username: '홍길동',
@@ -36,147 +46,11 @@ describe('US-02: /check-in 커맨드', () => {
     vi.useRealTimers();
   });
 
-  it('TC-CI01: 정시 체크인 성공 (기상시간 07:00, 현재 07:05)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T07:05:00'));
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
+  it('TC-CI01: 오늘 출석 thread로 이동 안내를 반환하고 TimeLog를 만들지 않는다', async () => {
+    vi.mocked(ensureTodayAttendanceThread).mockResolvedValue({
+      thread: createMockAttendanceThread(),
+      created: false,
     });
-
-    const { command } = await import('../commands/haruharu/check-in.js');
-    await command.execute(interaction as never);
-
-    const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
-    expect(log).not.toBeNull();
-    expect(log?.checkintime).toBe('0705');
-    expect(log?.isintime).toBe(true);
-    expect(interaction.getLastReply()).toContain('check-in에 성공');
-    expect(interaction.getLastReply()).not.toContain('지각');
-  });
-
-  it('TC-CI02: 정시 경계값 (기상시간 07:00, 현재 07:10)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T07:10:00'));
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-in.js');
-    await command.execute(interaction as never);
-
-    const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
-    expect(log?.isintime).toBe(true);
-  });
-
-  it('TC-CI03: 지각 체크인 (기상시간 07:00, 현재 07:15)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T07:15:00'));
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-in.js');
-    await command.execute(interaction as never);
-
-    const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
-    expect(log?.isintime).toBe(false);
-    expect(interaction.getLastReply()).toContain('지각');
-  });
-
-  it('TC-CI04: 지각 경계값 (기상시간 07:00, 현재 07:11)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T07:11:00'));
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-in.js');
-    await command.execute(interaction as never);
-
-    const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
-    expect(log?.isintime).toBe(false);
-  });
-
-  it('TC-CI05: 시간 초과 (기상시간 07:00, 현재 07:31)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T07:31:00'));
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-in.js');
-    await command.execute(interaction as never);
-
-    const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
-    expect(log).toBeNull();
-    expect(interaction.getLastReply()).toContain('Not time for check-in');
-  });
-
-  it('TC-CI06: 너무 이른 시간 (기상시간 07:00, 현재 06:29)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T06:29:00'));
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-in.js');
-    await command.execute(interaction as never);
-
-    const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
-    expect(log).toBeNull();
-    expect(interaction.getLastReply()).toContain('Not time for check-in');
-  });
-
-  it('TC-CI07: 미등록 사용자', async () => {
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'unregistered-user',
-      globalName: '미등록유저',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-in.js');
-    await command.execute(interaction as never);
-
-    expect(interaction.getLastReply()).toContain('not registered');
-  });
-
-  it('TC-CI08: 중복 체크인', async () => {
-    await TestTimeLog.create({
-      userid: 'test-user-id',
-      username: '홍길동',
-      yearmonthday: '20251207',
-      checkintime: '0700',
-      checkouttime: null,
-      isintime: true,
-    });
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-in.js');
-    await command.execute(interaction as never);
-
-    expect(interaction.getLastReply()).toContain('already check-in');
-  });
-
-  it('TC-CI09: 이미지 미첨부', async () => {
-    vi.setSystemTime(new Date('2025-12-07T07:05:00'));
 
     const interaction = createMockInteraction({
       channelId: 'valid-channel-id',
@@ -187,36 +61,60 @@ describe('US-02: /check-in 커맨드', () => {
     const { command } = await import('../commands/haruharu/check-in.js');
     await command.execute(interaction as never);
 
-    expect(interaction.getLastReply()).toContain('please upload image file');
+    const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
+    expect(log).toBeNull();
+    expect(interaction.getLastReply()).toContain('/check-in');
+    expect(interaction.getLastReply()).toContain('더 이상 공식 출석 기록 경로가 아닙니다');
+    expect(interaction.getLastReply()).toContain('<#attendance-thread-id>');
   });
 
-  it('TC-CI10: 잘못된 채널', async () => {
+  it('TC-CI02: 기존 TimeLog가 있어도 레거시 check-in 호출로 덮어쓰지 않는다', async () => {
+    await TestTimeLog.create({
+      userid: 'test-user-id',
+      username: '홍길동',
+      yearmonthday: '20251207',
+      checkintime: '0700',
+      checkouttime: '0800',
+      isintime: true,
+    });
+
+    vi.mocked(ensureTodayAttendanceThread).mockResolvedValue({
+      thread: createMockAttendanceThread(),
+      created: false,
+    });
+
     const interaction = createMockInteraction({
-      channelId: 'invalid-channel-id',
+      channelId: 'valid-channel-id',
       userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
+      attachment: null,
     });
 
     const { command } = await import('../commands/haruharu/check-in.js');
     await command.execute(interaction as never);
 
-    expect(interaction.getLastReply()).toContain('no valid channel');
+    const logs = await TestTimeLog.findAll({ where: { userid: 'test-user-id' } });
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.checkintime).toBe('0700');
+    expect(logs[0]?.checkouttime).toBe('0800');
+    expect(interaction.getLastReply()).toContain('<#attendance-thread-id>');
   });
 
-  it('TC-CI11: 30분 전 정확히 체크인 가능 (기상시간 07:00, 현재 06:30)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T06:30:00'));
+  it('TC-CI03: 출석 thread를 직접 찾지 못해도 정책 안내는 유지한다', async () => {
+    vi.mocked(ensureTodayAttendanceThread).mockRejectedValue(new Error('discord unavailable'));
 
     const interaction = createMockInteraction({
       channelId: 'valid-channel-id',
       userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
+      attachment: null,
     });
 
     const { command } = await import('../commands/haruharu/check-in.js');
     await command.execute(interaction as never);
 
     const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
-    expect(log).not.toBeNull();
-    expect(log?.isintime).toBe(true);
+    expect(log).toBeNull();
+    expect(interaction.getLastReply()).toContain('/check-in');
+    expect(interaction.getLastReply()).toContain('오늘 출석은');
+    expect(interaction.getLastReply()).toContain('출석 쓰레드');
   });
 });

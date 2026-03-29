@@ -1,9 +1,19 @@
 /**
  * US-03: 체크아웃
- * 사용자는 기상 1시간 후에 /check-out 명령어로 최종 출석을 완료한다.
+ * 사용자는 /check-out 호출 시 오늘의 출석 thread로 안내받는다.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { ensureTodayAttendanceThread } from '../daily-attendance.js';
 import { testSequelize, TestUsers, TestTimeLog, createMockInteraction } from './test-setup.js';
+
+vi.mock('../daily-attendance.js', () => ({
+  ensureTodayAttendanceThread: vi.fn(),
+}));
+
+const createMockAttendanceThread = () => ({
+  id: 'attendance-thread-id',
+  toString: () => '<#attendance-thread-id>',
+});
 
 describe('US-03: /check-out 커맨드', () => {
   beforeAll(async () => {
@@ -17,10 +27,10 @@ describe('US-03: /check-out 커맨드', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-12-07T08:05:00'));
+    vi.mocked(ensureTodayAttendanceThread).mockReset();
     await TestTimeLog.destroy({ where: {} });
     await TestUsers.destroy({ where: {} });
 
-    // 기본 테스트 사용자 생성 (기상시간 07:00 -> 체크아웃 시간 08:00)
     await TestUsers.create({
       userid: 'test-user-id',
       username: '홍길동',
@@ -36,42 +46,29 @@ describe('US-03: /check-out 커맨드', () => {
     vi.useRealTimers();
   });
 
-  it('TC-CO01: 정상 체크아웃 (체크아웃 시간 08:00, 현재 08:05)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T08:05:00'));
+  it('TC-CO01: 오늘 출석 thread로 이동 안내를 반환하고 TimeLog를 만들지 않는다', async () => {
+    vi.mocked(ensureTodayAttendanceThread).mockResolvedValue({
+      thread: createMockAttendanceThread(),
+      created: false,
+    });
 
     const interaction = createMockInteraction({
       channelId: 'valid-channel-id',
       userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
+      attachment: null,
     });
 
     const { command } = await import('../commands/haruharu/check-out.js');
     await command.execute(interaction as never);
 
     const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
-    expect(log).not.toBeNull();
-    expect(log?.checkouttime).toBe('0805');
-    expect(log?.isintime).toBe(true);
-    expect(interaction.getLastReply()).toContain('check-out에 성공');
+    expect(log).toBeNull();
+    expect(interaction.getLastReply()).toContain('/check-out');
+    expect(interaction.getLastReply()).toContain('더 이상 공식 출석 기록 경로가 아닙니다');
+    expect(interaction.getLastReply()).toContain('<#attendance-thread-id>');
   });
 
-  it('TC-CO02: 체크아웃 경계값 - 10분 이내 (08:10)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T08:10:00'));
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-out.js');
-    await command.execute(interaction as never);
-
-    const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
-    expect(log?.isintime).toBe(true);
-  });
-
-  it('TC-CO03: 중복 체크아웃', async () => {
+  it('TC-CO02: 기존 TimeLog가 있어도 레거시 check-out 호출로 덮어쓰지 않는다', async () => {
     await TestTimeLog.create({
       userid: 'test-user-id',
       username: '홍길동',
@@ -81,64 +78,24 @@ describe('US-03: /check-out 커맨드', () => {
       isintime: true,
     });
 
-    vi.setSystemTime(new Date('2025-12-07T08:05:00'));
+    vi.mocked(ensureTodayAttendanceThread).mockResolvedValue({
+      thread: createMockAttendanceThread(),
+      created: false,
+    });
 
     const interaction = createMockInteraction({
       channelId: 'valid-channel-id',
       userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
+      attachment: null,
     });
 
     const { command } = await import('../commands/haruharu/check-out.js');
     await command.execute(interaction as never);
 
-    expect(interaction.getLastReply()).toContain('already check-out');
-  });
-
-  it('TC-CO04: 체크아웃 시간 초과 (체크아웃 시간 08:00, 현재 08:35)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T08:35:00'));
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-out.js');
-    await command.execute(interaction as never);
-
-    expect(interaction.getLastReply()).toContain('Not time for check-out');
-  });
-
-  it('TC-CO05: 체크아웃 너무 이른 시간 (07:49)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T07:49:00'));
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-out.js');
-    await command.execute(interaction as never);
-
-    expect(interaction.getLastReply()).toContain('Not time for check-out');
-  });
-
-  it('TC-CO06: 지각 체크아웃 (체크아웃 시간 08:00, 현재 08:15)', async () => {
-    vi.setSystemTime(new Date('2025-12-07T08:15:00'));
-
-    const interaction = createMockInteraction({
-      channelId: 'valid-channel-id',
-      userId: 'test-user-id',
-      attachment: { url: 'https://example.com/image.jpg', name: 'image.jpg', contentType: 'image/jpeg' },
-    });
-
-    const { command } = await import('../commands/haruharu/check-out.js');
-    await command.execute(interaction as never);
-
-    const log = await TestTimeLog.findOne({ where: { userid: 'test-user-id' } });
-    expect(log?.isintime).toBe(false);
-    expect(interaction.getLastReply()).toContain('지각');
+    const logs = await TestTimeLog.findAll({ where: { userid: 'test-user-id' } });
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.checkintime).toBe('0700');
+    expect(logs[0]?.checkouttime).toBe('0800');
+    expect(interaction.getLastReply()).toContain('<#attendance-thread-id>');
   });
 });

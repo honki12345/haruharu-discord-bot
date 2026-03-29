@@ -1,33 +1,12 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { replyWithLegacyAttendanceGuide } from '../../services/legacyAttendanceGuide.js';
 
 export const command = {
   cooldown: 30,
 
-  data: new SlashCommandBuilder()
-    .setName('check-in')
-    .setDescription('check-in in the world')
-    .addAttachmentOption(option =>
-      option.setName('image').setDescription('upload the image with timestamp').setRequired(true),
-    ),
+  data: new SlashCommandBuilder().setName('check-in').setDescription('deprecated: use today attendance thread'),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const { executeAttendance } = await import('../../services/attendance.js');
-    const result = await executeAttendance({
-      action: 'check-in',
-      attachment: interaction.options.getAttachment('image'),
-      channelId: interaction.channelId,
-      globalName: interaction.user.globalName,
-      userId: interaction.user.id,
-    });
-
-    await interaction.reply(result.reply);
-    if (interaction.channel && 'send' in interaction.channel) {
-      if (!result.attachmentToForward) {
-        return;
-      }
-      await interaction.channel.send({
-        files: [result.attachmentToForward],
-      });
-    }
+    await replyWithLegacyAttendanceGuide(interaction, 'check-in');
   },
 };

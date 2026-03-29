@@ -88,25 +88,25 @@ sequenceDiagram
 
 ```
 AS A 챌린저
-I WANT TO 기상 후 인증샷과 함께 체크인
-SO THAT 오늘의 출석이 기록된다
+I WANT TO 레거시 /check-in을 눌렀을 때 현재 출석 경로를 안내받고 싶다
+SO THAT 오늘의 출석 thread로 바로 이동할 수 있다
 ```
 
 **인수 조건:**
-- 등록된 기상시간 ±30분 내에만 체크인 가능
-- ±10분 내: 정시 출석
-- 10~30분 후: 지각 처리
-- 이미지 파일 첨부 필수
-- 하루에 한 번만 체크인 가능
+- `/check-in`은 더 이상 공식 출석 기록 경로가 아니다
+- 호출 시 오늘의 출석 thread를 멘션으로 안내한다
+- 첨부파일 없이도 호출 가능하다
+- `TimeLog`를 새로 생성하거나 수정하지 않는다
+- 기존 출석 상태를 덮어쓰지 않는다
 
 ```mermaid
 sequenceDiagram
     participant U as 챌린저
     participant D as Discord
     participant B as Bot
-    participant DB as SQLite
+    participant T as 오늘 출석 Thread
 
-    U->>D: /check-in image:인증샷.jpg
+    U->>D: /check-in
     D->>B: InteractionCreate 이벤트
 
     B->>B: 채널 검증
@@ -114,41 +114,15 @@ sequenceDiagram
         B-->>U: "no valid channel for command"
     end
 
-    B->>DB: Users 조회 (userid, yearmonth)
-    alt 미등록 사용자
-        B-->>U: "not registered"
+    B->>B: deprecated 안내 경로 진입
+    B->>T: 오늘 출석 thread 조회 또는 생성 보장
+
+    alt 오늘 thread 확보 성공
+        B-->>U: "/check-in은 더 이상 공식 출석 기록 경로가 아닙니다"
+        B-->>U: "오늘 출석은 <#thread>에서 첫 댓글로 남겨주세요"
+    else thread 조회 실패
+        B-->>U: "오늘 출석은 오늘의 출석 쓰레드에서 첫 댓글로 남겨주세요"
     end
-
-    B->>DB: TimeLog 조회 (yearmonthday, userid)
-    alt 이미 체크인 완료
-        B-->>U: "you did already check-in"
-    end
-
-    B->>B: 시간 검증
-    Note right of B: 현재시간 - 기상시간 = 차이값
-
-    alt 차이값 > 30분 또는 < -30분
-        B-->>U: "Not time for check-in"
-    else 차이값 > 10분
-        B->>B: isintime = false (지각)
-    else 차이값 ≤ 10분
-        B->>B: isintime = true (정시)
-    end
-
-    B->>B: 이미지 파일 검증
-    alt 이미지가 아님
-        B-->>U: "please upload image file"
-    end
-
-    B->>DB: TimeLog 생성 (checkintime, isintime)
-
-    alt 정시 출석
-        B-->>U: "체크인 성공: 0700"
-    else 지각
-        B-->>U: "체크인 성공 (지각): 0715"
-    end
-
-    B->>D: 채널에 인증샷 전송
 ```
 
 ---
@@ -157,63 +131,38 @@ sequenceDiagram
 
 ```
 AS A 챌린저
-I WANT TO 기상 후 1시간 뒤 체크아웃
-SO THAT 출석이 완료된다
+I WANT TO 레거시 /check-out을 눌렀을 때 현재 출석 경로를 안내받고 싶다
+SO THAT 더 이상 사용하지 않는 출석 흐름과 공식 thread 흐름을 혼동하지 않는다
 ```
 
 **인수 조건:**
-- 체크인 완료 후에만 체크아웃 가능
-- 기상시간 + 1시간 ±10분 내에만 가능
-- 이미지 파일 첨부 필수
-- 하루에 한 번만 체크아웃 가능
+- `/check-out`은 더 이상 공식 출석 기록 경로가 아니다
+- 호출 시 오늘의 출석 thread를 멘션으로 안내한다
+- 첨부파일 없이도 호출 가능하다
+- `TimeLog`를 새로 생성하거나 수정하지 않는다
+- 기존 출석 상태를 덮어쓰지 않는다
 
 ```mermaid
 sequenceDiagram
     participant U as 챌린저
     participant D as Discord
     participant B as Bot
-    participant DB as SQLite
+    participant T as 오늘 출석 Thread
 
-    U->>D: /check-out image:인증샷.jpg
+    U->>D: /check-out
     D->>B: InteractionCreate 이벤트
 
     B->>B: 채널 검증
 
-    B->>DB: Users 조회 (userid, yearmonth)
-    alt 미등록 사용자
-        B-->>U: "not registered"
+    B->>B: deprecated 안내 경로 진입
+    B->>T: 오늘 출석 thread 조회 또는 생성 보장
+
+    alt 오늘 thread 확보 성공
+        B-->>U: "/check-out은 더 이상 공식 출석 기록 경로가 아닙니다"
+        B-->>U: "오늘 출석은 <#thread>에서 첫 댓글로 남겨주세요"
+    else thread 조회 실패
+        B-->>U: "오늘 출석은 오늘의 출석 쓰레드에서 첫 댓글로 남겨주세요"
     end
-
-    B->>DB: TimeLog 조회 (yearmonthday, userid)
-    alt 체크인 기록 없음
-        B-->>U: "check-in first"
-    end
-    alt 이미 체크아웃 완료
-        B-->>U: "you did already check-out"
-    end
-
-    B->>B: 시간 검증
-    Note right of B: 체크아웃 시간 = 기상시간 + 1시간<br/>현재시간 - 체크아웃시간 = 차이값
-
-    alt |차이값| > 10분
-        B-->>U: "Not time for check-out"
-    else 차이값 > 10분
-        B->>B: isintime = false (지각)
-    else 차이값 ≤ 10분
-        B->>B: isintime = true (정시)
-    end
-
-    B->>B: 이미지 파일 검증
-
-    B->>DB: TimeLog 업데이트 (checkouttime, isintime)
-
-    alt 정시 출석
-        B-->>U: "체크아웃 성공: 0800"
-    else 지각
-        B-->>U: "체크아웃 성공 (지각): 0815"
-    end
-
-    B->>D: 채널에 인증샷 전송
 ```
 
 ---

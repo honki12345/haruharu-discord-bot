@@ -115,7 +115,20 @@ describe('config.ts', () => {
       };
     });
 
-    await expect(import('../commands/haruharu/check-in.js')).resolves.toHaveProperty('command');
-    await expect(import('../commands/haruharu/check-out.js')).resolves.toHaveProperty('command');
+    const checkInModule = await import('../commands/haruharu/check-in.js');
+    const checkOutModule = await import('../commands/haruharu/check-out.js');
+
+    expect(checkInModule).toHaveProperty('command');
+    expect(checkOutModule).toHaveProperty('command');
+    expect(checkInModule.command.data.toJSON()).toMatchObject({
+      name: 'check-in',
+      description: 'deprecated: use today attendance thread',
+    });
+    expect(checkOutModule.command.data.toJSON()).toMatchObject({
+      name: 'check-out',
+      description: 'deprecated: use today attendance thread',
+    });
+    expect(checkInModule.command.data.toJSON().options).toEqual([]);
+    expect(checkOutModule.command.data.toJSON().options).toEqual([]);
   });
 });

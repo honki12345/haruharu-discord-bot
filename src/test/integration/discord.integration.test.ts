@@ -139,15 +139,15 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
     it('check-in 커맨드가 등록되어 있어야 한다', () => {
       const command = commands.find(cmd => cmd.name === 'check-in');
       expect(command).toBeDefined();
-      expect(command?.description).toBe('check-in in the world');
-      expect(command?.options.find(opt => opt.name === 'image')).toBeDefined();
+      expect(command?.description).toBe('deprecated: use today attendance thread');
+      expect(command?.options).toEqual([]);
     });
 
     it('check-out 커맨드가 등록되어 있어야 한다', () => {
       const command = commands.find(cmd => cmd.name === 'check-out');
       expect(command).toBeDefined();
-      expect(command?.description).toBe('check-out in the world');
-      expect(command?.options.find(opt => opt.name === 'image')).toBeDefined();
+      expect(command?.description).toBe('deprecated: use today attendance thread');
+      expect(command?.options).toEqual([]);
     });
 
     it('delete 커맨드가 등록되어 있어야 한다', () => {

@@ -57,6 +57,7 @@ haruharu-discord-bot/
 │   │
 │   ├── services/
 │   │   ├── attendance.ts        # check-in/check-out 공통 처리
+│   │   ├── legacyAttendanceGuide.ts # 레거시 check-in/check-out thread 안내
 │   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
 │   │   └── reporting.ts         # 일일/주간 리포트 생성 및 스케줄링
 │   │
@@ -102,8 +103,8 @@ haruharu-discord-bot/
 | 커맨드 | 권한 | 설명 |
 |--------|------|------|
 | `/register` | 관리자 | 기상 챌린지 등록/수정 |
-| `/check-in` | 사용자 | 기상 체크인 (인증샷 필수) |
-| `/check-out` | 사용자 | 기상 체크아웃 (인증샷 필수) |
+| `/check-in` | 사용자 | deprecated. 오늘의 출석 thread 사용 안내 |
+| `/check-out` | 사용자 | deprecated. 오늘의 출석 thread 사용 안내 |
 | `/add-vacances` | 관리자 | 휴가일수 추가 |
 | `/delete` | 관리자 | 챌린저 삭제 |
 
@@ -135,9 +136,9 @@ haruharu-discord-bot/
 | vacances | X | 휴가일수 (기본값: 5) |
 
 #### `/check-in`, `/check-out`
-| 파라미터 | 필수 | 설명 |
-|----------|------|------|
-| image | O | 타임스탬프가 포함된 인증 이미지 |
+- 현재 첨부 파라미터를 받지 않는다.
+- 두 커맨드 모두 ephemeral 안내 메시지로 오늘의 출석 thread를 멘션한다.
+- 더 이상 `TimeLog`를 생성하거나 수정하지 않는다.
 
 #### `/add-vacances`
 | 파라미터 | 필수 | 설명 |
@@ -216,12 +217,19 @@ haruharu-discord-bot/
 
 ### Services (도메인 서비스)
 
+#### legacyAttendanceGuide.ts
+| 항목 | 내용 |
+|------|------|
+| 역할 | 레거시 `/check-in`, `/check-out` 호출을 오늘의 출석 thread 안내로 변환 |
+| 담당 | 오늘 thread 보장/재사용, deprecated 안내 문구 생성, thread 멘션 fallback 처리 |
+| 호출처 | `src/commands/haruharu/check-in.ts`, `src/commands/haruharu/check-out.ts` |
+
 #### attendance.ts
 | 항목 | 내용 |
 |------|------|
-| 역할 | `/check-in`, `/check-out` 공통 검증과 로그 저장 |
+| 역할 | 레거시 `TimeLog` 기반 check-in/check-out 기록 로직 보관 |
 | 담당 | 채널 검증, 사용자 조회, 중복 출석 확인, 허용 시간 판정, 이미지 첨부 검증, `TimeLog` 생성 |
-| 호출처 | `src/commands/haruharu/check-in.ts`, `src/commands/haruharu/check-out.ts` |
+| 호출처 | 현재 공식 slash command 호출처 없음 |
 
 #### camStudy.ts
 | 항목 | 내용 |
@@ -275,7 +283,7 @@ haruharu-discord-bot/
 
 비고:
 - 레거시 `/check-in`, `/check-out` 2건 구조 전용 테이블이다.
-- thread 기반 하루 1회 출석 전환과 별도로 유지된다.
+- thread 기반 하루 1회 출석 전환과 별도로 유지되며, 현재 slash command는 이 테이블을 더 이상 갱신하지 않는다.
 - 13:00 집계는 `AttendanceLog`가 없는 전환 기간 동안에만 이 테이블을 fallback 으로 읽는다.
 
 #### AttendanceLog (thread 출석 로그)
