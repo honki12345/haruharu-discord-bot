@@ -31,7 +31,15 @@ export const command = {
     ),
   async execute(interaction: ChatInputCommandInteraction) {
     const userid = interaction.options.getString('userid')!;
-    const program = interaction.options.getString('program') as 'cam-study';
+    const program = interaction.options.getString('program');
+    if (program !== 'cam-study') {
+      await interaction.reply({
+        content: '지원하지 않는 프로그램입니다. 현재는 cam-study만 승인할 수 있어요.',
+        allowedMentions: { parse: [] },
+      });
+      return;
+    }
+
     await interaction.reply({
       content: await approveParticipationApplication(interaction, userid, program),
       allowedMentions: { parse: [] },

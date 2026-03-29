@@ -308,6 +308,24 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
     expect(interaction.getLastReply()).toContain('서버에서 사용자를 찾을 수 없어요');
   });
 
+  it('TC-RA15: /approve-application은 오래된 슬래시 커맨드에서 들어온 비지원 program 값을 명시적으로 거절한다', async () => {
+    const interaction = createMockInteraction({
+      channelId: 'valid-ops-channel-id',
+      options: {
+        userid: 'test-user-id',
+        program: 'wake-up',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/approve-application.js');
+    await command.execute(interaction as never);
+
+    expect(interaction.getReplies()[0]).toMatchObject({
+      content: expect.stringContaining('지원하지 않는 프로그램'),
+      allowedMentions: { parse: [] },
+    });
+  });
+
   it('TC-RA09: /approve-application은 역할 부여에 실패하면 상태를 승인으로 바꾸지 않는다', async () => {
     applications.set('test-user-id:cam-study', {
       userid: 'test-user-id',
@@ -571,5 +589,24 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
 
     expect(notifyApplicant).not.toHaveBeenCalled();
     expect(interaction.getLastReply()).toContain('대기 신청이 없어요');
+  });
+
+  it('TC-RA16: /reject-application은 오래된 슬래시 커맨드에서 들어온 비지원 program 값을 명시적으로 거절한다', async () => {
+    const interaction = createMockInteraction({
+      channelId: 'valid-ops-channel-id',
+      options: {
+        userid: 'test-user-id',
+        program: 'wake-up',
+        reason: '사유',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/reject-application.js');
+    await command.execute(interaction as never);
+
+    expect(interaction.getReplies()[0]).toMatchObject({
+      content: expect.stringContaining('지원하지 않는 프로그램'),
+      allowedMentions: { parse: [] },
+    });
   });
 });
