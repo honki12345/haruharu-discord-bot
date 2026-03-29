@@ -51,9 +51,9 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
   beforeEach(() => {
     vi.resetModules();
     applications.clear();
-    ParticipationApplication.findOne.mockClear();
-    ParticipationApplication.create.mockClear();
-    ParticipationApplication.update.mockClear();
+    ParticipationApplication.findOne.mockReset();
+    ParticipationApplication.create.mockReset();
+    ParticipationApplication.update.mockReset();
     ParticipationApplication.findOne.mockImplementation(
       async ({ where }: { where: { userid: string; program: ProgramType } }) => {
         return applications.get(getApplicationKey(where.userid, where.program)) ?? null;
@@ -502,6 +502,60 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
     expect(applicantMember.roles.remove).toHaveBeenCalledWith('valid-wake-up-role-id');
     expect(notifyApplicant).not.toHaveBeenCalled();
     expect(interaction.getLastReply()).toContain('대기 신청이 없어요');
+  });
+
+  it('TC-RA14: /approve-application은 다른 운영자가 이미 승인한 상태면 역할을 롤백하지 않는다', async () => {
+    const pendingApplication = {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'wake-up' as const,
+      status: 'pending' as const,
+      reason: null,
+    };
+    applications.set('test-user-id:wake-up', pendingApplication);
+    ParticipationApplication.findOne.mockResolvedValueOnce(pendingApplication).mockResolvedValueOnce({
+      ...pendingApplication,
+      status: 'approved',
+    });
+    ParticipationApplication.update.mockResolvedValueOnce([0]);
+
+    const notifyApplicant = vi.fn();
+    const applicantMember = {
+      roles: {
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: notifyApplicant,
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-ops-channel-id',
+      options: {
+        userid: 'test-user-id',
+        program: 'wake-up',
+      },
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+      client: {
+        channels: {
+          fetch: vi.fn(),
+        },
+        users: {
+          fetch: vi.fn().mockResolvedValue({
+            send: notifyApplicant,
+          }),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/approve-application.js');
+    await command.execute(interaction as never);
+
+    expect(applicantMember.roles.remove).not.toHaveBeenCalled();
+    expect(notifyApplicant).not.toHaveBeenCalled();
+    expect(interaction.getLastReply()).toContain('이미 승인');
   });
 
   it('TC-RA04: /reject-application은 pending 신청을 거절하고 재신청 안내를 보낸다', async () => {

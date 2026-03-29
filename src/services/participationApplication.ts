@@ -192,6 +192,14 @@ const approveParticipationApplication = async (
     );
 
     if (affectedRows === 0) {
+      const latestApplication = await ParticipationApplication.findOne({
+        where: { userid, program },
+      });
+
+      if (latestApplication?.status === 'approved') {
+        return `${PROGRAM_METADATA[program].label} 참여가 이미 승인되어 있어요. 전용 채널을 확인해 주세요.`;
+      }
+
       await member.roles.remove(roleId);
       return `${PROGRAM_METADATA[program].label} 대기 신청이 없어요.`;
     }
