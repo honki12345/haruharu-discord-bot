@@ -12,6 +12,7 @@ import {
   TestCamStudyTimeLog,
   TestCamStudyWeeklyTimeLog,
 } from './test-setup.js';
+import { removeCamStudyUser, upsertCamStudyUser } from '../repository/camStudyRepository.js';
 
 describe('Repository 모델 테스트 (인메모리 DB)', () => {
   beforeAll(async () => {
@@ -484,6 +485,121 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
         });
 
         expect(existing).not.toBeNull();
+      });
+
+      it('TC-RC03: upsertCamStudyUser는 같은 userid 중복 row를 하나로 정리한다', async () => {
+        await TestCamStudyUsers.bulkCreate([
+          {
+            userid: 'cam_user1',
+            username: '홍길동',
+          },
+          {
+            userid: 'cam_user1',
+            username: '홍길동-중복',
+          },
+        ]);
+
+        await upsertCamStudyUser({
+          userid: 'cam_user1',
+          username: '최신이름',
+        });
+
+        const users = await TestCamStudyUsers.findAll({
+          where: { userid: 'cam_user1' },
+          order: [['id', 'ASC']],
+        });
+
+        expect(users).toHaveLength(1);
+        expect(users[0]?.username).toBe('최신이름');
+      });
+
+      it('TC-RC04: upsertCamStudyUser는 같은 userid 동시 요청에서도 1건만 유지한다', async () => {
+        const originalCreate = TestCamStudyUsers.create.bind(TestCamStudyUsers);
+        let releaseFirstCreate!: () => void;
+        const firstCreateGate = new Promise<void>(resolve => {
+          releaseFirstCreate = resolve;
+        });
+        let firstCreateBlocked = false;
+
+        const createSpy = vi.spyOn(TestCamStudyUsers, 'create').mockImplementation(async (values, options) => {
+          if (!firstCreateBlocked) {
+            firstCreateBlocked = true;
+            await firstCreateGate;
+          }
+
+          return originalCreate(values, options);
+        });
+
+        const firstUpsert = upsertCamStudyUser({
+          userid: 'cam_user1',
+          username: '홍길동',
+        });
+
+        const secondUpsert = upsertCamStudyUser({
+          userid: 'cam_user1',
+          username: '홍길동',
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        releaseFirstCreate();
+        await Promise.all([firstUpsert, secondUpsert]);
+
+        const users = await TestCamStudyUsers.findAll({
+          where: { userid: 'cam_user1' },
+          order: [['id', 'ASC']],
+        });
+
+        expect(users).toHaveLength(1);
+        createSpy.mockRestore();
+      });
+
+      it('TC-RC05: removeCamStudyUser가 늦게 끝나도 이후 upsert 결과를 지우지 않는다', async () => {
+        await TestCamStudyUsers.create({
+          userid: 'cam_user1',
+          username: '기존이름',
+        });
+
+        const originalDestroy = TestCamStudyUsers.destroy.bind(TestCamStudyUsers);
+        let releaseDestroy!: () => void;
+        const destroyGate = new Promise<void>(resolve => {
+          releaseDestroy = resolve;
+        });
+        let firstDestroyBlocked = false;
+
+        const destroySpy = vi.spyOn(TestCamStudyUsers, 'destroy').mockImplementation(async options => {
+          if (!firstDestroyBlocked) {
+            firstDestroyBlocked = true;
+            await destroyGate;
+          }
+
+          return originalDestroy(options);
+        });
+
+        const removePromise = removeCamStudyUser('cam_user1');
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let upsertCompleted = false;
+        const upsertPromise = upsertCamStudyUser({
+          userid: 'cam_user1',
+          username: '최신이름',
+        }).then(() => {
+          upsertCompleted = true;
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(upsertCompleted).toBe(false);
+
+        releaseDestroy();
+        await Promise.all([removePromise, upsertPromise]);
+
+        const users = await TestCamStudyUsers.findAll({
+          where: { userid: 'cam_user1' },
+          order: [['id', 'ASC']],
+        });
+
+        expect(users).toHaveLength(1);
+        expect(users[0]?.username).toBe('최신이름');
+        destroySpy.mockRestore();
       });
     });
 

@@ -55,7 +55,12 @@ const importModule = async <T>(filePath: string) => import(pathToFileURL(filePat
 
 export const createClient = (options?: ClientOptions) =>
   new MyClient({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMessages],
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.GuildVoiceStates,
+      GatewayIntentBits.GuildMessages,
+    ],
     ...options,
   });
 

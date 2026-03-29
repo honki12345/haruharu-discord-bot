@@ -9,17 +9,17 @@
 - PR 검증: `CI`, `Dependency Review`
 - production 배포 시작: GitHub Actions `Deploy Production`
 - 배포 시작 방식: `workflow_dispatch`
-- 배포 경로: GitHub-hosted runner -> verify build artifact 생성 -> artifact upload/download -> SSH -> OCI Compute -> PM2 single process
+- 배포 경로: GitHub-hosted `ubuntu-22.04` runner + Node.js 24 -> verify build artifact 생성 -> artifact upload/download -> SSH -> OCI Compute -> PM2 single process
 - verify 단계에서 입력한 `ref`를 검증된 commit SHA로 고정한 뒤 deploy가 같은 SHA에서 만든 production artifact를 배포한다
 - GitHub `production` environment 용도: production secrets/variables 관리
 
 ```mermaid
 flowchart TD
   A[Operator runs workflow_dispatch] --> B[verify job: lint + prettier + build + test + smoke]
-  B --> C[package production artifact + metadata]
+  B --> C[package production artifact + metadata on ubuntu-22.04 + Node 24]
   C --> D[deploy job downloads artifact]
   D --> E[scp artifact to OCI host]
-  E --> F[validate platform, arch, Node ABI]
+  E --> F[validate platform, arch, Node ABI, glibc]
   F --> G[staged extract in app dir]
   G --> H[pm2 reload or start]
   H --> I[pm2 status + ready log check]
@@ -58,6 +58,7 @@ flowchart TD
 1. GitHub Actions에서 `Deploy Production` workflow를 연다.
 2. `Run workflow`를 눌러 배포할 `ref`를 입력한다. `branch, tag, commit SHA`를 받을 수 있고 기본값은 `main`이다.
 3. `verify` job이 아래 항목을 통과하는지 확인한다.
+   - verify job은 `ubuntu-22.04` + Node.js 24에서 실행되어 production 서버와 Node ABI/glibc 계열을 맞춘다.
    - `npm run lint`
    - `npx prettier --check src`
    - `npm run build`
@@ -75,6 +76,7 @@ flowchart TD
    - `PRODUCTION_APP_DIR`가 절대 경로인지, `/`가 아닌지 먼저 확인하고 realpath(`cd ... && pwd -P`)로 canonical path를 다시 계산한 뒤에만 배포를 진행한다.
    - 원격 Node/platform/arch/Node ABI가 `artifact-metadata.json`과 다르면 fail-fast로 중단한다.
    - build metadata에 glibc가 있으면 원격 glibc family뿐 아니라 실제 버전이 build보다 낮지 않은지도 함께 검증한다.
+   - `Artifact runtime compatibility check failed`가 나오면 서버 Node 업그레이드 또는 workflow 빌드 환경 변경 없이 재시도하지 않는다. 먼저 build/runtime의 Node ABI와 glibc 차이를 맞춘다.
    - artifact는 임시 staging 디렉터리에 먼저 압축 해제하고 `dist`, `node_modules`, `package.json`, `artifact-metadata.json` 존재를 검증한 뒤, 기존 `dist`, `node_modules`, `package.json`, `package-lock.json`과 교체한다.
    - `config.json`, `database.sqlite`, `logs`, `runtime` 같은 서버 로컬 자산은 유지한다.
    - PM2 프로세스 reload 또는 최초 start
@@ -82,6 +84,13 @@ flowchart TD
    - 비대화형 SSH 셸에서 `nvm` bootstrap 후 `node`, `pm2`를 사용할 수 있는지
    - PM2에 같은 이름의 online 프로세스가 1개인지
    - 이번 배포 이후 info 로그에 새 `Ready! Logged in as`가 기록됐는지
+   - 직전 배포와 같은 일별 info 로그 파일을 재사용하면 이전 배포 시점의 바이트 오프셋 뒤만 검사하고, 새 일별 info 로그 파일이 생기면 새 파일 전체에서 ready 로그를 검사한다
+
+### Readiness 로그 판정 메모
+
+- readiness 스크립트는 `runtime/production-deployment-metadata.env`의 `PREVIOUS_INFO_LOG_FILE`, `PREVIOUS_INFO_LOG_SIZE`를 읽어 이번 배포 이후에 추가된 ready 로그만 본다.
+- 새 로그 파일이 생성된 배포에서는 이전 오프셋을 이어서 쓰지 않고, 최신 info 로그 파일 전체에서 `Ready! Logged in as`를 찾는다.
+- 2026-03-29 이전에는 새 로그 파일 분기 반환값 버그 때문에 ready 로그가 있어도 `Could not find a new ready log entry for haruharu-bot` false negative가 날 수 있었다. 같은 증상이 다시 보이면 스크립트 버전과 최근 배포 시점 로그 파일 교체 여부를 먼저 확인한다.
 
 ## 배포 후 수동 검증
 
