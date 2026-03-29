@@ -5,7 +5,6 @@ import {
   createChallengeUserExclusion,
   countUserVacationLogs,
   createVacationLog,
-  deleteChallengeUser,
   findChallengeUser,
   findChallengeUserExclusion,
   findVacationLog,
@@ -15,7 +14,6 @@ import {
   listChallengeUserExclusions,
   listWakeUpMembershipsByUserIds,
   updateChallengeUser,
-  updateWakeUpMembership,
 } from '../repository/challengeRepository.js';
 import { isValidWakeTime } from '../attendance.js';
 import { wakeUpRoleId } from '../config.js';
@@ -24,6 +22,7 @@ import { DEFAULT_VACANCES_COUNT, getYearMonth, getYearMonthDate } from '../utils
 import { Users } from '../repository/Users.js';
 import { WakeUpMembership } from '../repository/WakeUpMembership.js';
 import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
+import { ChallengeUserExclusion } from '../repository/ChallengeUserExclusion.js';
 
 const YEAR_MONTH_DAY_PATTERN = /^\d{8}$/;
 
@@ -459,23 +458,39 @@ const persistStopWakeUp = async ({
 }: {
   userId: string;
   currentYearmonth: string;
-}): Promise<CommandResult> => {
-  const membership = await findWakeUpMembership(userId);
-  if (!membership || membership.status !== 'active') {
-    return { reply: '현재 진행 중인 기상스터디 참여가 없습니다' };
-  }
+}): Promise<CommandResult> =>
+  runChallengeTransaction(async transaction => {
+    const membership = await WakeUpMembership.findOne({
+      where: { userid: userId },
+      transaction,
+    });
+    if (!membership || membership.status !== 'active') {
+      return { reply: '현재 진행 중인 기상스터디 참여가 없습니다' };
+    }
 
-  await updateWakeUpMembership(userId, {
-    status: 'stopped',
-    stoppedat: new Date().toISOString(),
+    await WakeUpMembership.update(
+      {
+        status: 'stopped',
+        stoppedat: new Date().toISOString(),
+      },
+      {
+        where: { userid: userId },
+        transaction,
+      },
+    );
+    await ChallengeUserExclusion.bulkCreate([{ userid: userId, yearmonth: currentYearmonth }], {
+      ignoreDuplicates: true,
+      transaction,
+    });
+    await Users.destroy({
+      where: { userid: userId, yearmonth: currentYearmonth },
+      transaction,
+    });
+
+    return {
+      reply: '기상스터디 참여를 중단했습니다. 이번 달 참여는 즉시 중단되며 다음 달부터 다시 등록할 수 있습니다',
+    };
   });
-  await createChallengeUserExclusion(userId, currentYearmonth);
-  await deleteChallengeUser(userId, currentYearmonth);
-
-  return {
-    reply: '기상스터디 참여를 중단했습니다. 이번 달 참여는 즉시 중단되며 다음 달부터 다시 등록할 수 있습니다',
-  };
-};
 
 const fetchWakeUpGuildMember = async (guild: Guild | null, userId: string): Promise<WakeUpRoleResult> => {
   if (!guild) {

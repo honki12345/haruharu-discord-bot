@@ -520,4 +520,66 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(currentMonthUser).toBeNull();
     expect(hasWakeUpRole).toBe(false);
   });
+
+  it('TC-WM14: /stop-wakeup persistence가 중간 실패하면 역할 rollback과 함께 membership 상태도 원복된다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'rollback-user',
+      username: '롤백사용자',
+      waketime: '0705',
+      status: 'active',
+      stoppedat: null,
+    });
+    await TestUsers.create({
+      userid: 'rollback-user',
+      username: '롤백사용자',
+      yearmonth: '202601',
+      waketime: '0705',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    const exclusionBulkCreateSpy = vi
+      .spyOn(TestChallengeUserExclusion, 'bulkCreate')
+      .mockRejectedValueOnce(new Error('exclusion insert failed'));
+
+    const member = {
+      roles: {
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const guild = {
+      members: {
+        fetch: vi.fn().mockResolvedValue(member),
+      },
+    };
+
+    const { executeStopWakeUpWithRoleSync } = await import('../services/challengeSelfService.js');
+
+    await expect(
+      executeStopWakeUpWithRoleSync({
+        userId: 'rollback-user',
+        guild: guild as never,
+      }),
+    ).rejects.toThrow('exclusion insert failed');
+
+    exclusionBulkCreateSpy.mockRestore();
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'rollback-user' } });
+    const exclusion = await TestChallengeUserExclusion.findOne({
+      where: { userid: 'rollback-user', yearmonth: '202601' },
+    });
+    const currentMonthUser = await TestUsers.findOne({
+      where: { userid: 'rollback-user', yearmonth: '202601' },
+    });
+
+    expect(member.roles.remove).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(member.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(membership?.status).toBe('active');
+    expect(membership?.stoppedat).toBeNull();
+    expect(exclusion).toBeNull();
+    expect(currentMonthUser).not.toBeNull();
+  });
 });
