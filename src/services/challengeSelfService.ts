@@ -1,10 +1,10 @@
+import type { Guild, GuildMember } from 'discord.js';
+import type { Transaction } from 'sequelize';
 import {
   bulkCreateWakeUpMemberships,
   createChallengeUserExclusion,
   countUserVacationLogs,
-  createWakeUpMembership,
   createVacationLog,
-  createWaketimeChangeLog,
   findChallengeUser,
   findChallengeUserExclusion,
   findVacationLog,
@@ -17,8 +17,12 @@ import {
   updateWakeUpMembership,
 } from '../repository/challengeRepository.js';
 import { isValidWakeTime } from '../attendance.js';
+import { wakeUpRoleId } from '../config.js';
+import { logger } from '../logger.js';
 import { DEFAULT_VACANCES_COUNT, getYearMonth, getYearMonthDate } from '../utils.js';
 import { Users } from '../repository/Users.js';
+import { WakeUpMembership } from '../repository/WakeUpMembership.js';
+import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
 
 const YEAR_MONTH_DAY_PATTERN = /^\d{8}$/;
 
@@ -44,6 +48,29 @@ const isValidChallengeWakeTime = (waketime: string) => {
   const minutes = Number(waketime.slice(2));
   const time = hours * 100 + minutes;
   return time >= 500 && time <= 900;
+};
+
+type RegisterContext = {
+  userId: string;
+  username: string;
+  waketime: string;
+  yearmonth: string;
+  yearmonthday: string;
+};
+
+type CommandResult = {
+  reply: string;
+};
+
+type WakeUpRoleResult = CommandResult | { member: GuildMember };
+
+const runChallengeTransaction = async <T>(callback: (transaction: Transaction) => Promise<T>) => {
+  const sequelize = Users.sequelize;
+  if (!sequelize) {
+    throw new Error('Users sequelize is not initialized');
+  }
+
+  return sequelize.transaction(callback);
 };
 
 const createChallengeUserSnapshot = async ({
@@ -190,6 +217,122 @@ const ensureActiveWakeUpMembershipSnapshots = async (yearmonth: string) => {
   await Users.bulkCreate(snapshotsToCreate, { ignoreDuplicates: true });
 };
 
+const prepareRegister = async ({
+  userId,
+  username,
+  waketime,
+  yearmonth,
+  yearmonthday,
+}: RegisterContext): Promise<CommandResult | RegisterContext> => {
+  if (!isValidChallengeWakeTime(waketime)) {
+    return { reply: '기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요' };
+  }
+
+  const existingChange = await findWaketimeChangeLog(userId, yearmonthday);
+  if (existingChange) {
+    return { reply: 'register는 하루에 한 번만 변경할 수 있습니다' };
+  }
+
+  return { userId, username, waketime, yearmonth, yearmonthday };
+};
+
+const persistRegister = async ({
+  userId,
+  username,
+  waketime,
+  yearmonth,
+  yearmonthday,
+}: RegisterContext): Promise<CommandResult> =>
+  runChallengeTransaction(async transaction => {
+    const membership = await WakeUpMembership.findOne({
+      where: { userid: userId },
+      transaction,
+    });
+    const user = await Users.findOne({
+      where: { userid: userId, yearmonth },
+      transaction,
+    });
+    const existingChange = await WaketimeChangeLog.findOne({
+      where: { userid: userId, yearmonthday },
+      transaction,
+    });
+
+    if (existingChange) {
+      return { reply: 'register는 하루에 한 번만 변경할 수 있습니다' };
+    }
+
+    if (!membership) {
+      await WakeUpMembership.create(
+        {
+          userid: userId,
+          username,
+          waketime,
+          status: 'active',
+          stoppedat: null,
+        },
+        { transaction },
+      );
+    } else {
+      await WakeUpMembership.update(
+        {
+          username,
+          waketime,
+          status: 'active',
+          stoppedat: null,
+        },
+        {
+          where: { userid: userId },
+          transaction,
+        },
+      );
+    }
+
+    const [currentUser, created] = await Users.findOrCreate({
+      where: {
+        userid: userId,
+        yearmonth,
+      },
+      defaults: {
+        userid: userId,
+        username,
+        yearmonth,
+        waketime,
+        latecount: 0,
+        absencecount: 0,
+        vacances: DEFAULT_VACANCES_COUNT,
+      },
+      transaction,
+    });
+
+    if (!created && (currentUser.username !== username || currentUser.waketime !== waketime)) {
+      await Users.update(
+        {
+          username,
+          waketime,
+        },
+        {
+          where: { userid: userId, yearmonth },
+          transaction,
+        },
+      );
+    }
+
+    await WaketimeChangeLog.create(
+      {
+        userid: userId,
+        yearmonthday,
+        waketime,
+      },
+      { transaction },
+    );
+
+    if (!user) {
+      return { reply: `${username}님 기상시간을 등록했습니다. 기준월: ${yearmonth}, 기상시간: ${waketime}` };
+    }
+
+    return { reply: `${username}님 기상시간을 수정했습니다. 기준월: ${yearmonth}, 기상시간: ${waketime}` };
+  });
+
 const executeRegister = async ({
   userId,
   username,
@@ -198,54 +341,23 @@ const executeRegister = async ({
   userId: string;
   username: string;
   waketime: string;
-}) => {
-  if (!isValidChallengeWakeTime(waketime)) {
-    return { reply: '기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요' };
-  }
-
+}): Promise<CommandResult> => {
   const { year, month, date } = getYearMonthDate();
   const yearmonth = getYearMonth(year, month);
   const yearmonthday = `${yearmonth}${date}`;
-  const membership = await findWakeUpMembership(userId);
-  const user = await findChallengeUser(userId, yearmonth);
+  const prepared = await prepareRegister({
+    userId,
+    username,
+    waketime,
+    yearmonth,
+    yearmonthday,
+  });
 
-  const existingChange = await findWaketimeChangeLog(userId, yearmonthday);
-  if (existingChange) {
-    return { reply: 'register는 하루에 한 번만 변경할 수 있습니다' };
+  if ('reply' in prepared) {
+    return prepared;
   }
 
-  if (!membership) {
-    await createWakeUpMembership({
-      userid: userId,
-      username,
-      waketime,
-      status: 'active',
-      stoppedat: null,
-    });
-  } else {
-    await updateWakeUpMembership(userId, {
-      username,
-      waketime,
-      status: 'active',
-      stoppedat: null,
-    });
-  }
-
-  if (!user) {
-    await createChallengeUserSnapshot({
-      userId,
-      username,
-      waketime,
-      yearmonth,
-    });
-    await createWaketimeChangeLog({ userid: userId, yearmonthday, waketime });
-    return { reply: `${username}님 기상시간을 등록했습니다. 기준월: ${yearmonth}, 기상시간: ${waketime}` };
-  }
-
-  await createWaketimeChangeLog({ userid: userId, yearmonthday, waketime });
-  await updateChallengeUser(userId, yearmonth, { username, waketime });
-
-  return { reply: `${username}님 기상시간을 수정했습니다. 기준월: ${yearmonth}, 기상시간: ${waketime}` };
+  return persistRegister(prepared);
 };
 
 const findRegisteredUserForDate = async (userId: string, yearmonthday: string) => {
@@ -253,7 +365,13 @@ const findRegisteredUserForDate = async (userId: string, yearmonthday: string) =
   return findChallengeUser(userId, yearmonthday.slice(0, 6));
 };
 
-const executeApplyVacation = async ({ userId, yearmonthday }: { userId: string; yearmonthday: string }) => {
+const executeApplyVacation = async ({
+  userId,
+  yearmonthday,
+}: {
+  userId: string;
+  yearmonthday: string;
+}): Promise<CommandResult> => {
   if (!isCanonicalYearMonthDay(yearmonthday)) {
     return { reply: '휴가 날짜를 yyyymmdd 형식으로 입력해주세요' };
   }
@@ -288,8 +406,17 @@ const executeApplyVacation = async ({ userId, yearmonthday }: { userId: string; 
   return { reply: `${user.username}님 ${yearmonthday} 휴가를 등록했습니다` };
 };
 
-const executeStopWakeUp = async ({ userId }: { userId: string }) => {
+const prepareStopWakeUp = async ({ userId }: { userId: string }): Promise<CommandResult | { userId: string }> => {
   const membership = await findWakeUpMembershipWithLegacyBackfill(userId);
+  if (!membership || membership.status !== 'active') {
+    return { reply: '현재 진행 중인 기상스터디 참여가 없습니다' };
+  }
+
+  return { userId };
+};
+
+const persistStopWakeUp = async ({ userId }: { userId: string }): Promise<CommandResult> => {
+  const membership = await findWakeUpMembership(userId);
   if (!membership || membership.status !== 'active') {
     return { reply: '현재 진행 중인 기상스터디 참여가 없습니다' };
   }
@@ -304,6 +431,145 @@ const executeStopWakeUp = async ({ userId }: { userId: string }) => {
   };
 };
 
+const fetchWakeUpGuildMember = async (guild: Guild | null, userId: string): Promise<WakeUpRoleResult> => {
+  if (!guild) {
+    return { reply: '서버 안에서만 기상스터디 참여를 처리할 수 있습니다' };
+  }
+
+  try {
+    const member = (await guild.members.fetch(userId)) as GuildMember;
+    return { member };
+  } catch (error) {
+    logger.error('failed to fetch guild member for wake-up role sync', { error, userId, roleId: wakeUpRoleId });
+    return { reply: '서버에서 사용자를 찾을 수 없어요. 서버에 남아 있는지 확인해 주세요.' };
+  }
+};
+
+const grantWakeUpRole = async (guild: Guild | null, userId: string): Promise<WakeUpRoleResult> => {
+  const fetchedMember = await fetchWakeUpGuildMember(guild, userId);
+  if ('reply' in fetchedMember) {
+    return fetchedMember;
+  }
+
+  try {
+    await fetchedMember.member.roles.add(wakeUpRoleId);
+    return fetchedMember;
+  } catch (error) {
+    logger.error('failed to grant wake-up role', { error, userId, roleId: wakeUpRoleId });
+    return { reply: '@wake-up 역할을 부여하지 못했어요. 봇 권한과 역할 설정을 확인한 뒤 다시 시도해 주세요.' };
+  }
+};
+
+const revokeWakeUpRole = async (guild: Guild | null, userId: string): Promise<WakeUpRoleResult> => {
+  const fetchedMember = await fetchWakeUpGuildMember(guild, userId);
+  if ('reply' in fetchedMember) {
+    return fetchedMember;
+  }
+
+  try {
+    await fetchedMember.member.roles.remove(wakeUpRoleId);
+    return fetchedMember;
+  } catch (error) {
+    logger.error('failed to revoke wake-up role', { error, userId, roleId: wakeUpRoleId });
+    return { reply: '@wake-up 역할을 회수하지 못했어요. 봇 권한과 역할 설정을 확인한 뒤 다시 시도해 주세요.' };
+  }
+};
+
+const executeRegisterWithRoleSync = async ({
+  userId,
+  username,
+  waketime,
+  guild,
+}: {
+  userId: string;
+  username: string;
+  waketime: string;
+  guild: Guild | null;
+}): Promise<CommandResult> => {
+  const { year, month, date } = getYearMonthDate();
+  const yearmonth = getYearMonth(year, month);
+  const yearmonthday = `${yearmonth}${date}`;
+  const prepared = await prepareRegister({
+    userId,
+    username,
+    waketime,
+    yearmonth,
+    yearmonthday,
+  });
+
+  if ('reply' in prepared) {
+    return prepared;
+  }
+
+  const roleResult = await grantWakeUpRole(guild, userId);
+  if ('reply' in roleResult) {
+    return roleResult;
+  }
+
+  try {
+    return await persistRegister(prepared);
+  } catch (error) {
+    logger.error('register persistence failed after wake-up role grant', { error, userId, roleId: wakeUpRoleId });
+
+    try {
+      await roleResult.member.roles.remove(wakeUpRoleId);
+    } catch (rollbackError) {
+      logger.error('failed to rollback wake-up role after register persistence error', {
+        rollbackError,
+        userId,
+        roleId: wakeUpRoleId,
+      });
+    }
+
+    throw error;
+  }
+};
+
+const executeStopWakeUp = async ({ userId }: { userId: string }): Promise<CommandResult> => {
+  const prepared = await prepareStopWakeUp({ userId });
+  if ('reply' in prepared) {
+    return prepared;
+  }
+
+  return persistStopWakeUp(prepared);
+};
+
+const executeStopWakeUpWithRoleSync = async ({
+  userId,
+  guild,
+}: {
+  userId: string;
+  guild: Guild | null;
+}): Promise<CommandResult> => {
+  const prepared = await prepareStopWakeUp({ userId });
+  if ('reply' in prepared) {
+    return prepared;
+  }
+
+  const roleResult = await revokeWakeUpRole(guild, userId);
+  if ('reply' in roleResult) {
+    return roleResult;
+  }
+
+  try {
+    return await persistStopWakeUp(prepared);
+  } catch (error) {
+    logger.error('stop-wakeup persistence failed after wake-up role revoke', { error, userId, roleId: wakeUpRoleId });
+
+    try {
+      await roleResult.member.roles.add(wakeUpRoleId);
+    } catch (rollbackError) {
+      logger.error('failed to rollback wake-up role after stop persistence error', {
+        rollbackError,
+        userId,
+        roleId: wakeUpRoleId,
+      });
+    }
+
+    throw error;
+  }
+};
+
 export {
   ensureActiveWakeUpMembershipSnapshots,
   ensureWakeUpMembershipSnapshot,
@@ -311,5 +577,7 @@ export {
   createChallengeUserExclusion,
   executeApplyVacation,
   executeRegister,
+  executeRegisterWithRoleSync,
   executeStopWakeUp,
+  executeStopWakeUpWithRoleSync,
 };

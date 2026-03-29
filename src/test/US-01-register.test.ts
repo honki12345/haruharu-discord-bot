@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } 
 import {
   testSequelize,
   TestUsers,
+  TestWakeUpMembership,
   TestWaketimeChangeLog,
   clearAllTables,
   createMockInteraction,
@@ -152,5 +153,58 @@ describe('US-01: /register 커맨드', () => {
     const updatedUser = await TestUsers.findOne({ where: { userid: 'existing-user', yearmonth: '202512' } });
     expect(updatedUser?.waketime).toBe('0800');
     expect(interaction.getLastReply()).toContain('수정했습니다');
+  });
+
+  it('TC-R05: /register 성공 시 @wake-up 역할이 부여된다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'wake-role-user',
+      globalName: '역할사용자',
+      options: {
+        waketime: '0710',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'wake-role-user' } });
+
+    expect(interaction.member.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(membership?.status).toBe('active');
+    expect(interaction.getLastReply()).toContain('등록했습니다');
+  });
+
+  it('TC-R06: @wake-up 역할 부여 실패 시 등록을 중단하고 DB를 변경하지 않는다', async () => {
+    const member = {
+      roles: {
+        add: vi.fn().mockRejectedValue(new Error('role add failed')),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      userId: 'role-fail-user',
+      globalName: '실패사용자',
+      options: {
+        waketime: '0720',
+      },
+      member,
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'role-fail-user' } });
+    const user = await TestUsers.findOne({ where: { userid: 'role-fail-user', yearmonth: '202512' } });
+    const changeLog = await TestWaketimeChangeLog.findOne({
+      where: { userid: 'role-fail-user', yearmonthday: '20251207' },
+    });
+
+    expect(member.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(member.roles.remove).not.toHaveBeenCalled();
+    expect(membership).toBeNull();
+    expect(user).toBeNull();
+    expect(changeLog).toBeNull();
+    expect(interaction.getLastReply()).toContain('역할');
   });
 });

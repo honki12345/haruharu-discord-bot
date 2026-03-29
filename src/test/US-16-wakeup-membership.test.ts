@@ -332,4 +332,61 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(memberships).toHaveLength(1);
     expect(memberships[0]?.status).toBe('stopped');
   });
+
+  it('TC-WM11: /stop-wakeup 성공 시 @wake-up 역할이 회수된다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'role-stop-user',
+      username: '역할중단',
+      waketime: '0705',
+      status: 'active',
+      stoppedat: null,
+    });
+
+    const interaction = createMockInteraction({
+      userId: 'role-stop-user',
+      globalName: '역할중단',
+    });
+
+    const { command: stopCommand } = await import('../commands/haruharu/stop-wakeup.js');
+    await stopCommand.execute(interaction as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'role-stop-user' } });
+
+    expect(interaction.member.roles.remove).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(membership?.status).toBe('stopped');
+    expect(interaction.getLastReply()).toContain('중단');
+  });
+
+  it('TC-WM12: @wake-up 역할 회수 실패 시 membership 상태를 유지하고 오류를 응답한다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'role-remove-fail-user',
+      username: '회수실패',
+      waketime: '0705',
+      status: 'active',
+      stoppedat: null,
+    });
+
+    const member = {
+      roles: {
+        add: vi.fn(),
+        remove: vi.fn().mockRejectedValue(new Error('role remove failed')),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      userId: 'role-remove-fail-user',
+      globalName: '회수실패',
+      member,
+    });
+
+    const { command: stopCommand } = await import('../commands/haruharu/stop-wakeup.js');
+    await stopCommand.execute(interaction as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'role-remove-fail-user' } });
+
+    expect(member.roles.remove).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(member.roles.add).not.toHaveBeenCalled();
+    expect(membership?.status).toBe('active');
+    expect(interaction.getLastReply()).toContain('역할');
+  });
 });
