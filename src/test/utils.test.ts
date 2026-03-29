@@ -11,6 +11,7 @@ vi.mock('../logger.js', () => ({
 }));
 
 import {
+  calculateRemainingTimeDailyMessage,
   isLastDayOfMonth,
   formatFromMinutesToHours,
   getTimeDiffFromNowInMinutes,
@@ -204,6 +205,28 @@ describe('utils.ts', () => {
 
       const weeks = calculateWeekTimes();
       expect(weeks).toBe(35);
+    });
+  });
+
+  describe('calculateRemainingTimeDailyMessage', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('04시 30분이면 다음 04:00까지 23시간 30분을 반환한다', () => {
+      vi.setSystemTime(new Date('2026-03-29T04:30:00'));
+
+      expect(calculateRemainingTimeDailyMessage()).toBe(23.5 * 60 * 60 * 1000);
+    });
+
+    it('03시 30분이면 같은 날 04:00까지 30분을 반환한다', () => {
+      vi.setSystemTime(new Date('2026-03-29T03:30:00'));
+
+      expect(calculateRemainingTimeDailyMessage()).toBe(30 * 60 * 1000);
     });
   });
 

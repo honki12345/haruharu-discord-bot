@@ -549,8 +549,8 @@ describe('US-13: 운영 daily message 자동화', () => {
     expect(resultChannelSend).toHaveBeenCalledWith('hall of fame');
   });
 
-  it('06시 이후에 부팅되면 오늘 운영 daily message 생성을 즉시 시도한다', async () => {
-    vi.setSystemTime(new Date('2026-03-29T07:30:00'));
+  it('04시 이후에 부팅되면 오늘 운영 daily message 생성을 즉시 시도한다', async () => {
+    vi.setSystemTime(new Date('2026-03-29T04:30:00'));
     const startThread = vi.fn().mockResolvedValue({
       id: 'attendance-thread',
       send: vi.fn(),
@@ -592,10 +592,45 @@ describe('US-13: 운영 daily message 자동화', () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
-  it('syncModels 동안 06시를 넘기면 현재 시각 기준으로 오늘 운영 daily message 생성을 즉시 시도한다', async () => {
-    vi.setSystemTime(new Date('2026-03-29T05:59:59'));
+  it('04시 전 부팅되면 오늘 운영 daily message 생성을 즉시 시도하지 않는다', async () => {
+    vi.setSystemTime(new Date('2026-03-29T03:59:59'));
+    const send = vi.fn();
+    const fetch = vi.fn().mockResolvedValue({
+      type: 0,
+      id: 'valid-channel-id',
+      send,
+      threads: {
+        fetchActive: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+        fetchArchived: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+      },
+    });
+
+    const { event } = await import('../events/ready.js');
+
+    await event.execute({
+      channels: {
+        fetch,
+        cache: {
+          get: vi.fn(),
+        },
+      },
+      user: {
+        tag: 'haruharu#0001',
+      },
+    } as never);
+
+    expect(fetch).not.toHaveBeenCalledWith('valid-channel-id');
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('syncModels 동안 04시를 넘기면 현재 시각 기준으로 오늘 운영 daily message 생성을 즉시 시도한다', async () => {
+    vi.setSystemTime(new Date('2026-03-29T03:59:59'));
     mockSyncModels.mockImplementationOnce(async () => {
-      vi.setSystemTime(new Date('2026-03-29T06:00:01'));
+      vi.setSystemTime(new Date('2026-03-29T04:00:01'));
     });
 
     const startThread = vi.fn().mockResolvedValue({
@@ -692,8 +727,8 @@ describe('US-13: 운영 daily message 자동화', () => {
     expect(logger.error).toHaveBeenCalled();
   });
 
-  it('06시 이후 즉시 생성이 실패해도 중복 에러 로그를 남기지 않는다', async () => {
-    vi.setSystemTime(new Date('2026-03-29T07:30:00'));
+  it('04시 이후 즉시 생성이 실패해도 중복 에러 로그를 남기지 않는다', async () => {
+    vi.setSystemTime(new Date('2026-03-29T04:30:00'));
     const fetch = vi.fn().mockResolvedValue({
       type: 0,
       id: 'valid-channel-id',

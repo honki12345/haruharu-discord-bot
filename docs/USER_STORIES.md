@@ -81,7 +81,7 @@ SO THAT 그날의 출석 진입점이 하나로 유지된다
 
 **인수 조건:**
 
-- 운영 채널에 매일 오전 06:00 daily message와 출석 thread를 생성한다
+- 운영 채널에 매일 오전 04:00 daily message와 출석 thread를 생성한다
 - 같은 날짜에는 daily message/thread를 한 번만 생성한다
 - 봇 재시작 후에도 오늘 thread를 다시 찾아 재사용할 수 있다
 - 테스트 채널 demo thread와 운영 thread는 다른 채널/이름 규칙을 사용한다
@@ -94,7 +94,7 @@ sequenceDiagram
     participant D as Discord
     participant C as Check Channel
 
-    Note over S: 매일 06:00 트리거
+    Note over S: 매일 04:00 트리거
     S->>B: ensureTodayAttendanceThread()
     B->>C: 오늘 날짜 thread 조회
 
