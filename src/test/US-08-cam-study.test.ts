@@ -3,7 +3,13 @@
  * 시스템은 사용자가 음성 채널에서 스트리밍을 켜고 끌 때 공부 시간을 기록한다.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { testSequelize, TestCamStudyUsers, TestCamStudyTimeLog, createMockVoiceState } from './test-setup.js';
+import {
+  testSequelize,
+  TestCamStudyActiveSession,
+  TestCamStudyUsers,
+  TestCamStudyTimeLog,
+  createMockVoiceState,
+} from './test-setup.js';
 
 describe('US-08: 캠스터디 공부 시간 기록', () => {
   beforeAll(async () => {
@@ -17,6 +23,7 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-12-07T10:00:00'));
+    await TestCamStudyActiveSession.destroy({ where: {} });
     await TestCamStudyTimeLog.destroy({ where: {} });
     await TestCamStudyUsers.destroy({ where: {} });
   });
@@ -472,6 +479,60 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
     });
   });
 
+  describe('TC-CS03A: 종료 이벤트 유실 후 다음 시작 보호', () => {
+    beforeEach(async () => {
+      await TestCamStudyUsers.create({
+        userid: 'test-user-id',
+        username: '테스트유저',
+      });
+    });
+
+    it('열린 active session 이 남아 있으면 이전 세션을 먼저 정산한 뒤 새 세션을 시작한다', async () => {
+      const previousStartTime = new Date('2025-12-07T10:00:00').getTime();
+      const lastObservedTime = new Date('2025-12-07T10:30:00').getTime();
+
+      await TestCamStudyTimeLog.create({
+        userid: 'test-user-id',
+        username: '테스트유저',
+        yearmonthday: '20251207',
+        timestamp: previousStartTime.toString(),
+        totalminutes: 0,
+      });
+      await TestCamStudyActiveSession.create({
+        userid: 'test-user-id',
+        username: '테스트유저',
+        channelid: 'valid-voice-channel-id',
+        startedat: previousStartTime.toString(),
+        lastobservedat: lastObservedTime.toString(),
+      });
+
+      vi.setSystemTime(new Date('2025-12-07T11:00:00'));
+
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: false,
+        userId: 'test-user-id',
+      });
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: true,
+        userId: 'test-user-id',
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id', yearmonthday: '20251207' } });
+      const activeSession = await TestCamStudyActiveSession.findOne({ where: { userid: 'test-user-id' } });
+
+      expect(log?.totalminutes).toBe(30);
+      expect(log?.timestamp).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
+      expect(activeSession?.startedat).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
+      expect(activeSession?.lastobservedat).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
+      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study start');
+    });
+  });
+
   describe('TC-CS04: 채널 퇴장으로 공부 종료', () => {
     beforeEach(async () => {
       await TestCamStudyUsers.create({
@@ -550,8 +611,13 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       const todayLog = await TestCamStudyTimeLog.findOne({
         where: { userid: 'test-user-id', yearmonthday: '20251207' },
       });
+      const yesterdayLog = await TestCamStudyTimeLog.findOne({
+        where: { userid: 'test-user-id', yearmonthday: '20251206' },
+      });
+
       expect(todayLog).not.toBeNull();
-      expect(todayLog?.totalminutes).toBe(120);
+      expect(todayLog?.totalminutes).toBe(60);
+      expect(yesterdayLog?.totalminutes).toBe(60);
     });
   });
 

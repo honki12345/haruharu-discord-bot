@@ -59,7 +59,7 @@ sequenceDiagram
     participant DB as SQLite
     participant D as Discord Role
 
-    U->>A: /apply-wakeup 또는 /apply-cam
+    U->>A: /기상인증신청 또는 /캠스터디신청
     A->>B: InteractionCreate 이벤트
     B->>D: 역할 부여
     B->>DB: ParticipationApplication status = approved
@@ -180,7 +180,7 @@ sequenceDiagram
         OCI->>OCI: git fetch / checkout / npm ci / npm run build
         OCI->>PM2: reload or start haruharu-bot
         GH->>OCI: pm2 status / ready log 확인
-        O->>D: /ping 수동 확인
+        O->>D: /admin-상태확인 수동 확인
     end
 ```
 
@@ -190,7 +190,7 @@ sequenceDiagram
 
 ```
 AS A 챌린저
-I WANT TO /register 명령으로 내 기상시간을 등록하거나 수정
+I WANT TO /기상등록 명령으로 내 기상시간을 등록하거나 수정
 SO THAT 운영자 개입 없이 출석 체크 기준 시간을 스스로 설정할 수 있다
 ```
 
@@ -211,14 +211,14 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
 
-    U->>D: /register waketime:0700
+    U->>D: /기상등록 기상시간:0700
 
     D->>B: InteractionCreate 이벤트
     B->>B: 채널 검증
 
     B->>B: waketime 유효성 검사 (0500~0900)
     alt 유효하지 않은 시간
-        B-->>U: "no valid waketime"
+        B-->>U: "기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요"
     end
 
     B->>DB: WaketimeChangeLog 조회 (userid, 오늘 날짜)
@@ -232,11 +232,11 @@ sequenceDiagram
     alt 기존 사용자 존재
         B->>DB: Users 업데이트
         B->>DB: WaketimeChangeLog 생성
-        B-->>U: "update 성공: 홍길동"
+        B-->>U: "홍길동님 기상시간을 수정했습니다"
     else 신규 사용자
         B->>DB: Users 생성
         B->>DB: WaketimeChangeLog 생성
-        B-->>U: "register 성공: 홍길동"
+        B-->>U: "홍길동님 기상시간을 등록했습니다"
     end
 ```
 
@@ -270,17 +270,17 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
 
-    A->>D: /add-vacances userid:USER<br/>yearmonth:202512 count:2
+    A->>D: /admin-휴가추가 사용자id:USER<br/>년월:202512 추가일수:2
 
     D->>B: InteractionCreate 이벤트
 
     B->>DB: Users 조회 (userid, yearmonth)
     alt 미등록 사용자
-        B-->>A: "add-vacances fail: not registered"
+        B-->>A: "휴가 추가 실패: 존재하지 않는 회원입니다"
     end
 
     B->>DB: Users.vacances += count
-    B-->>A: "add-vacances 성공: 홍길동 (기존: 5 -> 현재: 7)"
+    B-->>A: "홍길동님 202512 휴가 일수가 총 7일이 되었습니다"
 ```
 
 ---
@@ -450,6 +450,9 @@ SO THAT 별도 조작 없이 공부 시간이 측정된다
 - 카메라와 화면공유가 모두 OFF 이거나 채널 퇴장: 학습 종료
 - 5분 미만 세션은 무시
 - 자정을 넘기면 새 날짜로 분리 기록
+- 진행 중 세션은 `CamStudyActiveSession`에 저장한다
+- 재배포 후 봇이 다시 올라오면 저장된 active session 과 현재 voice state 를 비교해 세션을 복구하거나 종료 정산한다
+- 재배포 중 종료 이벤트를 놓치면 마지막 heartbeat(`lastobservedat`) 기준으로 손실 범위를 제한한다
 
 ```mermaid
 sequenceDiagram
@@ -468,6 +471,7 @@ sequenceDiagram
         B->>B: 종료
     end
 
+    B->>DB: CamStudyActiveSession 생성
     B->>DB: CamStudyTimeLog 조회 (userid, yearmonthday)
     alt 오늘 기록 없음
         B->>DB: CamStudyTimeLog 생성
@@ -477,27 +481,30 @@ sequenceDiagram
     B->>L: "홍길동님 study start"
 
     Note over U,VC: 학습 중...
+    B->>DB: lastobservedat heartbeat 갱신 (1분 간격)
+
+    Note over B,DB: 재배포 발생 시 active session 유지
 
     Note over U,VC: 카메라와 화면공유가 모두 OFF 또는 채널 퇴장
     VC->>B: voiceStateUpdate<br/>(selfVideo: false, streaming: false)
 
-    B->>DB: CamStudyTimeLog 조회
-    B->>B: 경과시간 = 현재시간 - timestamp
+    alt 종료 이벤트를 정상 수신
+        B->>DB: CamStudyActiveSession 조회
+        B->>B: 경과시간 = 종료시각 - startedat
+    else 재배포 후 복구 경로
+        B->>DB: 저장된 CamStudyActiveSession 조회
+        B->>VC: 현재 voice state 스캔
+        B->>B: live state 없으면 종료시각 = lastobservedat
+    end
 
     alt 경과시간 < 5분
         B->>DB: timestamp = 현재시간 (갱신만)
+        B->>DB: CamStudyActiveSession 삭제
         B->>B: 종료 (무시)
     end
 
-    B->>B: 자정 넘김 확인
-    alt 자정을 넘김
-        B->>B: 어제 날짜로 시간 분리 계산
-        B->>DB: 어제자 TimeLog 업데이트
-        B->>DB: 오늘자 TimeLog 생성/업데이트
-    else 같은 날
-        B->>DB: totalminutes += 경과시간
-    end
-
+    B->>DB: 종료 날짜 기준 CamStudyTimeLog 생성/업데이트
+    B->>DB: CamStudyActiveSession 삭제
     B->>L: "홍길동님 study end: 45분 입력완료<br/>총 공부시간: 120분"
 ```
 
@@ -515,6 +522,7 @@ SO THAT 나의 학습량을 다른 참가자와 비교할 수 있다
 
 - 학습 시간 기준 내림차순 정렬
 - 시간 형식: "X시간 Y분"
+- 진행 중 `CamStudyActiveSession`은 합계에 포함하지 않고 종료 정산된 `CamStudyTimeLog.totalminutes`만 사용한다
 
 ```mermaid
 sequenceDiagram
@@ -527,6 +535,8 @@ sequenceDiagram
     S->>B: printCamStudyInterval()
 
     B->>DB: 오늘자 CamStudyTimeLog 전체 조회
+    B->>DB: CamStudyActiveSession 조회
+    B->>B: active session 은 합계에서 제외하고 로그만 남김
 
     B->>B: totalminutes 기준 내림차순 정렬
 
@@ -554,6 +564,7 @@ SO THAT 한 주간의 학습량을 확인할 수 있다
 - 매주 금요일 23:59에 출력
 - 월~금 학습 시간 누적
 - 주차 번호: 2024-04-06 기준으로 계산
+- 진행 중 `CamStudyActiveSession`은 합계에 포함하지 않고 종료 정산된 일간/주간 누적만 사용한다
 - 같은 날짜 기준 재실행해도 주간 누적 시간이 중복 반영되지 않는다
 
 ```mermaid
@@ -623,13 +634,13 @@ sequenceDiagram
 
 ```
 AS A 챌린저
-I WANT TO `/register`를 다시 실행해서 자신의 기상시간을 수정
+I WANT TO `/기상등록`을 다시 실행해서 자신의 기상시간을 수정
 SO THAT 같은 명령으로 등록과 수정을 모두 처리할 수 있다
 ```
 
 **인수 조건:**
 
-- 이미 등록된 사용자도 같은 `/register` 명령을 사용한다
+- 이미 등록된 사용자도 같은 `/기상등록` 명령을 사용한다
 - 본인 데이터만 수정 가능
 - 기상시간은 05:00~09:00 범위만 허용
 - 같은 날에는 한 번만 변경 가능
@@ -641,17 +652,17 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
 
-    U->>D: /register waketime:0800
+    U->>D: /기상등록 기상시간:0800
     D->>B: InteractionCreate 이벤트
 
     B->>DB: Users 조회 (userid, yearmonth)
     alt 미등록 사용자
-        B-->>U: "register success"
+        B-->>U: "홍길동님 기상시간을 등록했습니다"
     end
 
     B->>B: waketime 유효성 검사 (0500~0900)
     alt 유효하지 않은 시간
-        B-->>U: "no valid waketime"
+        B-->>U: "기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요"
     end
 
     B->>DB: WaketimeChangeLog 조회 (userid, 오늘 날짜)
@@ -661,7 +672,7 @@ sequenceDiagram
 
     B->>DB: WaketimeChangeLog 생성
     B->>DB: Users.waketime 업데이트
-    B-->>U: "update success"
+    B-->>U: "홍길동님 기상시간을 수정했습니다"
 ```
 
 ---
@@ -689,7 +700,7 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
 
-    U->>D: /apply-vacation date:20251208
+    U->>D: /휴가신청 날짜:20251208
     D->>B: InteractionCreate 이벤트
 
     B->>DB: Users 조회 (userid, 202512)

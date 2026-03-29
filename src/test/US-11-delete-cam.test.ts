@@ -44,6 +44,8 @@ describe('US-11: /delete-cam 커맨드', () => {
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
     expect(user).not.toBeNull();
     expect(interaction.getLastReply()).toContain('@cam-study');
+    expect(command.data.name_localizations?.ko).toBe('admin-캠스터디삭제');
+    expect(command.data.description_localizations?.ko).toContain('@cam-study');
   });
 
   it('TC-DC02: 미등록 사용자여도 역할 회수 흐름을 안내한다', async () => {

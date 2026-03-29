@@ -48,7 +48,7 @@ describe('US-01: /register 커맨드', () => {
     expect(user?.username).toBe('홍길동');
     expect(user?.waketime).toBe('0700');
     expect(user?.vacances).toBe(5);
-    expect(interaction.getLastReply()).toContain('register success');
+    expect(interaction.getLastReply()).toContain('등록했습니다');
   });
 
   it('TC-R02: 기존 사용자 업데이트 성공', async () => {
@@ -75,7 +75,7 @@ describe('US-01: /register 커맨드', () => {
 
     const user = await TestUsers.findOne({ where: { userid: 'existing-user' } });
     expect(user?.waketime).toBe('0800');
-    expect(interaction.getLastReply()).toContain('update success');
+    expect(interaction.getLastReply()).toContain('수정했습니다');
   });
 
   it('TC-R03: 같은 날 두 번 register로 기상시간을 바꿀 수 없다', async () => {

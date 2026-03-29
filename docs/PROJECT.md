@@ -56,14 +56,14 @@ haruharu-discord-bot/
 │   │   └── haruharu/
 │   │       ├── register.ts      # 사용자 기상 챌린지 등록/수정
 │   │       ├── apply-vacation.ts # 사용자 휴가 등록
+│   │       ├── apply-wakeup.ts  # 사용자 기상인증 참여 신청
+│   │       ├── apply-cam.ts     # 사용자 캠스터디 참여 신청
 │   │       ├── add-vacances.ts  # 휴가 추가
+│   │       ├── approve-application.ts # deprecated: 자동 활성화 안내
+│   │       ├── reject-application.ts # deprecated: 자동 활성화 안내
 │   │       ├── delete.ts        # 챌린저 삭제
-│   │       ├── apply-wakeup.ts  # 기상인증 참여 즉시 활성화
-│   │       ├── apply-cam.ts     # 캠스터디 참여 즉시 활성화
 │   │       ├── register-cam.ts  # deprecated: 역할 기반 등록 안내
 │   │       ├── delete-cam.ts    # deprecated: 역할 회수 안내
-│   │       ├── approve-application.ts # deprecated: 자동 활성화 안내
-│   │       ├── reject-application.ts  # deprecated: 자동 활성화 안내
 │   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
 │   │       └── ping.ts          # 헬스체크
 │   │
@@ -90,6 +90,7 @@ haruharu-discord-bot/
 │       ├── TimeLog.ts           # 출석 로그 모델
 │       ├── WaketimeChangeLog.ts # 사용자 기상시간 변경 이력 모델
 │       ├── CamStudyUsers.ts     # 캠스터디 참가자 모델
+│       ├── CamStudyActiveSession.ts # 진행 중 캠스터디 세션 모델
 │       ├── CamStudyTimeLog.ts   # 일간 학습 로그 모델
 │       ├── CamStudyWeeklyTimeLog.ts # 주간 학습 로그 모델
 │       ├── ParticipationApplication.ts # 역할 기반 신청 상태 모델
@@ -130,95 +131,107 @@ haruharu-discord-bot/
 
 ### Commands (슬래시 커맨드)
 
+한국어 locale Discord 클라이언트에서는 아래 `한국어 표시명(ko)`로 보인다. 봇 내부 라우팅과 option 조회에는 기존 영어 key를 그대로 사용한다.
+
 #### 기상 챌린지 커맨드
 
-| 커맨드            | 권한   | 설명                                 |
-| ----------------- | ------ | ------------------------------------ |
-| `/register`       | 사용자 | 자신의 현재 월 기상 챌린지 등록/수정 |
-| `/apply-vacation` | 사용자 | 자신의 특정 날짜 휴가 등록           |
-| `/add-vacances`   | 관리자 | 휴가일수 추가                        |
-| `/delete`         | 관리자 | 챌린저 삭제                          |
+| 내부 key          | 한국어 표시명(ko)   | 권한   | 설명                                 |
+| ----------------- | ------------------- | ------ | ------------------------------------ |
+| `/register`       | `/기상등록`         | 사용자 | 자신의 현재 월 기상 챌린지 등록/수정 |
+| `/apply-vacation` | `/휴가신청`         | 사용자 | 자신의 특정 날짜 휴가 등록           |
+| `/add-vacances`   | `/admin-휴가추가`   | 관리자 | 휴가일수 추가                        |
+| `/delete`         | `/admin-챌린저삭제` | 관리자 | 챌린저 삭제                          |
+
+#### 역할 기반 참여 신청 커맨드
+
+| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                     |
+| ---------------------- | ----------------- | ------ | ------------------------ |
+| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 참여 즉시 활성화 |
+| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 즉시 활성화 |
+| `/approve-application` | `/admin-신청승인` | 관리자 | deprecated: 자동 활성화 안내 |
+| `/reject-application`  | `/admin-신청거절` | 관리자 | deprecated: 자동 활성화 안내 |
 
 #### 캠스터디 커맨드
 
-| 커맨드          | 권한   | 설명                                    |
-| --------------- | ------ | --------------------------------------- |
-| `/apply-cam`    | 사용자 | 캠스터디 참여를 즉시 활성화             |
-| `/register-cam` | 관리자 | deprecated: `@cam-study` 역할 부여 안내 |
-| `/delete-cam`   | 관리자 | deprecated: `@cam-study` 역할 회수 안내 |
-
-#### 온보딩/운영 커맨드
-
-| 커맨드                 | 권한   | 설명                              |
-| ---------------------- | ------ | --------------------------------- |
-| `/apply-wakeup`        | 사용자 | 기상인증 참여를 즉시 활성화       |
-| `/approve-application` | 관리자 | deprecated: 자동 활성화 정책 안내 |
-| `/reject-application`  | 관리자 | deprecated: 자동 활성화 정책 안내 |
+| 내부 key        | 한국어 표시명(ko)     | 권한   | 설명          |
+| --------------- | --------------------- | ------ | ------------- |
+| `/register-cam` | `/admin-캠스터디등록` | 관리자 | deprecated: `@cam-study` 역할 부여 안내 |
+| `/delete-cam`   | `/admin-캠스터디삭제` | 관리자 | deprecated: `@cam-study` 역할 회수 안내 |
 
 #### 유틸리티 커맨드
 
-| 커맨드                | 권한   | 설명                                                                   |
-| --------------------- | ------ | ---------------------------------------------------------------------- |
-| `/ping`               | 관리자 | 봇 상태 확인                                                           |
-| `/demo-daily-message` | 관리자 | 테스트 채널에 랜덤 질문이 포함된 daily message + 출석 demo thread 생성 |
+| 내부 key              | 한국어 표시명(ko)      | 권한   | 설명                                                                   |
+| --------------------- | ---------------------- | ------ | ---------------------------------------------------------------------- |
+| `/ping`               | `/admin-상태확인`      | 관리자 | 봇 상태 확인                                                           |
+| `/demo-daily-message` | `/admin-demo-출석생성` | 관리자 | 테스트 채널에 랜덤 질문이 포함된 daily message + 출석 demo thread 생성 |
 
 ---
 
 ### 커맨드 파라미터 상세
 
-#### `/register`
+#### `/register` (`/기상등록`)
 
-| 파라미터 | 필수 | 설명                       |
-| -------- | ---- | -------------------------- |
-| waketime | O    | 기상시간 (HHmm, 0500~0900) |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                       |
+| ------------- | ----------------- | ---- | -------------------------- |
+| waketime      | 기상시간          | O    | 기상시간 (HHmm, 0500~0900) |
 
-#### `/apply-vacation`
+#### `/apply-vacation` (`/휴가신청`)
 
-| 파라미터 | 필수 | 설명                      |
-| -------- | ---- | ------------------------- |
-| date     | O    | 휴가 대상 날짜 (yyyymmdd) |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                      |
+| ------------- | ----------------- | ---- | ------------------------- |
+| date          | 날짜              | O    | 휴가 대상 날짜 (yyyymmdd) |
 
-#### `/add-vacances`
+#### `/apply-wakeup` (`/기상인증신청`)
 
-| 파라미터  | 필수 | 설명                 |
-| --------- | ---- | -------------------- |
-| userid    | O    | Discord 사용자 ID    |
-| yearmonth | O    | 년월 (yyyymm)        |
-| count     | O    | 추가 지급할 휴가일수 |
+- 별도 파라미터 없음
+- `#apply` 채널에서만 실행 가능
 
-#### `/delete`, `/delete-cam`
+#### `/apply-cam` (`/캠스터디신청`)
 
-| 파라미터 | 필수 | 설명                                                |
-| -------- | ---- | --------------------------------------------------- |
-| userid   | X    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
+- 별도 파라미터 없음
+- `#apply` 채널에서만 실행 가능
 
-#### `/register-cam`
+#### `/add-vacances` (`/admin-휴가추가`)
 
-| 파라미터 | 필수 | 설명                                                |
-| -------- | ---- | --------------------------------------------------- |
-| userid   | X    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
-| username | X    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                 |
+| ------------- | ----------------- | ---- | -------------------- |
+| userid        | 사용자id          | O    | Discord 사용자 ID    |
+| yearmonth     | 년월              | O    | 년월 (yyyymm)        |
+| count         | 추가일수          | O    | 추가 지급할 휴가일수 |
 
-#### `/apply-wakeup`, `/apply-cam`
+#### `/approve-application` (`/admin-신청승인`)
 
-| 파라미터 | 필수 | 설명                                         |
-| -------- | ---- | -------------------------------------------- |
-| 없음     | -    | 명령 실행 사용자 자신을 기준으로 즉시 활성화 |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
+| ------------- | ----------------- | ---- | ------------------------------ |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID    |
+| program       | 프로그램          | X    | deprecated 레거시 대상 프로그램 |
 
-#### `/approve-application`
+#### `/reject-application` (`/admin-신청거절`)
 
-| 파라미터 | 필수 | 설명                     |
-| -------- | ---- | ------------------------ |
-| userid   | X    | deprecated 호환용 입력값 |
-| program  | X    | deprecated 호환용 입력값 |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
+| ------------- | ----------------- | ---- | ------------------------------ |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID    |
+| program       | 프로그램          | X    | deprecated 레거시 대상 프로그램 |
+| reason        | 사유              | X    | deprecated 레거시 사유         |
 
-#### `/reject-application`
+#### `/delete` (`/admin-챌린저삭제`)
 
-| 파라미터 | 필수 | 설명                     |
-| -------- | ---- | ------------------------ |
-| userid   | X    | deprecated 호환용 입력값 |
-| program  | X    | deprecated 호환용 입력값 |
-| reason   | X    | deprecated 호환용 입력값 |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
+| ------------- | ----------------- | ---- | ----------------- |
+| userid        | 사용자id          | O    | Discord 사용자 ID |
+
+#### `/delete-cam` (`/admin-캠스터디삭제`)
+
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
+| ------------- | ----------------- | ---- | ------------------------------ |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID    |
+
+#### `/register-cam` (`/admin-캠스터디등록`)
+
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                     |
+| ------------- | ----------------- | ---- | ------------------------ |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID |
+| username      | 이름              | X    | deprecated 레거시 표시 이름 |
 
 ---
 
@@ -226,21 +239,24 @@ haruharu-discord-bot/
 
 #### ready.ts
 
-| 항목   | 내용                                                                                                                                                                                |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                |
-| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성 및 스케줄러 등록 |
+| 항목   | 내용                                                                                                                                                                                                                 |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                 |
+| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
 
 **스케줄러:**
 
 - 운영 daily message/thread 생성: 매일 06:00
 - 기상 챌린지 리포트: 매일 13:00
 - 캠스터디 리포트: 매일 23:59
+- 캠스터디 active session heartbeat: 1분 간격
 
 **구현 메모:**
 
 - 운영 daily message/thread 중복 방지와 재탐색은 `src/daily-attendance.ts`가 담당한다.
 - 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
+- `ClientReady` 직후에는 저장된 `CamStudyActiveSession`과 현재 voice state를 비교해 세션을 복구/종료 정산한다.
+- heartbeat는 `lastobservedat`를 주기적으로 갱신해 재배포 중 종료 이벤트를 놓쳤을 때 손실 범위를 제한한다.
 - 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
 
 #### guildMemberUpdate.ts
@@ -272,7 +288,7 @@ haruharu-discord-bot/
 | ------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `CI`                | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
 | `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                               |
-| `Deploy Production` | `workflow_dispatch`                         | verify 후 OCI 서버에 SSH 배포하고 PM2/ready 로그를 확인                                 |
+| `Deploy Production` | `workflow_dispatch`                         | verify 후 production artifact와 runtime metadata를 만들고 OCI 서버에서 realpath, platform, arch, Node ABI, glibc 호환성 및 staged bundle 검증 뒤 반영한 뒤 PM2/ready 로그를 확인 |
 
 ### Production 배포 흐름
 
@@ -280,11 +296,13 @@ haruharu-discord-bot/
 flowchart TD
   A[workflow_dispatch] --> B[verify job]
   B --> C[lint + prettier + build + test + smoke]
-  C --> D[deploy job]
-  D --> E[SSH deploy to OCI]
-  E --> F[pm2 reload or start]
-  F --> G[pm2 status + ready log check]
-  G --> H[Manual /ping if needed]
+  C --> D[package production artifact + metadata]
+  D --> E[deploy job downloads artifact]
+  E --> F[SSH deploy to OCI]
+  F --> G[validate realpath, platform, arch, Node ABI, glibc]
+  G --> H[staged extract artifact with node_modules + pm2 reload or start]
+  H --> I[pm2 status + ready log check]
+  I --> J[Manual /ping if needed]
 ```
 
 #### interactionCreate.ts
@@ -352,11 +370,17 @@ flowchart TD
 
 #### camStudy.ts
 
-| 항목   | 내용                                                                                                           |
-| ------ | -------------------------------------------------------------------------------------------------------------- |
-| 역할   | 음성 채널 상태 변경을 캠스터디 시작/종료 이벤트로 해석                                                         |
-| 담당   | 입장/퇴장/카메라/화면공유 활성 전이 계산, 최소 인정 시간 검증, 일간 로그 생성/갱신, 상태 전이 구조화 로그 기록 |
-| 호출처 | `src/events/camStudyHandler.ts`                                                                                |
+| 항목   | 내용                                                                                                                                                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 음성 채널 상태 변경을 캠스터디 시작/종료 이벤트로 해석                                                                                                                                 |
+| 담당   | 입장/퇴장/카메라/화면공유 활성 전이 계산, 최소 인정 시간 검증, 일간 로그 생성/갱신, 진행 중 active session 저장, 재기동 시 voice state 기반 복구/종료 정산, 상태 전이 구조화 로그 기록 |
+| 호출처 | `src/events/camStudyHandler.ts`, `src/events/ready.ts`                                                                                                                                 |
+
+비고:
+
+- 진행 중 세션은 `CamStudyActiveSession`에 `(userid, channelid, startedat, lastobservedat)` 형태로 저장한다.
+- 재배포 후 `ready.ts`는 저장된 active session과 현재 음성 채널 상태를 비교해 세션을 유지하거나 마지막 관측 시각 기준으로 종료 정산한다.
+- 종료 이벤트를 놓친 뒤 다음 시작 이벤트가 오면, 남아 있던 active session을 먼저 정리한 뒤 새 세션을 시작한다.
 
 #### camStudyRoleSync.ts
 
@@ -381,7 +405,6 @@ flowchart TD
 | 역할   | self-service 참여 활성화, 역할 부여, deprecated 운영 명령 안내                                                                                                               |
 | 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 신청 즉시 `approved` 반영, 캠스터디 자동 활성화 시 `CamStudyUsers` upsert, 실패 시 role/db rollback |
 | 호출처 | `src/commands/haruharu/apply-wakeup.ts`, `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts` |
-
 #### reporting.ts
 
 | 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -389,6 +412,11 @@ flowchart TD
 | 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                                                                                                                                                                                                                                                                                                                           |
 | 담당   | `Users`/`TimeLog`/`AttendanceLog`/`ParticipationApplication` 등 모델 sync, `AttendanceLog` 단일 원본 기반 기상 챌린지 출석표 생성, 휴가일 결석 제외 처리, 무댓글 사용자 결석 확정, 오늘 상태와 월 누적 `latecount` / `absencecount` / 잔여휴가를 함께 표시하는 결과표 생성, Discord 2000자 제한 초과 시 결과표 분할 전송, 월말 생존 명단 생성, 캠스터디 일일 리포트 생성, 해당 주차 일간 로그 재계산 기반 주간 집계, 스케줄 중복 실행 방지 |
 | 호출처 | `src/events/ready.ts`                                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+비고:
+
+- 캠스터디 리포트는 종료 정산된 `CamStudyTimeLog.totalminutes`만 합산한다.
+- `CamStudyActiveSession`에 남아 있는 진행 중 세션은 리포트 합계에 포함하지 않고, 제외된 사용자 ID를 로그로 남긴다.
 
 ---
 
@@ -399,7 +427,7 @@ flowchart TD
 | 파일                     | 역할                                                                                                         |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | `challengeRepository.ts` | `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
-| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼                              |
+| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼     |
 
 #### Users (기상 챌린지 참가자)
 
@@ -504,6 +532,23 @@ flowchart TD
 - 같은 `userid` 중복 row가 발견되면 upsert 과정에서 최신 이름 기준으로 1건으로 정리한다.
 - 과거 학습 로그(`CamStudyTimeLog`, `CamStudyWeeklyTimeLog`)는 역할 회수 후에도 유지된다.
 
+#### CamStudyActiveSession (진행 중 캠스터디 세션)
+
+| 컬럼           | 타입    | 설명                                       |
+| -------------- | ------- | ------------------------------------------ |
+| id             | INTEGER | PK, Auto Increment                         |
+| userid         | STRING  | Discord 사용자 ID (UNIQUE)                 |
+| username       | STRING  | 표시 이름                                  |
+| channelid      | STRING  | 추적 대상 음성 채널 ID                     |
+| startedat      | STRING  | 세션 시작 시각 타임스탬프                  |
+| lastobservedat | STRING  | 마지막 heartbeat/복구 확인 시각 타임스탬프 |
+
+비고:
+
+- 한 사용자당 최대 1건만 열린 세션을 유지한다.
+- 재배포 중 종료 이벤트를 놓치면 `lastobservedat` 기준으로 종료 정산해 손실 범위를 제한한다.
+- `ready.ts`와 1분 heartbeat가 이 테이블을 복구/정리한다.
+
 #### CamStudyTimeLog (일간 학습 로그)
 
 | 컬럼         | 타입    | 설명                   |
@@ -569,18 +614,19 @@ flowchart TD
 
 #### 상수
 
-| 상수                      | 값                                  | 설명                     |
-| ------------------------- | ----------------------------------- | ------------------------ |
-| `PERMISSION_NUM_ADMIN`    | `PermissionFlagsBits.Administrator` | Discord 관리자 권한 비트 |
-| `LATE_RANGE_TIME`         | 10                                  | 정시 인정 범위 (분)      |
-| `ABSENCE_RANGE_TIME`      | 30                                  | 출석 유효 범위 (분)      |
-| `DEFAULT_VACANCES_COUNT`  | 5                                   | 기본 휴가일수            |
-| `LEAST_TIME_LIMIT`        | 5                                   | 최소 학습 인정 시간 (분) |
-| `PRINT_HOURS_CHALLENGE`   | 13                                  | 기상 챌린지 리포트 시간  |
-| `PRINT_HOURS_CAM_STUDY`   | 23                                  | 캠스터디 리포트 시간     |
-| `PRINT_MINUTES_CAM_STUDY` | 59                                  | 캠스터디 리포트 분       |
-| `ONE_DAY_MILLISECONDS`    | 86400000                            | 일일 스케줄 반복 간격    |
-| `PUBLIC_HOLIDAYS_2026`    | [...]                               | 2026년 한국 공휴일 목록  |
+| 상수                               | 값                                  | 설명                                    |
+| ---------------------------------- | ----------------------------------- | --------------------------------------- |
+| `PERMISSION_NUM_ADMIN`             | `PermissionFlagsBits.Administrator` | Discord 관리자 권한 비트                |
+| `LATE_RANGE_TIME`                  | 10                                  | 정시 인정 범위 (분)                     |
+| `ABSENCE_RANGE_TIME`               | 30                                  | 출석 유효 범위 (분)                     |
+| `DEFAULT_VACANCES_COUNT`           | 5                                   | 기본 휴가일수                           |
+| `LEAST_TIME_LIMIT`                 | 5                                   | 최소 학습 인정 시간 (분)                |
+| `CAM_STUDY_HEARTBEAT_MILLISECONDS` | 60000                               | 진행 중 캠스터디 session heartbeat 간격 |
+| `PRINT_HOURS_CHALLENGE`            | 13                                  | 기상 챌린지 리포트 시간                 |
+| `PRINT_HOURS_CAM_STUDY`            | 23                                  | 캠스터디 리포트 시간                    |
+| `PRINT_MINUTES_CAM_STUDY`          | 59                                  | 캠스터디 리포트 분                      |
+| `ONE_DAY_MILLISECONDS`             | 86400000                            | 일일 스케줄 반복 간격                   |
+| `PUBLIC_HOLIDAYS_2026`             | [...]                               | 2026년 한국 공휴일 목록                 |
 
 ---
 
@@ -619,9 +665,12 @@ flowchart TD
 
 - 사용자 직접 변경 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 수정한다.
 - `/register`는 사용자가 자신의 월별 기상시간을 신규 등록하거나 수정하는 단일 명령이다.
+- `/register`는 Discord 한국어 locale에서 `/기상등록`으로 표시된다.
 - `/register`는 같은 날 두 번째 변경을 거부한다.
 - `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산한다.
-- `/apply-vacation`은 날짜 단위(`yyyymmdd`)로 동작한다.
+- `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 날짜 단위(`yyyymmdd`)로 동작한다.
+- 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.
+- 데모 전용 커맨드는 Discord 한국어 locale에서 `admin-demo-...` 접두어로 표시된다.
 - `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답한다.
 - `/apply-wakeup` 성공 뒤에도 실제 기상 챌린지 참가 데이터는 사용자가 `/register`로 기상시간을 넣어야 완성된다.
 - `/apply-cam` 성공 시 `@cam-study` 역할과 `CamStudyUsers`가 함께 맞춰지고, 이후 역할 변경은 `guildMemberUpdate`가 계속 동기화한다.

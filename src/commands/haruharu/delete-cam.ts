@@ -6,8 +6,17 @@ export const command = {
   data: new SlashCommandBuilder()
     .setName('delete-cam')
     .setDescription('deprecated: remove @cam-study role instead')
+    .setNameLocalizations({ ko: 'admin-캠스터디삭제' })
+    .setDescriptionLocalizations({ ko: 'deprecated: @cam-study 역할 회수로 해제합니다' })
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
-    .addStringOption(option => option.setName('userid').setDescription('set userid').setRequired(false)),
+    .addStringOption(option =>
+      option
+        .setName('userid')
+        .setDescription('set userid')
+        .setNameLocalizations({ ko: '사용자id' })
+        .setDescriptionLocalizations({ ko: 'deprecated 레거시 사용자 ID' })
+        .setRequired(false),
+    ),
 
   async execute(interaction: ChatInputCommandInteraction) {
     await interaction.reply(

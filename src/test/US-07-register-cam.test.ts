@@ -40,6 +40,8 @@ describe('US-07: /register-cam 커맨드', () => {
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
     expect(user).toBeNull();
     expect(interaction.getLastReply()).toContain('@cam-study');
+    expect(command.data.name_localizations?.ko).toBe('admin-캠스터디등록');
+    expect(command.data.description_localizations?.ko).toContain('@cam-study');
   });
 
   it('TC-RC02: 기존 등록 여부와 관계없이 역할 부여 흐름으로 유도한다', async () => {

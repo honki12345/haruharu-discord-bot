@@ -1,4 +1,5 @@
 import {
+  listCamStudyActiveSessions,
   listCamStudyTimeLogs,
   listCamStudyTimeLogsBetween,
   listCamStudyUsers,
@@ -16,6 +17,7 @@ import {
 import { CamStudyTimeLog } from '../repository/CamStudyTimeLog.js';
 import { CamStudyUsers } from '../repository/CamStudyUsers.js';
 import { CamStudyWeeklyTimeLog } from '../repository/CamStudyWeeklyTimeLog.js';
+import { CamStudyActiveSession } from '../repository/CamStudyActiveSession.js';
 import { AttendanceLog } from '../repository/AttendanceLog.js';
 import { ParticipationApplication } from '../repository/ParticipationApplication.js';
 import { TimeLog } from '../repository/TimeLog.js';
@@ -47,6 +49,7 @@ const syncModels = async () => {
   await WaketimeChangeLog.sync();
   await CamStudyUsers.sync();
   await CamStudyTimeLog.sync();
+  await CamStudyActiveSession.sync();
   await CamStudyWeeklyTimeLog.sync();
 };
 
@@ -258,6 +261,12 @@ const buildCamStudyReports = async () => {
   logger.info('print cam_study start');
   const { year, month, date } = getYearMonthDate();
   const yearmonthday = getYearMonthDay(year, month, date);
+  const activeSessions = await listCamStudyActiveSessions();
+  if (activeSessions.length > 0) {
+    logger.info('Skipping active cam study sessions from report totals', {
+      activeSessionUserIds: activeSessions.map(activeSession => activeSession.userid),
+    });
+  }
   const camStudyUsers = await listCamStudyUsers();
   const camStudyTimelogs = await listCamStudyTimeLogs(yearmonthday);
   const camStudyTimeLogMap = new Map(camStudyTimelogs.map(timelog => [timelog.userid, timelog]));

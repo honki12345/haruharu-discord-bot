@@ -1,4 +1,5 @@
-import { Op } from 'sequelize';
+import { CamStudyActiveSession } from './CamStudyActiveSession.js';
+import { Op, UniqueConstraintError } from 'sequelize';
 import { CamStudyTimeLog } from './CamStudyTimeLog.js';
 import { CamStudyUsers } from './CamStudyUsers.js';
 import { CamStudyWeeklyTimeLog } from './CamStudyWeeklyTimeLog.js';
@@ -74,6 +75,88 @@ const upsertCamStudyUser = async (payload: { userid: string; username: string })
 const removeCamStudyUser = (userid: string) =>
   withCamStudyUserMutationLock(userid, () => CamStudyUsers.destroy({ where: { userid } }));
 
+const findCamStudyActiveSession = (userid: string) => CamStudyActiveSession.findOne({ where: { userid } });
+
+const listCamStudyActiveSessions = () => CamStudyActiveSession.findAll();
+
+const createCamStudyActiveSession = (payload: {
+  userid: string;
+  username: string;
+  channelid: string;
+  startedat: string;
+  lastobservedat: string;
+}) => CamStudyActiveSession.create(payload);
+
+const createOrRefreshCamStudyActiveSession = async (payload: {
+  userid: string;
+  username: string;
+  channelid: string;
+  startedat: string;
+  lastobservedat: string;
+}) => {
+  const mergePayload = (
+    existing: Pick<CamStudyActiveSession, 'startedat' | 'lastobservedat'>,
+    incoming: Pick<CamStudyActiveSession, 'startedat' | 'lastobservedat'>,
+  ) => ({
+    startedat: Math.min(Number(existing.startedat), Number(incoming.startedat)).toString(),
+    lastobservedat: Math.max(Number(existing.lastobservedat), Number(incoming.lastobservedat)).toString(),
+  });
+
+  const existing = await findCamStudyActiveSession(payload.userid);
+  if (existing) {
+    const merged = mergePayload(existing, payload);
+    await updateCamStudyActiveSession(payload.userid, {
+      channelid: payload.channelid,
+      lastobservedat: merged.lastobservedat,
+      startedat: merged.startedat,
+      username: payload.username,
+    });
+    return merged;
+  }
+
+  try {
+    await createCamStudyActiveSession(payload);
+    return {
+      startedat: payload.startedat,
+      lastobservedat: payload.lastobservedat,
+    };
+  } catch (error) {
+    if (!(error instanceof UniqueConstraintError)) {
+      throw error;
+    }
+
+    const concurrent = await findCamStudyActiveSession(payload.userid);
+    if (!concurrent) {
+      throw error;
+    }
+
+    const merged = mergePayload(concurrent, payload);
+    await updateCamStudyActiveSession(payload.userid, {
+      channelid: payload.channelid,
+      lastobservedat: merged.lastobservedat,
+      startedat: merged.startedat,
+      username: payload.username,
+    });
+    return merged;
+  }
+};
+
+const updateCamStudyActiveSession = (
+  userid: string,
+  values: Partial<Pick<CamStudyActiveSession, 'channelid' | 'startedat' | 'lastobservedat' | 'username'>>,
+) => CamStudyActiveSession.update(values, { where: { userid } });
+
+const deleteCamStudyActiveSession = (userid: string) => CamStudyActiveSession.destroy({ where: { userid } });
+
+const deleteCamStudyActiveSessionMatching = (payload: { userid: string; startedat: string; lastobservedat: string }) =>
+  CamStudyActiveSession.destroy({
+    where: {
+      lastobservedat: payload.lastobservedat,
+      startedat: payload.startedat,
+      userid: payload.userid,
+    },
+  });
+
 const findCamStudyTimeLog = (userid: string, yearmonthday: string) =>
   CamStudyTimeLog.findOne({ where: { userid, yearmonthday } });
 
@@ -144,11 +227,17 @@ const replaceWeeklyCamStudyTimeLogs = async (
 };
 
 export {
+  createCamStudyActiveSession,
+  createOrRefreshCamStudyActiveSession,
   createCamStudyTimeLog,
   createWeeklyCamStudyTimeLog,
+  deleteCamStudyActiveSession,
+  deleteCamStudyActiveSessionMatching,
+  findCamStudyActiveSession,
   findCamStudyTimeLog,
   findCamStudyUser,
   findWeeklyCamStudyTimeLog,
+  listCamStudyActiveSessions,
   listCamStudyTimeLogs,
   listCamStudyTimeLogsBetween,
   listCamStudyUsers,
@@ -156,6 +245,7 @@ export {
   removeCamStudyUser,
   replaceWeeklyCamStudyTimeLogs,
   upsertCamStudyUser,
+  updateCamStudyActiveSession,
   updateCamStudyTimeLog,
   updateWeeklyCamStudyTimeLog,
 };

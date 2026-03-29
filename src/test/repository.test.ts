@@ -8,6 +8,7 @@ import {
   TestTimeLog,
   TestAttendanceLog,
   TestCamStudyUsers,
+  TestCamStudyActiveSession,
   TestCamStudyTimeLog,
   TestCamStudyWeeklyTimeLog,
 } from './test-setup.js';
@@ -736,6 +737,38 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
   describe('DB 연결 상태', () => {
     it('인메모리 DB 연결이 정상이다', async () => {
       await expect(testSequelize.authenticate()).resolves.not.toThrow();
+    });
+  });
+
+  describe('CamStudyActiveSession 저장', () => {
+    it('동일 userid active session 이 이미 있어도 idempotent 하게 갱신할 수 있다', async () => {
+      await TestCamStudyActiveSession.create({
+        userid: 'user1',
+        username: '홍길동',
+        channelid: 'voice-1',
+        startedat: '1000',
+        lastobservedat: '1000',
+      });
+
+      const { createOrRefreshCamStudyActiveSession } = await import('../repository/camStudyRepository.js');
+
+      await expect(
+        createOrRefreshCamStudyActiveSession({
+          userid: 'user1',
+          username: '홍길동',
+          channelid: 'voice-1',
+          startedat: '1100',
+          lastobservedat: '1200',
+        }),
+      ).resolves.not.toThrow();
+
+      const activeSessions = await TestCamStudyActiveSession.findAll({
+        where: { userid: 'user1' },
+      });
+
+      expect(activeSessions).toHaveLength(1);
+      expect(activeSessions[0]?.startedat).toBe('1000');
+      expect(activeSessions[0]?.lastobservedat).toBe('1200');
     });
   });
 

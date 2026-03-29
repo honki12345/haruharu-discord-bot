@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       verified_sha: ${{ steps.resolve-sha.outputs.verified_sha }}
+      artifact_name: ${{ steps.package-artifact.outputs.artifact_name }}
+      artifact_filename: ${{ steps.package-artifact.outputs.artifact_filename }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,6 +54,46 @@ jobs:
       - name: Run bot boot smoke test
         run: npm run test:smoke
 
+      - name: Prune dev dependencies for production artifact
+        run: npm prune --omit=dev
+
+      - name: Package production artifact
+        id: package-artifact
+        run: |
+          artifact_name="haruharu-production-${{ steps.resolve-sha.outputs.verified_sha }}"
+          artifact_filename="${artifact_name}.tar.gz"
+          artifact_dir="production-artifacts"
+          artifact_root="${artifact_dir}/bundle"
+          artifact_path="${artifact_dir}/${artifact_filename}"
+
+          rm -rf "${artifact_dir}"
+          mkdir -p "${artifact_root}"
+          cp package.json package-lock.json "${artifact_root}/"
+          cp -R dist node_modules "${artifact_root}/"
+          node - <<'EOF' > "${artifact_root}/artifact-metadata.json"
+          const report = process.report?.getReport?.();
+          const metadata = {
+            nodeVersion: process.version,
+            nodeModuleVersion: process.versions.modules,
+            platform: process.platform,
+            arch: process.arch,
+            glibcVersionRuntime: report?.header?.glibcVersionRuntime ?? null,
+          };
+          process.stdout.write(`${JSON.stringify(metadata, null, 2)}\n`);
+          EOF
+          tar -czf "${artifact_path}" -C "${artifact_root}" .
+
+          echo "artifact_name=${artifact_name}" >> "$GITHUB_OUTPUT"
+          echo "artifact_filename=${artifact_filename}" >> "$GITHUB_OUTPUT"
+          echo "artifact_path=${artifact_path}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload production artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package-artifact.outputs.artifact_name }}
+          path: ${{ steps.package-artifact.outputs.artifact_path }}
+          if-no-files-found: error
+
   deploy:
     runs-on: ubuntu-latest
     needs: verify
@@ -60,12 +102,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.verify.outputs.verified_sha }}
+
+      - name: Download production artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.verify.outputs.artifact_name }}
+          path: production-artifacts
 
       - name: Deploy to OCI via SSH
         run: ./scripts/deploy-production.sh
         env:
           PRODUCTION_GIT_SHA: ${{ needs.verify.outputs.verified_sha }}
+          PRODUCTION_ARTIFACT_PATH: production-artifacts/${{ needs.verify.outputs.artifact_filename }}
           PRODUCTION_SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
           PRODUCTION_SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
           PRODUCTION_SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
