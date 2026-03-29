@@ -164,6 +164,8 @@ describe('US-15 production delivery workflow', () => {
     const workflow = readRepositoryFile('.github/workflows/ci.yml');
     const integrationJobBlock = getWorkflowJobBlock(workflow, 'integration-test');
 
+    expect(integrationJobBlock).toContain('concurrency:');
+    expect(integrationJobBlock).toContain('cancel-in-progress: false');
     expect(integrationJobBlock).toContain("github.event_name == 'pull_request'");
     expect(integrationJobBlock).toContain('github.event.pull_request.head.repo.full_name == github.repository');
     expect(integrationJobBlock).toContain("github.actor != 'dependabot[bot]'");

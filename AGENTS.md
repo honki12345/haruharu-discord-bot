@@ -160,7 +160,7 @@
 - 이슈 템플릿은 현재 저장소 문맥에 맞는 예시와 완료 조건을 유지한다.
 - 구현 이슈 템플릿에는 최소한 `완료조건`, `검증항목`, `회귀 테스트 계획`, `구현 계획`이 있어야 한다.
 - workflow는 역할을 분리한다.
-  - `ci.yml`: lint / prettier / unit test / smoke test / integration test. integration test는 같은 저장소 PR(`dependabot[bot]` 제외), `main` push, `workflow_dispatch`에서만 실행하고, 실행 전 테스트용 `config.json` 생성 + slash command sync를 선행한다.
+  - `ci.yml`: lint / prettier / unit test / smoke test / integration test. integration test는 같은 저장소 PR(`dependabot[bot]` 제외), `main` push, `workflow_dispatch`에서만 실행하고, 실행 전 테스트용 `config.json` 생성 + slash command sync를 선행한다. 같은 테스트 길드를 쓰는 실행은 `concurrency`로 직렬화한다.
   - `dependency-review.yml`: 의존성 변경 PR 리뷰
   - `deploy-production.yml`: `ubuntu-22.04` + Node.js 24 verify 뒤 production artifact와 runtime metadata를 만들고 서버 호환성 검증 후 반영한 뒤 readiness 확인
 
