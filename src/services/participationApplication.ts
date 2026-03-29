@@ -117,10 +117,6 @@ const submitParticipationApplication = async (
     where: { userid, program },
   });
 
-  if (existingApplication?.status === 'approved') {
-    return buildApprovedReply(label);
-  }
-
   const guild = interaction.guild;
   if (!guild) {
     return {
@@ -142,6 +138,14 @@ const submitParticipationApplication = async (
   }
 
   const hadRoleBeforeActivation = member.roles.cache?.has(roleId) ?? false;
+
+  if (existingApplication?.status === 'approved' && hadRoleBeforeActivation) {
+    if (program === 'cam-study') {
+      await upsertCamStudyUser({ userid, username });
+    }
+
+    return buildApprovedReply(label);
+  }
 
   if (!hadRoleBeforeActivation) {
     try {

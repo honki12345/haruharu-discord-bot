@@ -75,7 +75,7 @@ const processCamStudyStateChange = async (
   const timestampNowString = Date.now().toString();
   const timelog = await findCamStudyTimeLog(newState.userId, today);
   const user = await findCamStudyUser(newState.userId);
-  const shouldRemoveUserAfterEnd = newState.hasCamStudyRole === false;
+  const shouldRemoveUserAfterEnd = oldState.hasCamStudyRole === false || newState.hasCamStudyRole === false;
 
   if (!user) {
     if (transition.userEnteredConfiguredChannel) {

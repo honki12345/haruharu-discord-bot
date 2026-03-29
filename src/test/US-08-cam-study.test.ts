@@ -266,6 +266,44 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       expect(user).toBeNull();
     });
 
+    it('종료 시점 역할 상태가 null이어도 직전 상태가 revoke면 CamStudyUsers에서 정리된다', async () => {
+      const startTime = new Date('2025-12-07T10:00:00').getTime();
+      await TestCamStudyTimeLog.create({
+        userid: 'test-user-id',
+        username: '테스트유저',
+        yearmonthday: '20251207',
+        timestamp: startTime.toString(),
+        totalminutes: 0,
+      });
+
+      vi.setSystemTime(new Date('2025-12-07T10:30:00'));
+
+      const { processCamStudyStateChange } = await import('../services/camStudy.js');
+      const result = await processCamStudyStateChange(
+        {
+          channelId: 'valid-voice-channel-id',
+          hasCamStudyRole: false,
+          streaming: true,
+          selfVideo: false,
+          userId: 'test-user-id',
+        },
+        {
+          channelId: 'valid-voice-channel-id',
+          hasCamStudyRole: null,
+          streaming: false,
+          selfVideo: false,
+          userId: 'test-user-id',
+        },
+        'valid-voice-channel-id',
+      );
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
+      expect(log?.totalminutes).toBe(30);
+      const user = await TestCamStudyUsers.findOne({ where: { userid: 'test-user-id' } });
+      expect(user).toBeNull();
+      expect(result?.message).toContain('study end');
+    });
+
     it('CamStudyUsers에 없는 사용자는 stale timelog만으로 종료 적립을 만들 수 없다', async () => {
       const startTime = new Date('2025-12-07T10:00:00').getTime();
       await TestCamStudyTimeLog.create({
