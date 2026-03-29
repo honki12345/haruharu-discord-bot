@@ -181,15 +181,20 @@ const approveParticipationApplication = async (
   }
 
   try {
-    await ParticipationApplication.update(
+    const [affectedRows] = await ParticipationApplication.update(
       {
         status: 'approved',
         reason: null,
       },
       {
-        where: { userid, program },
+        where: { userid, program, status: 'pending' },
       },
     );
+
+    if (affectedRows === 0) {
+      await member.roles.remove(roleId);
+      return `${PROGRAM_METADATA[program].label} 대기 신청이 없어요.`;
+    }
   } catch (error) {
     logger.error('failed to update participation status to approved', { error, userid, program });
     try {

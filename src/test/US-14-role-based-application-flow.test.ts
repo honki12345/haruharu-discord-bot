@@ -455,6 +455,55 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
     expect(interaction.getLastReply()).toContain('승인 처리 중 오류');
   });
 
+  it('TC-RA13: /approve-application은 pending 조건 업데이트가 실패하면 역할을 롤백하고 성공으로 응답하지 않는다', async () => {
+    applications.set('test-user-id:wake-up', {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'wake-up',
+      status: 'pending',
+      reason: null,
+    });
+    ParticipationApplication.update.mockResolvedValueOnce([0]);
+
+    const notifyApplicant = vi.fn();
+    const applicantMember = {
+      roles: {
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: notifyApplicant,
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-ops-channel-id',
+      options: {
+        userid: 'test-user-id',
+        program: 'wake-up',
+      },
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+      client: {
+        channels: {
+          fetch: vi.fn(),
+        },
+        users: {
+          fetch: vi.fn().mockResolvedValue({
+            send: notifyApplicant,
+          }),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/approve-application.js');
+    await command.execute(interaction as never);
+
+    expect(applicantMember.roles.remove).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(notifyApplicant).not.toHaveBeenCalled();
+    expect(interaction.getLastReply()).toContain('대기 신청이 없어요');
+  });
+
   it('TC-RA04: /reject-application은 pending 신청을 거절하고 재신청 안내를 보낸다', async () => {
     applications.set('test-user-id:cam-study', {
       userid: 'test-user-id',
