@@ -277,11 +277,11 @@ haruharu-discord-bot/
 
 ### GitHub Actions
 
-| Workflow            | 트리거                                      | 역할                                                                                                                                                                                                         |
-| ------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CI`                | `push`, `pull_request`, `workflow_dispatch` | `ubuntu-22.04` + Node.js 24에서 lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test                                                                                      |
-| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                                                                                                                                                    |
-| `Deploy Production` | `workflow_dispatch`                         | `ubuntu-22.04` + Node.js 24 verify 후 production artifact와 runtime metadata를 만들고 OCI 서버에서 realpath, platform, arch, Node ABI, glibc 호환성 및 staged bundle 검증 뒤 반영한 뒤 PM2/ready 로그를 확인 |
+| Workflow            | 트리거                                      | 역할                                                                                                                                                                                                               |
+| ------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CI`                | `push`, `pull_request`, `workflow_dispatch` | `ubuntu-22.04` + Node.js 24에서 lint, prettier, unit test, bot boot smoke test를 실행하고, 같은 저장소 PR(main 대상, Dependabot 제외)/main push/manual 실행에서는 integration test 전에 테스트용 `config.json`과 slash command sync를 준비한다 |
+| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                                                                                                                                                          |
+| `Deploy Production` | `workflow_dispatch`                         | `ubuntu-22.04` + Node.js 24 verify 후 production artifact와 runtime metadata를 만들고 OCI 서버에서 realpath, platform, arch, Node ABI, glibc 호환성 및 staged bundle 검증 뒤 반영한 뒤 PM2/ready 로그를 확인       |
 
 ### Production 배포 흐름
 
@@ -300,6 +300,8 @@ flowchart TD
 
 - `scripts/verify-production-readiness.sh`는 `runtime/production-deployment-metadata.env`를 읽어 직전 배포가 본 info 로그 파일과 바이트 오프셋을 복원한다.
 - 같은 일별 info 로그 파일을 재사용하면 이전 오프셋 뒤에서만 `Ready! Logged in as`를 찾고, 새 일별 info 로그 파일이 생기면 새 파일 전체를 검사한다.
+- `CI`의 integration-test job은 같은 저장소 PR(`dependabot[bot]` 제외), `main` push, `workflow_dispatch`에서만 실행되고, 실행 전에 `scripts/write-integration-config.mjs`로 테스트용 `config.json`을 만든 뒤 `npm run deploy:commands`로 길드 slash command를 현재 코드 기준으로 전체 교체한다.
+- integration-test job은 같은 `TEST_GUILD_ID`를 쓰는 실행끼리 `concurrency`로 직렬화해서, 여러 PR이 동시에 같은 테스트 길드 command set을 덮어쓰며 flaky failure를 만드는 상황을 막는다.
 
 #### interactionCreate.ts
 
