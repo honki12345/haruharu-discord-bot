@@ -3,7 +3,15 @@ import './test-setup.js';
 import { logger } from '../logger.js';
 import { buildChallengeReport, scheduleDailyReports, syncModels } from '../services/reporting.js';
 import { ONE_DAY_MILLISECONDS } from '../utils.js';
-import { TestAttendanceLog, TestTimeLog, TestUsers, clearAllTables, testSequelize } from './test-setup.js';
+import {
+  TestAttendanceLog,
+  TestTimeLog,
+  TestUsers,
+  TestVacationLog,
+  TestWaketimeChangeLog,
+  clearAllTables,
+  testSequelize,
+} from './test-setup.js';
 
 describe('reporting service', () => {
   beforeEach(async () => {
@@ -20,7 +28,7 @@ describe('reporting service', () => {
     attendanceMessage: string | null,
     expectation: {
       username: string;
-      todayStatus: '출석' | '지각' | '결석';
+      todayStatus: '출석' | '지각' | '결석' | '휴가';
       latecount: number;
       absencecount: number;
       remainingVacances: number;
@@ -141,7 +149,7 @@ describe('reporting service', () => {
       todayStatus: '결석',
       latecount: 0,
       absencecount: 1,
-      remainingVacances: 4,
+      remainingVacances: 5,
     });
   });
 
@@ -224,7 +232,7 @@ describe('reporting service', () => {
       todayStatus: '결석',
       latecount: 0,
       absencecount: 1,
-      remainingVacances: 4,
+      remainingVacances: 5,
     });
   });
 
@@ -260,7 +268,7 @@ describe('reporting service', () => {
       todayStatus: '결석',
       latecount: 0,
       absencecount: 1,
-      remainingVacances: 4,
+      remainingVacances: 5,
     });
     expect(attendanceMessage).not.toContain('NaN');
   });
@@ -287,7 +295,7 @@ describe('reporting service', () => {
       todayStatus: '결석',
       latecount: 0,
       absencecount: 1,
-      remainingVacances: 4,
+      remainingVacances: 5,
     });
   });
 
@@ -316,6 +324,38 @@ describe('reporting service', () => {
       remainingVacances: 0,
     });
     expect(hallOfFameMessage).not.toContain('홍길동');
+  });
+
+  it('휴가 등록된 날짜는 결석으로 카운트하지 않고 휴가로 표시한다', async () => {
+    vi.setSystemTime(new Date('2025-12-08T13:00:00'));
+
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    await TestVacationLog.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonthday: '20251208',
+    });
+
+    const { attendanceMessage } = await buildChallengeReport();
+    const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+
+    expect(updatedUser?.absencecount).toBe(0);
+    expectMonthlyStatus(attendanceMessage, {
+      username: '홍길동',
+      todayStatus: '휴가',
+      latecount: 0,
+      absencecount: 0,
+      remainingVacances: 4,
+    });
   });
 
   it('주말에는 출석 집계를 건너뛰고 카운트를 변경하지 않는다', async () => {
@@ -390,11 +430,15 @@ describe('reporting service', () => {
     expect(logger.warn).toHaveBeenCalledWith('Skipping challenge report run because previous run is still in progress');
   });
 
-  it('syncModels는 AttendanceLog 모델도 함께 동기화한다', async () => {
+  it('syncModels는 self-service 관련 모델도 함께 동기화한다', async () => {
     const attendanceLogSyncSpy = vi.spyOn(TestAttendanceLog, 'sync').mockResolvedValue(TestAttendanceLog);
+    const vacationLogSyncSpy = vi.spyOn(TestVacationLog, 'sync').mockResolvedValue(TestVacationLog);
+    const waketimeChangeLogSyncSpy = vi.spyOn(TestWaketimeChangeLog, 'sync').mockResolvedValue(TestWaketimeChangeLog);
 
     await syncModels();
 
     expect(attendanceLogSyncSpy).toHaveBeenCalledTimes(1);
+    expect(vacationLogSyncSpy).toHaveBeenCalledTimes(1);
+    expect(waketimeChangeLogSyncSpy).toHaveBeenCalledTimes(1);
   });
 });

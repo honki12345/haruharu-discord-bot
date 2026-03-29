@@ -32,7 +32,7 @@ const expectMonthlyStatus = (
   attendanceMessage: string | null,
   expectation: {
     username: string;
-    todayStatus: '출석' | '지각' | '결석';
+    todayStatus: '출석' | '지각' | '결석' | '휴가';
     latecount: number;
     absencecount: number;
     remainingVacances: number;
@@ -137,7 +137,7 @@ describe('US-05: 일일 출석 리포트', () => {
         todayStatus: '결석',
         latecount: 0,
         absencecount: 1,
-        remainingVacances: 4,
+        remainingVacances: 5,
       });
       expect(updated?.absencecount).toBe(1);
     });
