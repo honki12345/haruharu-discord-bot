@@ -184,6 +184,7 @@ haruharu-discord-bot/
 
 비고:
 
+- 저장/응답에 사용할 이름은 Discord 서버 display name을 우선 사용하고, 없으면 `globalName`, 그것도 없으면 `username`으로 fallback 한다.
 - `WakeUpMembership`를 생성 또는 재활성화하고, 현재 월 `Users` 스냅샷이 없으면 자동 생성한다.
 - 같은 달에 `/stop-wakeup`으로 중단한 사용자는 다음 달부터 다시 등록할 수 있다.
 - 같은 날 두 번째 변경은 `WaketimeChangeLog`로 거부한다.
