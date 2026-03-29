@@ -188,6 +188,7 @@ haruharu-discord-bot/
 
 - 저장/응답에 사용할 이름은 Discord 서버 display name을 우선 사용하고, 없으면 `globalName`, 그것도 없으면 `username`으로 fallback 한다.
 - `WakeUpMembership`를 생성 또는 재활성화하고, 현재 월 `Users` 스냅샷이 없으면 자동 생성한다.
+- 성공 시 `@wake-up` 역할도 함께 부여하고, 역할 부여 실패 시 DB 변경은 남기지 않는다.
 - 같은 달에 `/stop-wakeup`으로 중단한 사용자는 다음 달부터 다시 등록할 수 있다.
 - 같은 날 두 번째 변경은 `WaketimeChangeLog`로 거부한다.
 - `#start-here`, `#time-start-here`에서만 실행 가능하다.
@@ -199,6 +200,7 @@ haruharu-discord-bot/
 - 현재 월 `Users` 스냅샷을 제거하고 같은 달 exclusion 을 기록해 현재 월 참여를 즉시 중단한다.
 - 같은 달에는 `/register`로 다시 참여할 수 없고, 다음 달부터 다시 등록할 수 있다.
 - `WakeUpMembership` 이 아직 없고 latest `Users` 스냅샷만 있는 legacy 참가자도 backfill 후 중단 처리한다.
+- 성공 시 `@wake-up` 역할도 함께 회수하고, 역할 회수 실패 시 `WakeUpMembership.status`는 유지된다.
 - `#start-here`, `#time-start-here`에서만 실행 가능하다.
 - 응답은 사용자에게만 보이는 `ephemeral`로 반환하고, 결과는 `testChannelId`에도 남긴다.
 
@@ -407,11 +409,11 @@ flowchart TD
 
 #### challengeSelfService.ts
 
-| 항목   | 내용                                                                                                                                                                                                                                                                                                      |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                                                                                                                           |
-| 담당   | `WakeUpMembership` 생성/재활성화/중단, latest `Users` 기반 membership backfill, legacy 참가자의 `/stop-wakeup` 중단 처리, `/stop-wakeup` 현재 월 exclusion 기록과 스냅샷 제거, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 같은 달 `/stop-wakeup` 재등록 차단, 현재 월 `Users` 스냅샷 생성, 현재 월 휴가 날짜 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
-| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                                                                                                                                    |
+| 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 담당   | `WakeUpMembership` 생성/재활성화/중단, `/register` 성공 시 `@wake-up` 역할 부여, `/stop-wakeup` 성공 시 `@wake-up` 역할 회수, 역할 실패 시 DB 상태 보호, latest `Users` 기반 membership backfill, legacy 참가자의 `/stop-wakeup` 중단 처리, `/stop-wakeup` 현재 월 exclusion 기록과 스냅샷 제거, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 같은 달 `/stop-wakeup` 재등록 차단, 현재 월 `Users` 스냅샷 생성, 현재 월 휴가 날짜 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                                                                                                                                                                                                                                                                                                                                               |
 
 #### participationApplication.ts
 
@@ -731,10 +733,12 @@ flowchart TD
 - `/register`는 Discord 한국어 locale에서 `/기상등록`으로 표시된다.
 - `/register`는 같은 날 두 번째 변경을 거부한다.
 - `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산하고 현재 월 `Users` 스냅샷을 보장한다.
+- `/register` 성공 시 `wakeUpRoleId` 설정값으로 `@wake-up` 역할을 부여하고, 역할 부여 실패 시 등록을 롤백한다.
 - `/register`는 같은 달 `/stop-wakeup`으로 중단한 사용자의 재등록을 거부하고 다음 달부터 다시 시작하게 한다.
 - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`, `#time-start-here`에서만 실행된다.
 - `/register`, `/stop-wakeup`, `/apply-vacation` 응답은 사용자에게만 보이는 `ephemeral`로 처리되고, 같은 결과를 `testChannelId`에도 남긴다.
 - `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 현재 월 참여를 즉시 중단하고 같은 달 재등록을 막는다.
+- `/stop-wakeup` 성공 시 `wakeUpRoleId` 설정값으로 `@wake-up` 역할을 회수하고, 역할 회수 실패 시 membership 상태를 유지한다.
 - `/delete`는 지정한 `(userid, yearmonth)`를 exclusion 으로 기록해 같은 달 자동 스냅샷 생성이 사용자를 다시 만들지 않게 한다.
 - `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 현재 월 날짜 단위(`yyyymmdd`)로 동작한다.
 - 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.

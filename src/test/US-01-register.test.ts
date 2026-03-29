@@ -253,4 +253,122 @@ describe('US-01: /register 커맨드', () => {
     expect(membership?.username).toBe('raw-서버닉네임');
     expect(interaction.getLastReply()).toContain('raw-서버닉네임님');
   });
+
+  it('TC-R09: /register 성공 시 @wake-up 역할이 부여된다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'wake-role-user',
+      globalName: '역할사용자',
+      options: {
+        waketime: '0710',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'wake-role-user' } });
+
+    expect(interaction.member.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(membership?.status).toBe('active');
+    expect(interaction.getLastReply()).toContain('등록했습니다');
+  });
+
+  it('TC-R10: @wake-up 역할 부여 실패 시 등록을 중단하고 DB를 변경하지 않는다', async () => {
+    const member = {
+      roles: {
+        add: vi.fn().mockRejectedValue(new Error('role add failed')),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      userId: 'role-fail-user',
+      globalName: '실패사용자',
+      options: {
+        waketime: '0720',
+      },
+      member,
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'role-fail-user' } });
+    const user = await TestUsers.findOne({ where: { userid: 'role-fail-user', yearmonth: '202512' } });
+    const changeLog = await TestWaketimeChangeLog.findOne({
+      where: { userid: 'role-fail-user', yearmonthday: '20251207' },
+    });
+
+    expect(member.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(member.roles.remove).not.toHaveBeenCalled();
+    expect(membership).toBeNull();
+    expect(user).toBeNull();
+    expect(changeLog).toBeNull();
+    expect(interaction.getLastReply()).toContain('역할');
+  });
+
+  it('TC-R11: 기존 @wake-up 역할이 있던 사용자는 register rollback 시 역할을 잃지 않는다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'existing-role-user',
+      username: '기존역할사용자',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+    });
+    await TestUsers.create({
+      userid: 'existing-role-user',
+      username: '기존역할사용자',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    const changeLogCreateSpy = vi
+      .spyOn(TestWaketimeChangeLog, 'create')
+      .mockRejectedValueOnce(new Error('change log write failed'));
+
+    const member = {
+      roles: {
+        cache: {
+          has: vi.fn().mockReturnValue(true),
+        },
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const guild = {
+      members: {
+        fetch: vi.fn().mockResolvedValue(member),
+      },
+    };
+
+    const { executeRegisterWithRoleSync } = await import('../services/challengeSelfService.js');
+
+    await expect(
+      executeRegisterWithRoleSync({
+        userId: 'existing-role-user',
+        username: '기존역할사용자',
+        waketime: '0715',
+        guild: guild as never,
+      }),
+    ).rejects.toThrow('change log write failed');
+
+    changeLogCreateSpy.mockRestore();
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'existing-role-user' } });
+    const user = await TestUsers.findOne({ where: { userid: 'existing-role-user', yearmonth: '202512' } });
+    const changeLog = await TestWaketimeChangeLog.findOne({
+      where: { userid: 'existing-role-user', yearmonthday: '20251207' },
+    });
+
+    expect(member.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(member.roles.remove).not.toHaveBeenCalled();
+    expect(membership?.status).toBe('active');
+    expect(membership?.waketime).toBe('0700');
+    expect(user?.waketime).toBe('0700');
+    expect(changeLog).toBeNull();
+  });
 });

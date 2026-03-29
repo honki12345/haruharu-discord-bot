@@ -12,11 +12,12 @@ export const command = {
     .setNameLocalizations({ ko: '기상중단' })
     .setDescriptionLocalizations({ ko: '기상스터디 참여를 중단합니다' }),
   async execute(interaction: ChatInputCommandInteraction) {
-    const { executeStopWakeUp } = await import('../../services/challengeSelfService.js');
+    const { executeStopWakeUpWithRoleSync } = await import('../../services/challengeSelfService.js');
 
     try {
-      const result = await executeStopWakeUp({
+      const result = await executeStopWakeUpWithRoleSync({
         userId: interaction.user.id,
+        guild: interaction.guild,
       });
       await replyWithEphemeralAudit({
         commandName: command.data.name,

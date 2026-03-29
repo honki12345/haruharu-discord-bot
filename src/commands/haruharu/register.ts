@@ -42,13 +42,14 @@ export const command = {
     const username = resolveRegisterUsername(interaction);
     logger.info(`register 명령행에 입력한 값: userid: ${userId}, waketime: ${waketime}`);
 
-    const { executeRegister } = await import('../../services/challengeSelfService.js');
+    const { executeRegisterWithRoleSync } = await import('../../services/challengeSelfService.js');
 
     try {
-      const result = await executeRegister({
+      const result = await executeRegisterWithRoleSync({
         userId,
         username,
         waketime,
+        guild: interaction.guild,
       });
       await replyWithEphemeralAudit({
         commandName: command.data.name,

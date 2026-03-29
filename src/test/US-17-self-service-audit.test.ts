@@ -23,7 +23,7 @@ describe('US-17: self-service 응답/운영 로그', () => {
       commandModulePath: '../commands/haruharu/register.js' as const,
       mockModulePath: '../services/challengeSelfService.js',
       mockFactory: () => ({
-        executeRegister: vi
+        executeRegisterWithRoleSync: vi
           .fn()
           .mockResolvedValue({ reply: '홍길동님 기상시간을 등록했습니다. 기준월: 202603, 기상시간: 0800' }),
       }),
@@ -35,7 +35,7 @@ describe('US-17: self-service 응답/운영 로그', () => {
       commandModulePath: '../commands/haruharu/register.js' as const,
       mockModulePath: '../services/challengeSelfService.js',
       mockFactory: () => ({
-        executeRegister: vi
+        executeRegisterWithRoleSync: vi
           .fn()
           .mockResolvedValue({ reply: '기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요' }),
       }),
@@ -47,7 +47,7 @@ describe('US-17: self-service 응답/운영 로그', () => {
       commandModulePath: '../commands/haruharu/stop-wakeup.js' as const,
       mockModulePath: '../services/challengeSelfService.js',
       mockFactory: () => ({
-        executeStopWakeUp: vi.fn().mockResolvedValue({
+        executeStopWakeUpWithRoleSync: vi.fn().mockResolvedValue({
           reply: '기상스터디 참여를 중단했습니다. 현재 월 기록은 유지되고 다음 달부터 자동 등록되지 않습니다',
         }),
       }),
@@ -59,7 +59,9 @@ describe('US-17: self-service 응답/운영 로그', () => {
       commandModulePath: '../commands/haruharu/stop-wakeup.js' as const,
       mockModulePath: '../services/challengeSelfService.js',
       mockFactory: () => ({
-        executeStopWakeUp: vi.fn().mockResolvedValue({ reply: '현재 진행 중인 기상스터디 참여가 없습니다' }),
+        executeStopWakeUpWithRoleSync: vi
+          .fn()
+          .mockResolvedValue({ reply: '현재 진행 중인 기상스터디 참여가 없습니다' }),
       }),
       interactionOptions: {},
       expectedReplyText: '현재 진행 중인 기상스터디 참여가 없습니다',
@@ -166,7 +168,7 @@ describe('US-17: self-service 응답/운영 로그', () => {
 
   it('testChannelId 로그 전송에 실패해도 사용자 ephemeral 응답은 유지된다', async () => {
     vi.doMock('../services/challengeSelfService.js', () => ({
-      executeRegister: vi
+      executeRegisterWithRoleSync: vi
         .fn()
         .mockResolvedValue({ reply: '홍길동님 기상시간을 등록했습니다. 기준월: 202603, 기상시간: 0800' }),
     }));
@@ -195,7 +197,7 @@ describe('US-17: self-service 응답/운영 로그', () => {
 
   it('testChannelId 감사 로그는 멘션 파싱을 비활성화한다', async () => {
     vi.doMock('../services/challengeSelfService.js', () => ({
-      executeRegister: vi.fn().mockResolvedValue({ reply: '@everyone 홍길동님 기상시간을 등록했습니다' }),
+      executeRegisterWithRoleSync: vi.fn().mockResolvedValue({ reply: '@everyone 홍길동님 기상시간을 등록했습니다' }),
     }));
 
     const auditChannel = createAuditChannel();

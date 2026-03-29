@@ -370,4 +370,216 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(memberships).toHaveLength(1);
     expect(memberships[0]?.status).toBe('stopped');
   });
+
+  it('TC-WM11: /stop-wakeup 성공 시 @wake-up 역할이 회수된다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'role-stop-user',
+      username: '역할중단',
+      waketime: '0705',
+      status: 'active',
+      stoppedat: null,
+    });
+
+    const interaction = createMockInteraction({
+      userId: 'role-stop-user',
+      globalName: '역할중단',
+    });
+
+    const { command: stopCommand } = await import('../commands/haruharu/stop-wakeup.js');
+    await stopCommand.execute(interaction as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'role-stop-user' } });
+
+    expect(interaction.member.roles.remove).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(membership?.status).toBe('stopped');
+    expect(interaction.getLastReply()).toContain('중단');
+  });
+
+  it('TC-WM12: @wake-up 역할 회수 실패 시 membership 상태를 유지하고 오류를 응답한다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'role-remove-fail-user',
+      username: '회수실패',
+      waketime: '0705',
+      status: 'active',
+      stoppedat: null,
+    });
+
+    const member = {
+      roles: {
+        add: vi.fn(),
+        remove: vi.fn().mockRejectedValue(new Error('role remove failed')),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      userId: 'role-remove-fail-user',
+      globalName: '회수실패',
+      member,
+    });
+
+    const { command: stopCommand } = await import('../commands/haruharu/stop-wakeup.js');
+    await stopCommand.execute(interaction as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'role-remove-fail-user' } });
+
+    expect(member.roles.remove).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(member.roles.add).not.toHaveBeenCalled();
+    expect(membership?.status).toBe('active');
+    expect(interaction.getLastReply()).toContain('역할');
+  });
+
+  it('TC-WM13: /stop-wakeup 과 /register 동시 요청은 같은 사용자 기준으로 직렬화되어 역할-DB 상태가 어긋나지 않는다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'race-user',
+      username: '경합사용자',
+      waketime: '0705',
+      status: 'active',
+      stoppedat: null,
+    });
+    await TestUsers.create({
+      userid: 'race-user',
+      username: '경합사용자',
+      yearmonth: '202601',
+      waketime: '0705',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    let hasWakeUpRole = true;
+    let signalRemoveStarted: (() => void) | null = null;
+    const removeStarted = new Promise<void>(resolve => {
+      signalRemoveStarted = resolve;
+    });
+    let releaseRemove: (() => void) | null = null;
+    const removeCanFinish = new Promise<void>(resolve => {
+      releaseRemove = resolve;
+    });
+
+    const member = {
+      roles: {
+        add: vi.fn(async (roleId: string) => {
+          expect(roleId).toBe('valid-wake-up-role-id');
+          hasWakeUpRole = true;
+        }),
+        remove: vi.fn(async (roleId: string) => {
+          expect(roleId).toBe('valid-wake-up-role-id');
+          hasWakeUpRole = false;
+          signalRemoveStarted?.();
+          await removeCanFinish;
+        }),
+      },
+      send: vi.fn(),
+    };
+    const guild = {
+      members: {
+        fetch: vi.fn().mockResolvedValue(member),
+      },
+    };
+
+    const { executeRegisterWithRoleSync, executeStopWakeUpWithRoleSync } =
+      await import('../services/challengeSelfService.js');
+
+    const stopPromise = executeStopWakeUpWithRoleSync({
+      userId: 'race-user',
+      guild: guild as never,
+    });
+
+    await removeStarted;
+
+    const registerPromise = executeRegisterWithRoleSync({
+      userId: 'race-user',
+      username: '경합사용자',
+      waketime: '0715',
+      guild: guild as never,
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(member.roles.add).not.toHaveBeenCalled();
+
+    releaseRemove?.();
+
+    const [stopResult, registerResult] = await Promise.all([stopPromise, registerPromise]);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'race-user' } });
+    const exclusion = await TestChallengeUserExclusion.findOne({
+      where: { userid: 'race-user', yearmonth: '202601' },
+    });
+    const currentMonthUser = await TestUsers.findOne({
+      where: { userid: 'race-user', yearmonth: '202601' },
+    });
+
+    expect(stopResult.reply).toContain('즉시 중단');
+    expect(registerResult.reply).toContain('다음 달부터 다시 등록');
+    expect(membership?.status).toBe('stopped');
+    expect(exclusion).not.toBeNull();
+    expect(currentMonthUser).toBeNull();
+    expect(hasWakeUpRole).toBe(false);
+  });
+
+  it('TC-WM14: /stop-wakeup persistence가 중간 실패하면 역할 rollback과 함께 membership 상태도 원복된다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'rollback-user',
+      username: '롤백사용자',
+      waketime: '0705',
+      status: 'active',
+      stoppedat: null,
+    });
+    await TestUsers.create({
+      userid: 'rollback-user',
+      username: '롤백사용자',
+      yearmonth: '202601',
+      waketime: '0705',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    const exclusionBulkCreateSpy = vi
+      .spyOn(TestChallengeUserExclusion, 'bulkCreate')
+      .mockRejectedValueOnce(new Error('exclusion insert failed'));
+
+    const member = {
+      roles: {
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const guild = {
+      members: {
+        fetch: vi.fn().mockResolvedValue(member),
+      },
+    };
+
+    const { executeStopWakeUpWithRoleSync } = await import('../services/challengeSelfService.js');
+
+    await expect(
+      executeStopWakeUpWithRoleSync({
+        userId: 'rollback-user',
+        guild: guild as never,
+      }),
+    ).rejects.toThrow('exclusion insert failed');
+
+    exclusionBulkCreateSpy.mockRestore();
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'rollback-user' } });
+    const exclusion = await TestChallengeUserExclusion.findOne({
+      where: { userid: 'rollback-user', yearmonth: '202601' },
+    });
+    const currentMonthUser = await TestUsers.findOne({
+      where: { userid: 'rollback-user', yearmonth: '202601' },
+    });
+
+    expect(member.roles.remove).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(member.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(membership?.status).toBe('active');
+    expect(membership?.stoppedat).toBeNull();
+    expect(exclusion).toBeNull();
+    expect(currentMonthUser).not.toBeNull();
+  });
 });

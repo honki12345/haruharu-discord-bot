@@ -90,8 +90,10 @@
 - 사용자 self-service 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 변경해야 한다.
 - 기상시간 self-service는 `/register` 하나로 기상 참여 시작/재시작과 기상시간 등록/수정을 처리하되 하루 1회 제한을 지켜야 한다.
 - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`와 기상 self-service 전용 온보딩 채널에서만 실행되도록 유지한다.
+- `/register` 성공 시 `@wake-up` 역할도 함께 부여하고, 역할 부여 실패 시 DB 등록을 남기지 않도록 유지한다.
 - self-service 명령(`/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`)은 사용자에게는 `ephemeral`로 응답하고, 운영 확인용 결과는 `testChannelId`에도 남긴다.
 - 기상 self-service 중단은 `/stop-wakeup` 으로 처리하고, 현재 월 참여도 즉시 중단해야 한다.
+- `/stop-wakeup` 성공 시 `@wake-up` 역할도 함께 회수하고, 역할 회수 실패 시 `WakeUpMembership`을 `stopped`로 바꾸지 않도록 유지한다.
 - `/stop-wakeup` 은 현재 월 `Users` 스냅샷을 제거하고 같은 달 exclusion 을 남겨 그 달 `/register` 재등록과 자동 복구를 막아야 한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - 캠스터디 등록 원본은 `@cam-study` 역할과 `guildMemberUpdate` 동기화로 본다.
@@ -128,6 +130,7 @@
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
 - 기상 챌린지 상시 참여 상태와 최근 `/register` 기상시간은 `WakeUpMembership` 같은 별도 모델로 관리하고, `Users` 는 월별 집계 스냅샷으로 유지한다.
+- 기상 self-service의 역할 접근 제어 원본은 `/register`, `/stop-wakeup` 성공 시점의 `@wake-up` 역할 동기화로 유지한다.
 - 관리자 `/delete` 로 제거한 `(userid, yearmonth)` 월 스냅샷은 별도 exclusion 기록으로 남겨 자동 backfill 이 같은 달 사용자를 되살리지 않도록 유지한다.
 - 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 신청/활성화 상태 모델 책임은 계속 분리한다.
 - 역할 기반 온보딩 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하되, 현재 정책상 `/apply-cam` 실행 시 즉시 `approved` 상태로 반영한다.
