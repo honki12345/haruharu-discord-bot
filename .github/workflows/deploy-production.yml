@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Deploy target branch or tag
+        description: Deploy target branch, tag, or commit SHA
         required: true
         default: main
 
@@ -18,10 +18,16 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    outputs:
+      verified_sha: ${{ steps.resolve-sha.outputs.verified_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.verify.outputs.verified_sha }}
+
+      - name: Resolve verified commit SHA
+        id: resolve-sha
+        run: echo "verified_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:
@@ -59,18 +65,20 @@ jobs:
       - name: Deploy to OCI via SSH
         run: ./scripts/deploy-production.sh
         env:
+          PRODUCTION_GIT_SHA: ${{ needs.verify.outputs.verified_sha }}
           PRODUCTION_SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          PRODUCTION_SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
           PRODUCTION_SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
           PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
           PRODUCTION_SSH_PORT: ${{ vars.PRODUCTION_SSH_PORT }}
           PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
           PRODUCTION_PM2_APP_NAME: ${{ vars.PRODUCTION_PM2_APP_NAME }}
-          PRODUCTION_REF: ${{ inputs.ref }}
 
       - name: Verify production readiness
         run: ./scripts/verify-production-readiness.sh
         env:
           PRODUCTION_SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          PRODUCTION_SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
           PRODUCTION_SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
           PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
           PRODUCTION_SSH_PORT: ${{ vars.PRODUCTION_SSH_PORT }}

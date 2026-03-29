@@ -10,6 +10,7 @@
 - production 배포 시작: GitHub Actions `Deploy Production`
 - 배포 시작 방식: `workflow_dispatch`
 - 배포 경로: GitHub-hosted runner -> SSH -> OCI Compute -> PM2 single process
+- verify 단계에서 입력한 `ref`를 검증된 commit SHA로 고정한 뒤 deploy가 같은 SHA를 배포한다
 - GitHub `production` environment 용도: production secrets/variables 관리
 
 ```mermaid
@@ -32,6 +33,7 @@ flowchart TD
 ### Secrets
 
 - `PRODUCTION_SSH_HOST`: OCI 서버 호스트명 또는 IP
+- `PRODUCTION_SSH_KNOWN_HOSTS`: 배포 대상 서버의 고정 known_hosts 항목
 - `PRODUCTION_SSH_USER`: 배포용 SSH 사용자
 - `PRODUCTION_SSH_KEY`: 배포용 private key
 
@@ -44,7 +46,7 @@ flowchart TD
 
 ## 배포 전 체크리스트
 
-1. 대상 브랜치 또는 태그가 배포 가능한 상태인지 확인한다.
+1. 대상 branch, tag, commit SHA가 배포 가능한 상태인지 확인한다.
 2. 관련 PR의 `CI`와 `Dependency Review`가 green 인지 확인한다.
 3. 이번 배포에 반영할 문서 변경과 운영 영향이 PR 본문에 반영됐는지 확인한다.
 4. 필요 시 `/ping`, daily message, messageCreate, cam-study 영향 범위를 미리 확인한다.
@@ -52,23 +54,23 @@ flowchart TD
 ## 배포 절차
 
 1. GitHub Actions에서 `Deploy Production` workflow를 연다.
-2. `Run workflow`를 눌러 배포할 `ref`를 입력한다. 기본값은 `main`이다.
+2. `Run workflow`를 눌러 배포할 `ref`를 입력한다. `branch, tag, commit SHA`를 받을 수 있고 기본값은 `main`이다.
 3. `verify` job이 아래 항목을 통과하는지 확인한다.
    - `npm run lint`
    - `npx prettier --check src`
    - `npm run build`
    - `npm test`
    - `npm run test:smoke`
-4. `deploy` job이 시작되면 OCI 서버에 SSH 접속해서 아래를 수행한다.
-   - `git fetch origin`
-   - 지정한 `ref` checkout
-   - `git pull --ff-only origin {ref}`
+4. `verify`가 끝나면 workflow가 검증된 commit SHA를 고정한다.
+5. `deploy` job이 시작되면 OCI 서버에 SSH 접속해서 아래를 수행한다.
+   - `git fetch origin --tags`
+   - 검증된 commit SHA를 `git checkout --detach --force`로 정확히 checkout
    - `npm ci`
    - `npm run build`
    - PM2 프로세스 reload 또는 최초 start
-5. `Verify production readiness` 단계에서 아래를 자동 확인한다.
+6. `Verify production readiness` 단계에서 아래를 자동 확인한다.
    - PM2에 같은 이름의 online 프로세스가 1개인지
-   - 최근 로그에 `Ready! Logged in as`가 있는지
+   - 이번 배포 이후 info 로그에 새 `Ready! Logged in as`가 기록됐는지
 
 ## 배포 후 수동 검증
 
@@ -85,7 +87,7 @@ flowchart TD
 
 1. 마지막 안정 ref를 확인한다.
 2. GitHub Actions `Deploy Production` workflow를 다시 실행한다.
-3. `ref`에 마지막 안정 브랜치/태그/커밋을 지정한다.
+3. `ref`에 마지막 안정 branch, tag, commit SHA를 지정한다.
 4. `verify -> deploy -> readiness`가 다시 green 인지 확인한다.
 5. 배포 후 `/ping`과 핵심 운영 흐름을 다시 점검한다.
 
