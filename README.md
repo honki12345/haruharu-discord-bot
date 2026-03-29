@@ -7,7 +7,7 @@
 - `#start-here`가 온보딩 안내와 self-service 진입점 역할을 함께 맡습니다.
 - 기상 챌린지는 `/register <waketime>`로 참여를 시작하고, `/stop-wakeup`으로 이후 월 자동 참여를 중단합니다.
 - `/apply-cam`은 `@cam-study` 역할과 캠스터디 참가자 상태를 즉시 활성화합니다.
-- `/approve-application`, `/reject-application`은 deprecated 안내용 명령으로만 남아 있습니다.
+- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서 실행합니다.
 
 ## 캠스터디
 
@@ -15,7 +15,6 @@
   - `/apply-cam`은 `#start-here`에서 실행합니다.
   - `/apply-cam`을 실행하면 `@cam-study` 역할과 캠스터디 등록이 즉시 활성화됩니다.
   - 역할이 제거되면 새 세션 추적은 중단되고, 이미 진행 중이던 세션만 종료 시점까지 정산됩니다.
-  - `/register-cam`, `/delete-cam`은 deprecated 상태이며 더 이상 운영 등록용으로 사용하지 않습니다.
 
 - 공부시간
   - 평일 09:00 ~ 18:00
@@ -40,7 +39,6 @@
   - 기상 참여 시작은 `/register`로 처리합니다.
   - `#start-here`에 남아 있는 stale `/apply-wakeup` 등록은 `/register` 사용 안내로 전환됩니다.
   - 참여 중단은 `/stop-wakeup`으로 처리합니다.
-  - `/approve-application`, `/reject-application`은 deprecated 상태이며 더 이상 승인 단계로 사용하지 않습니다.
 
 - 초기화:
   - 사용자가 `/register`로 자신의 월별 기상시간을 등록합니다.

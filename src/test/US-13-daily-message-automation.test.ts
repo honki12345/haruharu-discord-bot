@@ -53,7 +53,6 @@ vi.mock('node:module', async importOriginal => {
           logChannelId: 'valid-log-channel-id',
           resultChannelId: 'valid-result-channel-id',
           startHereChannelId: 'valid-start-here-channel-id',
-          opsChannelId: 'valid-ops-channel-id',
           wakeUpRoleId: 'valid-wake-up-role-id',
           camStudyRoleId: 'valid-cam-study-role-id',
         };

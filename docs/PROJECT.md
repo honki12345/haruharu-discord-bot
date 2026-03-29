@@ -28,19 +28,18 @@
 | `#start-here`    | 환영, 서버 소개, self-service 진입점 | `/apply-cam` 실행 가능, everyone 공개                |
 | `#qna`           | 질문/응답                            | everyone 공개 문의 채널                              |
 | `#announcements` | 운영 공지                            | everyone 열람, 관리자 전용 작성 권장                 |
-| `#ops`           | 운영 공지 및 관리자 처리             | 관리자 전용                                          |
 | `#wake-up`       | 기상인증 전용 채널                   | `@wake-up` 역할 기반 접근, 신청 전에는 보이지 않음   |
 | `#cam-study`     | 캠스터디 전용 텍스트 채널            | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음 |
 | `음성: 캠스터디` | 캠스터디 전용 음성 채널              | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음 |
 
 ### 채널별 고정/반복 안내 메시지
 
-| 채널          | 메시지 유형      | 설명                                                                   | 출처                                       |
-| ------------- | ---------------- | ---------------------------------------------------------------------- | ------------------------------------------ |
-| `#start-here` | 고정 안내        | 서버 소개, 참여 방법, self-service 명령어 고정 안내                    | 운영 수동 관리, `USER_STORIES`             |
-| `#wake-up`    | 반복 자동 메시지 | 매일 06:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내 | `src/daily-attendance.ts`                  |
-| `#wake-up`    | 반복 자동 메시지 | 평일 13:00 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영           | `src/services/reporting.ts`                |
-| `#ops`        | 반복 운영 메시지 | deprecated 운영 명령 안내와 기타 운영 처리 메시지                      | `src/services/participationApplication.ts` |
+| 채널          | 메시지 유형      | 설명                                                                   | 출처                           |
+| ------------- | ---------------- | ---------------------------------------------------------------------- | ------------------------------ |
+| `#start-here` | 고정 안내        | 서버 소개, 참여 방법, self-service 명령어 고정 안내                    | 운영 수동 관리, `USER_STORIES` |
+| `#wake-up`    | 반복 자동 메시지 | 매일 06:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내 | `src/daily-attendance.ts`      |
+| `#wake-up`    | 반복 자동 메시지 | 평일 13:00 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영           | `src/services/reporting.ts`    |
+| `#test`       | 관리자 명령 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message` 실행 채널   | `src/commands/haruharu/*.ts`   |
 
 ---
 
@@ -67,11 +66,7 @@ haruharu-discord-bot/
 │   │       ├── apply-vacation.ts # 사용자 휴가 등록
 │   │       ├── apply-cam.ts     # 사용자 캠스터디 참여 신청
 │   │       ├── add-vacances.ts  # 휴가 추가
-│   │       ├── approve-application.ts # deprecated: 자동 활성화 안내
-│   │       ├── reject-application.ts # deprecated: 자동 활성화 안내
 │   │       ├── delete.ts        # 챌린저 삭제
-│   │       ├── register-cam.ts  # deprecated: 역할 기반 등록 안내
-│   │       ├── delete-cam.ts    # deprecated: 역할 회수 안내
 │   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
 │   │       └── ping.ts          # 헬스체크
 │   │
@@ -160,18 +155,13 @@ haruharu-discord-bot/
 
 #### 역할 기반 참여 신청 커맨드
 
-| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                         |
-| ---------------------- | ----------------- | ------ | ---------------------------- |
-| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 즉시 활성화    |
-| `/approve-application` | `/admin-신청승인` | 관리자 | deprecated: 자동 활성화 안내 |
-| `/reject-application`  | `/admin-신청거절` | 관리자 | deprecated: 자동 활성화 안내 |
+| 내부 key     | 한국어 표시명(ko) | 권한   | 설명                      |
+| ------------ | ----------------- | ------ | ------------------------- |
+| `/apply-cam` | `/캠스터디신청`   | 사용자 | 캠스터디 참여 즉시 활성화 |
 
 #### 캠스터디 커맨드
 
-| 내부 key        | 한국어 표시명(ko)     | 권한   | 설명                                    |
-| --------------- | --------------------- | ------ | --------------------------------------- |
-| `/register-cam` | `/admin-캠스터디등록` | 관리자 | deprecated: `@cam-study` 역할 부여 안내 |
-| `/delete-cam`   | `/admin-캠스터디삭제` | 관리자 | deprecated: `@cam-study` 역할 회수 안내 |
+역할 기반 self-service와 `guildMemberUpdate` 동기화로 대체되었으며 별도 관리자 커맨드는 없다.
 
 #### 유틸리티 커맨드
 
@@ -225,21 +215,6 @@ haruharu-discord-bot/
 | yearmonth     | 년월              | O    | 년월 (yyyymm)        |
 | count         | 추가일수          | O    | 추가 지급할 휴가일수 |
 
-#### `/approve-application` (`/admin-신청승인`)
-
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                            |
-| ------------- | ----------------- | ---- | ------------------------------- |
-| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID     |
-| program       | 프로그램          | X    | deprecated 레거시 대상 프로그램 |
-
-#### `/reject-application` (`/admin-신청거절`)
-
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                            |
-| ------------- | ----------------- | ---- | ------------------------------- |
-| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID     |
-| program       | 프로그램          | X    | deprecated 레거시 대상 프로그램 |
-| reason        | 사유              | X    | deprecated 레거시 사유          |
-
 #### `/delete` (`/admin-챌린저삭제`)
 
 | 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명               |
@@ -249,19 +224,6 @@ haruharu-discord-bot/
 
 - 관리자 삭제는 해당 `(userid, yearmonth)` 월 스냅샷을 제거하고 exclusion 으로 기록한다.
 - 같은 달 리포트/휴가/출석 경로의 자동 스냅샷 생성은 이 exclusion 을 존중해 사용자를 다시 만들지 않는다.
-
-#### `/delete-cam` (`/admin-캠스터디삭제`)
-
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                        |
-| ------------- | ----------------- | ---- | --------------------------- |
-| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID |
-
-#### `/register-cam` (`/admin-캠스터디등록`)
-
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                        |
-| ------------- | ----------------- | ---- | --------------------------- |
-| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID |
-| username      | 이름              | X    | deprecated 레거시 표시 이름 |
 
 ---
 
@@ -353,11 +315,10 @@ flowchart TD
 
 **채널 라우팅 메모:**
 
-- 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
+- 기본 사용자 명령은 `commandChannelIds` 기준으로 채널을 검증한다.
 - stale `/apply-wakeup` interaction 이 들어오면 커맨드 미존재 오류로 끝내지 않고 `/register` migration 안내를 ephemeral 응답으로 반환한다.
 - `/apply-cam`은 `#start-here` 전용 채널에서만 실행된다.
-- `/approve-application`, `/reject-application`은 deprecated 상태로 `#ops`에서만 남아 있고 실제 참여 상태는 바꾸지 않는다.
-- `/register-cam`, `/delete-cam`은 deprecated 상태로 `#ops`에서만 남아 있으며 역할 기반 운영 흐름만 안내한다.
+- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId` 전용으로 실행된다.
 
 #### camStudyHandler.ts
 
@@ -435,11 +396,11 @@ flowchart TD
 
 #### participationApplication.ts
 
-| 항목   | 내용                                                                                                                                                                                                          |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | self-service 참여 활성화, 역할 부여, deprecated 운영 명령 안내                                                                                                                                                |
-| 담당   | `ParticipationApplication` 조회/갱신, `@cam-study` 역할 매핑, `/apply-cam` 즉시 `approved` 반영, 캠스터디 자동 활성화 시 `CamStudyUsers` upsert, 실패 시 role/db rollback, deprecated 관리자 명령 가이드 응답 |
-| 호출처 | `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts`                                                                           |
+| 항목   | 내용                                                                                                                                                                      |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | self-service 참여 활성화와 역할 부여                                                                                                                                      |
+| 담당   | `ParticipationApplication` 조회/갱신, `@cam-study` 역할 매핑, `/apply-cam` 즉시 `approved` 반영, 캠스터디 자동 활성화 시 `CamStudyUsers` upsert, 실패 시 role/db rollback |
+| 호출처 | `src/commands/haruharu/apply-cam.ts`                                                                                                                                      |
 
 #### reporting.ts
 
@@ -722,7 +683,6 @@ flowchart TD
   "vacancesRegisterChannelId": "기상 self-service 채널 ID",
   "testChannelId": "테스트 채널 ID",
   "startHereChannelId": "#start-here 채널 ID",
-  "opsChannelId": "#ops 채널 ID",
   "wakeUpRoleId": "@wake-up 역할 ID",
   "camStudyRoleId": "@cam-study 역할 ID"
 }
@@ -745,14 +705,13 @@ flowchart TD
 - `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산하고 현재 월 `Users` 스냅샷을 보장한다.
 - `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 미래 월 자동 참여만 중단한다.
 - `/delete`는 지정한 `(userid, yearmonth)`를 exclusion 으로 기록해 같은 달 자동 스냅샷 생성이 사용자를 다시 만들지 않게 한다.
-- `/approve-application`, `/reject-application`은 deprecated 호환용이며 실제 참여 상태를 바꾸지 않는다.
 - `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 현재 월 날짜 단위(`yyyymmdd`)로 동작한다.
 - 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.
 - 데모 전용 커맨드는 Discord 한국어 locale에서 `admin-demo-...` 접두어로 표시된다.
+- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서만 실행된다.
 - stale `/apply-wakeup` interaction 은 잘못된 채널 안내 대신 `/register` migration 응답으로 종료한다.
 - `/apply-cam`은 `#start-here`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답한다.
 - `/apply-cam` 성공 시 `@cam-study` 역할과 `CamStudyUsers`가 함께 맞춰지고, 이후 역할 변경은 `guildMemberUpdate`가 계속 동기화한다.
-- `/approve-application`, `/reject-application`은 `#ops`에서 deprecated 안내만 반환한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 - 주말/공휴일에도 `#wake-up` daily message/thread는 생성된다.
 - 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `AttendanceLog.status='attended'` 인 사용자만 결석 1회 우선 차감 후 없으면 지각 1회를 차감한다.

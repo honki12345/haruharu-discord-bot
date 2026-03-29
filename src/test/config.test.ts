@@ -27,7 +27,6 @@ describe('config.ts', () => {
               resultChannelId: 'result-channel',
               voiceChannelId: 'voice-channel',
               startHereChannelId: 'start-here-channel',
-              opsChannelId: 'ops-channel',
               wakeUpRoleId: 'wake-up-role',
               camStudyRoleId: 'cam-study-role',
             };
@@ -60,7 +59,6 @@ describe('config.ts', () => {
               resultChannelId: 'result-channel',
               voiceChannelId: 'voice-channel',
               startHereChannelId: 'start-here-channel',
-              opsChannelId: 'ops-channel',
               wakeUpRoleId: 'wake-up-role',
               camStudyRoleId: 'cam-study-role',
             };
@@ -90,7 +88,6 @@ describe('config.ts', () => {
               clientId: 'client-id',
               guildId: 'guild-id',
               startHereChannelId: 'start-here-channel',
-              opsChannelId: 'ops-channel',
               wakeUpRoleId: 'wake-up-role',
               camStudyRoleId: 'cam-study-role',
               noticeChannelId: 'notice-channel',
@@ -134,7 +131,6 @@ describe('config.ts', () => {
               resultChannelId: 'result-channel',
               voiceChannelId: 'voice-channel',
               startHereChannelId: 'start-here-channel',
-              opsChannelId: 'ops-channel',
               wakeUpRoleId: 'wake-up-role',
               camStudyRoleId: 'cam-study-role',
             };
@@ -150,7 +146,7 @@ describe('config.ts', () => {
     });
   });
 
-  it('command deploy 경로는 applyChannelId 없이도 command payload 로딩에 성공한다', async () => {
+  it('command deploy 경로는 opsChannelId 없이도 command payload 로딩에 성공한다', async () => {
     vi.doMock('node:module', async importOriginal => {
       const original = await importOriginal<typeof import('node:module')>();
       return {
@@ -169,7 +165,6 @@ describe('config.ts', () => {
               resultChannelId: 'result-channel',
               voiceChannelId: 'voice-channel',
               startHereChannelId: 'start-here-channel',
-              opsChannelId: 'ops-channel',
               wakeUpRoleId: 'wake-up-role',
               camStudyRoleId: 'cam-study-role',
             };
