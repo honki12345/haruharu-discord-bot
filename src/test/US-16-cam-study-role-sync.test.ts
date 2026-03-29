@@ -1,7 +1,15 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { testSequelize, TestCamStudyUsers } from './test-setup.js';
 
-const createMockMember = (roleIds: string[], overrides?: { id?: string; globalName?: string; username?: string }) => ({
+const createMockMember = (
+  roleIds: string[],
+  overrides?: {
+    id?: string;
+    globalName?: string;
+    username?: string;
+    voice?: { channelId?: string | null; selfVideo?: boolean; streaming?: boolean };
+  },
+) => ({
   id: overrides?.id ?? 'cam-user-123',
   user: {
     id: overrides?.id ?? 'cam-user-123',
@@ -12,6 +20,11 @@ const createMockMember = (roleIds: string[], overrides?: { id?: string; globalNa
     cache: {
       has: (roleId: string) => roleIds.includes(roleId),
     },
+  },
+  voice: {
+    channelId: overrides?.voice?.channelId ?? null,
+    selfVideo: overrides?.voice?.selfVideo ?? false,
+    streaming: overrides?.voice?.streaming ?? false,
   },
 });
 
@@ -60,6 +73,26 @@ describe('US-16: 캠스터디 역할 기반 자동 등록', () => {
 
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
     expect(user).toBeNull();
+  });
+
+  it('TC-CSRS04: 활성 세션 중 @cam-study 역할이 제거되면 CamStudyUsers 삭제를 종료 시점까지 미룬다', async () => {
+    await TestCamStudyUsers.create({
+      userid: 'cam-user-123',
+      username: '홍길동',
+    });
+
+    const oldMember = createMockMember(['valid-cam-study-role-id'], {
+      voice: { channelId: 'valid-voice-channel-id', streaming: true },
+    });
+    const newMember = createMockMember([], {
+      voice: { channelId: 'valid-voice-channel-id', streaming: true },
+    });
+
+    const { event } = await import('../events/guildMemberUpdate.js');
+    await event.execute(oldMember as never, newMember as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
+    expect(user).not.toBeNull();
   });
 
   it('TC-CSRS03: guildMemberUpdate는 oldMember가 partial이어도 newMember 현재 역할 상태로 동기화한다', async () => {

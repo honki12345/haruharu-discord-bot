@@ -3,6 +3,7 @@ import {
   createCamStudyTimeLog,
   findCamStudyTimeLog,
   findCamStudyUser,
+  removeCamStudyUser,
   updateCamStudyTimeLog,
 } from '../repository/camStudyRepository.js';
 import { LEAST_TIME_LIMIT } from '../utils/constants.js';
@@ -15,6 +16,7 @@ import {
 
 interface VoiceStateSnapshot {
   channelId: string | null;
+  hasCamStudyRole?: boolean | null;
   selfVideo: boolean;
   streaming: boolean;
   userId: string;
@@ -73,8 +75,9 @@ const processCamStudyStateChange = async (
   const timestampNowString = Date.now().toString();
   const timelog = await findCamStudyTimeLog(newState.userId, today);
   const user = await findCamStudyUser(newState.userId);
+  const shouldRemoveUserAfterEnd = newState.hasCamStudyRole === false;
 
-  if (!user && !(transition.shouldEndByTurnOff || transition.shouldEndByQuit)) {
+  if (!user) {
     if (transition.userEnteredConfiguredChannel) {
       return { target: 'channel', message: '등록되지 않은 회원입니다' };
     }
@@ -82,15 +85,6 @@ const processCamStudyStateChange = async (
   }
 
   if (transition.shouldEndByTurnOff || transition.shouldEndByQuit) {
-    const trackedUser =
-      user ??
-      (timelog
-        ? {
-            userid: timelog.userid,
-            username: timelog.username,
-          }
-        : null);
-
     if (!timelog) {
       const yesterdayTimelog = await findCamStudyTimeLog(newState.userId, getFormattedYesterday());
       if (yesterdayTimelog) {
@@ -110,6 +104,10 @@ const processCamStudyStateChange = async (
           yesterday: getFormattedYesterday(),
         });
 
+        if (shouldRemoveUserAfterEnd) {
+          await removeCamStudyUser(user.userid);
+        }
+
         return {
           target: 'voice-channel',
           message: `${yesterdayTimelog.username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`,
@@ -119,11 +117,16 @@ const processCamStudyStateChange = async (
       logger.warn('cam study session ended without active log', {
         newChannelId: newState.channelId,
         oldChannelId: oldState.channelId,
-        userId: trackedUser?.userid ?? newState.userId,
+        userId: user.userid,
       });
+
+      if (shouldRemoveUserAfterEnd) {
+        await removeCamStudyUser(user.userid);
+      }
+
       return {
         target: 'voice-channel',
-        message: `${trackedUser?.username ?? '알 수 없는 사용자'}님 study end: 공부시간 정상 입력안됨`,
+        message: `${user.username}님 study end: 공부시간 정상 입력안됨`,
       };
     }
 
@@ -136,6 +139,11 @@ const processCamStudyStateChange = async (
         userId: timelog.userid,
       });
       await updateCamStudyTimeLog(timelog.userid, today, { timestamp: timestampNowString });
+
+      if (shouldRemoveUserAfterEnd) {
+        await removeCamStudyUser(user.userid);
+      }
+
       return {
         target: 'voice-channel',
         message: `${timelog.username}님 study end: 5분 이내 입력안됨`,
@@ -147,6 +155,10 @@ const processCamStudyStateChange = async (
       timestamp: timestampNowString,
       totalminutes: totalMinutes,
     });
+
+    if (shouldRemoveUserAfterEnd) {
+      await removeCamStudyUser(user.userid);
+    }
 
     logger.info('cam study session ended', {
       addedMinutes: timeDiffInMinutes,
@@ -171,7 +183,7 @@ const processCamStudyStateChange = async (
     return null;
   }
 
-  if (!user) {
+  if (newState.hasCamStudyRole === false) {
     return null;
   }
 

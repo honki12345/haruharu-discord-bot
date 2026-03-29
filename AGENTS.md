@@ -98,8 +98,8 @@
 - Discord 이벤트당 파일 하나를 유지한다.
 - `ready.ts`는 부팅, 테이블 sync, 운영 daily message/thread 생성 스케줄, 집계 스케줄 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅을 담당한다.
-- `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 감지해서 `CamStudyUsers`를 자동 동기화한다.
-- `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 실패 시 상태 전이 문맥을 로그에 남긴다.
+- `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 감지해서 `CamStudyUsers`를 자동 동기화하고, 활성 세션 중 역할 회수면 삭제를 종료 시점까지 미룬다.
+- `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 역할 회수 뒤 종료 시점 정리까지 포함해 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
 - `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#apply`/`#ops` 같은 전용 채널에 묶이는지 문서에 남긴다.
@@ -116,7 +116,7 @@
 - 모델 클래스명과 export 이름은 PascalCase를 사용한다.
 - thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 집계 원본이 아닌 과거 레거시 데이터 호환용으로만 유지한다.
 - `CamStudyWeeklyTimeLog`는 해당 주차의 `CamStudyTimeLog`를 재계산한 결과를 반영하는 용도로 유지하고, 같은 일간 로그를 누적 덧셈으로 중복 반영하지 않는다.
-- `CamStudyUsers`는 수동 등록 원본이 아니라 `@cam-study` 역할 상태를 반영하는 캐시/인덱스로 유지한다.
+- `CamStudyUsers`는 수동 등록 원본이 아니라 `@cam-study` 역할 상태를 반영하는 캐시/인덱스로 유지하되, 활성 세션 중 역할 회수면 종료 이벤트까지 임시로 유지할 수 있다.
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
 - 역할 기반 온보딩/신청 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하고, 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 책임을 분리한다.

@@ -31,13 +31,14 @@ flowchart TD
     C --> D[CamStudyUsers upsert]
     D --> E[기존 음성 추적 / 리포트 유지]
     F[@cam-study 역할 회수] --> B
-    B --> G[CamStudyUsers delete]
+    B --> G[활성 세션 없으면 CamStudyUsers delete]
+    B --> H[활성 세션이면 종료 시점까지 delete defer]
 ```
 
 - `CamStudyUsers`는 역할 상태를 반영하는 캐시/인덱스로 유지한다.
 - 역할 기반 자동 등록은 `approve-application`뿐 아니라 수동 역할 부여에도 동일하게 적용한다.
 - 역할 회수 정책은 별도 비활성화 컬럼 추가 대신 row 삭제로 유지한다.
-- 역할 회수 직후에도 이미 시작한 세션은 기존 `CamStudyTimeLog`를 기준으로 종료 분 계산을 마무리한다.
+- 역할 회수 직후에도 이미 시작한 세션은 `CamStudyUsers` 삭제를 종료 시점까지 미뤄서 정상적으로 종료 분 계산을 마무리한다.
 
 ## 하위 계층 계획
 
@@ -46,13 +47,15 @@ flowchart TD
   - partial member 이벤트면 `newMember` 현재 역할 상태를 기준으로 self-heal 동기화
 - `src/services/camStudyRoleSync.ts`
   - 역할 추가/제거 비교, 표시 이름 추출, 저장소 upsert/remove 책임 분리
+  - 활성 세션 중 역할 제거면 삭제 defer
 - `src/repository/camStudyRepository.ts`
   - `CamStudyUsers` upsert/remove 헬퍼 추가
   - 같은 `userid` 중복 row가 있으면 최신 값으로 1건 정리
 - `src/runtime.ts`
   - 역할 변경 이벤트를 받기 위한 `GuildMembers` intent 추가
 - `src/services/camStudy.ts`
-  - mid-session revoke 이후에도 종료 이벤트가 기존 타임로그를 마무리하도록 fallback 추가
+  - revoke 이후 종료 이벤트에서 누적 분 계산을 마무리하고 `CamStudyUsers`를 정리
+  - 등록 row가 없는 사용자는 stale timelog만으로 종료 적립을 만들지 못하도록 유지
 - `src/commands/haruharu/register-cam.ts`
   - deprecated 안내 응답으로 전환
 - `src/commands/haruharu/delete-cam.ts`
@@ -66,10 +69,10 @@ flowchart TD
 
 - 완료조건
   - 역할 부여 시 `CamStudyUsers` 자동 등록: `src/test/US-16-cam-study-role-sync.test.ts`
-  - 역할 회수 시 `CamStudyUsers` 자동 해제: `src/test/US-16-cam-study-role-sync.test.ts`
+  - 역할 회수 시 `CamStudyUsers` 자동 해제, 활성 세션이면 종료 시점 defer: `src/test/US-16-cam-study-role-sync.test.ts`, `src/test/US-08-cam-study.test.ts`
   - 수동 명령 정리: `src/test/US-07-register-cam.test.ts`, `src/test/US-11-delete-cam.test.ts`, `src/test/integration/discord.integration.test.ts`
   - 기존 음성 추적 유지: `src/test/US-08-cam-study.test.ts`, `src/test/US-09-10-cam-study-report.test.ts`
-  - runtime / partial member / 중복 정리 회귀: `src/test/US-14-bot-boot-smoke.test.ts`, `src/test/US-16-cam-study-role-sync.test.ts`, `src/test/repository.test.ts`
+  - runtime / partial member / 중복 정리 / revoke 경계 회귀: `src/test/US-14-bot-boot-smoke.test.ts`, `src/test/US-16-cam-study-role-sync.test.ts`, `src/test/repository.test.ts`, `src/test/US-08-cam-study.test.ts`
 
 - 로컬 검증 명령
   - `npm run lint`

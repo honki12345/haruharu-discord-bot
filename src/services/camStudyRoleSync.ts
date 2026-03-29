@@ -1,9 +1,11 @@
 import { GuildMember } from 'discord.js';
-import { camStudyRoleId } from '../config.js';
+import { camStudyRoleId, voiceChannelId } from '../config.js';
 import { logger } from '../logger.js';
 import { removeCamStudyUser, upsertCamStudyUser } from '../repository/camStudyRepository.js';
 
 const hasCamStudyRole = (member: GuildMember) => member.roles.cache.has(camStudyRoleId);
+const isActiveCamStudySession = (member: GuildMember) =>
+  member.voice.channelId === voiceChannelId && (member.voice.selfVideo || member.voice.streaming);
 
 const getDisplayName = (member: GuildMember) => member.user.globalName ?? member.user.username ?? member.id;
 
@@ -14,6 +16,11 @@ const syncCamStudyMemberState = async (member: GuildMember) => {
     const username = getDisplayName(member);
     await upsertCamStudyUser({ userid, username });
     logger.info('cam study user synced from current role state', { userid, username, roleId: camStudyRoleId });
+    return;
+  }
+
+  if (isActiveCamStudySession(member)) {
+    logger.info('cam study user removal deferred until active session ends', { userid, roleId: camStudyRoleId });
     return;
   }
 

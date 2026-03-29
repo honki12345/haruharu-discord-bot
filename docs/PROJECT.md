@@ -252,7 +252,8 @@ haruharu-discord-bot/
 
 **구현 메모:**
 
-- `CamStudyUsers`는 역할 상태를 반영하는 캐시 인덱스이며, 역할 부여 시 upsert, 역할 회수 시 삭제한다.
+- `CamStudyUsers`는 역할 상태를 반영하는 캐시 인덱스이며, 역할 부여 시 upsert 한다.
+- 역할 회수 시에는 보통 즉시 삭제하되, 이미 캠스터디를 진행 중이면 종료 이벤트가 들어올 때까지 삭제를 미룬다.
 - `@cam-study` 역할 변화가 없으면 아무 작업도 하지 않는다.
 - `GuildMembers` intent가 활성화되어야 실제 운영 환경에서 역할 변경 이벤트를 수신할 수 있다.
 - `oldMember`가 partial인 경우에도 `newMember` 현재 역할 상태를 기준으로 self-heal 동기화를 수행한다.
@@ -359,11 +360,11 @@ flowchart TD
 
 #### camStudyRoleSync.ts
 
-| 항목   | 내용                                                                                                                    |
-| ------ | ----------------------------------------------------------------------------------------------------------------------- |
-| 역할   | `@cam-study` 역할 상태를 `CamStudyUsers` 캐시에 반영                                                                    |
-| 담당   | 역할 추가/제거 감지, partial member fallback 처리, 표시 이름 추출, `CamStudyUsers` upsert/remove, 역할 동기화 로그 기록 |
-| 호출처 | `src/events/guildMemberUpdate.ts`                                                                                       |
+| 항목   | 내용                                                                                                                                             |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 역할   | `@cam-study` 역할 상태를 `CamStudyUsers` 캐시에 반영                                                                                             |
+| 담당   | 역할 추가/제거 감지, partial member fallback 처리, 표시 이름 추출, `CamStudyUsers` upsert/remove, 활성 세션 중 제거 defer, 역할 동기화 로그 기록 |
+| 호출처 | `src/events/guildMemberUpdate.ts`                                                                                                                |
 
 #### challengeSelfService.ts
 
@@ -498,7 +499,8 @@ flowchart TD
 비고:
 
 - `@cam-study` 역할 상태를 반영하는 캐시/인덱스 성격의 테이블이다.
-- 역할 부여 시 upsert, 역할 회수 시 삭제한다.
+- 역할 부여 시 upsert 한다.
+- 역할 회수 시에는 보통 삭제하되, 활성 세션이면 종료 이벤트가 들어온 뒤 삭제한다.
 - 같은 `userid` 중복 row가 발견되면 upsert 과정에서 최신 이름 기준으로 1건으로 정리한다.
 - 과거 학습 로그(`CamStudyTimeLog`, `CamStudyWeeklyTimeLog`)는 역할 회수 후에도 유지된다.
 
