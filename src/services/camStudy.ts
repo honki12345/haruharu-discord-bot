@@ -240,7 +240,8 @@ const closeActiveSession = async (
     return { recordedMinutes: 0, totalMinutes: 0, tooShort: true, skipped: true };
   }
 
-  const result = await finalizeCamStudyDuration(user, Number(claimedSession.startedat), endedAt, reason);
+  const effectiveEndedAt = Math.max(endedAt, Number(claimedSession.lastobservedat));
+  const result = await finalizeCamStudyDuration(user, Number(claimedSession.startedat), effectiveEndedAt, reason);
   return { ...result, skipped: false };
 };
 
@@ -344,7 +345,11 @@ const getRecoveryStartedAt = async (userid: string, recoveredAt: number) => {
   }
 
   const yesterdayLog = await findCamStudyTimeLog(userid, getPreviousYearMonthDayFromTimestamp(recoveredAt));
-  return yesterdayLog?.timestamp ?? recoveredAt.toString();
+  if (yesterdayLog && Number(yesterdayLog.totalminutes) === 0) {
+    return yesterdayLog.timestamp;
+  }
+
+  return recoveredAt.toString();
 };
 
 const processCamStudyStateChange = async (
