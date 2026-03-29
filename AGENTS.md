@@ -89,6 +89,7 @@
 - DB 접근은 직접 Sequelize 쿼리를 쓰더라도 repository 모델을 통해서만 접근한다.
 - 사용자 self-service 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 변경해야 한다.
 - 기상시간 self-service는 `/register` 하나로 기상 참여 시작/재시작과 기상시간 등록/수정을 처리하되 하루 1회 제한을 지켜야 한다.
+- `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`와 기상 self-service 전용 온보딩 채널에서만 실행되도록 유지한다.
 - 기상 self-service 중단은 `/stop-wakeup` 으로 처리하고, 현재 월 기록은 유지한 채 이후 월 자동 등록만 중단해야 한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - 캠스터디 등록 원본은 `@cam-study` 역할과 `guildMemberUpdate` 동기화로 본다.
@@ -106,7 +107,7 @@
 - `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 역할 회수 뒤 종료 시점 정리까지 포함해 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
-- `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#start-here`/`test` 같은 전용 채널에 묶이는지 문서에 남긴다.
+- `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#start-here`/기상 self-service 온보딩 채널/`test` 같은 전용 채널에 묶이는지 문서에 남긴다.
 
 ### `src/daily-attendance.ts`
 

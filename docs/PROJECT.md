@@ -23,23 +23,25 @@
 
 ### Discord 운영 채널 구조
 
-| 채널             | 역할                                 | 비고                                                 |
-| ---------------- | ------------------------------------ | ---------------------------------------------------- |
-| `#start-here`    | 환영, 서버 소개, self-service 진입점 | `/apply-cam` 실행 가능, everyone 공개                |
-| `#qna`           | 질문/응답                            | everyone 공개 문의 채널                              |
-| `#announcements` | 운영 공지                            | everyone 열람, 관리자 전용 작성 권장                 |
-| `#wake-up`       | 기상인증 전용 채널                   | `@wake-up` 역할 기반 접근, 신청 전에는 보이지 않음   |
-| `#cam-study`     | 캠스터디 전용 텍스트 채널            | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음 |
-| `음성: 캠스터디` | 캠스터디 전용 음성 채널              | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음 |
+| 채널               | 역할                                      | 비고                                                                                  |
+| ------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| `#start-here`      | 환영, 서버 소개, 공통 self-service 진입점 | `/apply-cam`, `/register`, `/stop-wakeup`, `/apply-vacation` 실행 가능, everyone 공개 |
+| `#time-start-here` | 기상 self-service 진입점                  | `/register`, `/stop-wakeup`, `/apply-vacation` 실행 가능                              |
+| `#qna`             | 질문/응답                                 | everyone 공개 문의 채널                                                               |
+| `#announcements`   | 운영 공지                                 | everyone 열람, 관리자 전용 작성 권장                                                  |
+| `#wake-up`         | 기상인증 전용 채널                        | `@wake-up` 역할 기반 접근, 신청 전에는 보이지 않음                                    |
+| `#cam-study`       | 캠스터디 전용 텍스트 채널                 | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음                                  |
+| `음성: 캠스터디`   | 캠스터디 전용 음성 채널                   | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음                                  |
 
 ### 채널별 고정/반복 안내 메시지
 
-| 채널          | 메시지 유형      | 설명                                                                   | 출처                           |
-| ------------- | ---------------- | ---------------------------------------------------------------------- | ------------------------------ |
-| `#start-here` | 고정 안내        | 서버 소개, 참여 방법, self-service 명령어 고정 안내                    | 운영 수동 관리, `USER_STORIES` |
-| `#wake-up`    | 반복 자동 메시지 | 매일 06:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내 | `src/daily-attendance.ts`      |
-| `#wake-up`    | 반복 자동 메시지 | 평일 13:00 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영           | `src/services/reporting.ts`    |
-| `#test`       | 관리자 명령 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message` 실행 채널   | `src/commands/haruharu/*.ts`   |
+| 채널               | 메시지 유형      | 설명                                                                   | 출처                           |
+| ------------------ | ---------------- | ---------------------------------------------------------------------- | ------------------------------ |
+| `#start-here`      | 고정 안내        | 서버 소개, 참여 방법, 공통 self-service 명령어 고정 안내               | 운영 수동 관리, `USER_STORIES` |
+| `#time-start-here` | 고정 안내        | 기상 self-service 명령어와 시간 설정/휴가 사용 안내                    | 운영 수동 관리, `USER_STORIES` |
+| `#wake-up`         | 반복 자동 메시지 | 매일 06:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내 | `src/daily-attendance.ts`      |
+| `#wake-up`         | 반복 자동 메시지 | 평일 13:00 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영           | `src/services/reporting.ts`    |
+| `#test`            | 관리자 명령 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message` 실행 채널   | `src/commands/haruharu/*.ts`   |
 
 ---
 
@@ -184,12 +186,14 @@ haruharu-discord-bot/
 
 - `WakeUpMembership`를 생성 또는 재활성화하고, 현재 월 `Users` 스냅샷이 없으면 자동 생성한다.
 - 같은 날 두 번째 변경은 `WaketimeChangeLog`로 거부한다.
+- `#start-here`, `#time-start-here`에서만 실행 가능하다.
 
 #### `/stop-wakeup` (`/기상중단`)
 
 - 별도 파라미터 없음
 - 현재 월 기록은 유지하고, 이후 월 `Users` 자동 생성만 중단한다.
 - `WakeUpMembership` 이 아직 없고 latest `Users` 스냅샷만 있는 legacy 참가자도 backfill 후 중단 처리한다.
+- `#start-here`, `#time-start-here`에서만 실행 가능하다.
 
 #### `/apply-vacation` (`/휴가신청`)
 
@@ -199,6 +203,7 @@ haruharu-discord-bot/
 
 - 현재 월 날짜만 신청할 수 있다.
 - 활성 membership 이 있고 현재 월 `Users` 스냅샷이 없으면 자동 생성 후 처리한다.
+- `#start-here`, `#time-start-here`에서만 실행 가능하다.
 
 #### `/apply-cam` (`/캠스터디신청`)
 
@@ -315,7 +320,7 @@ flowchart TD
 
 **채널 라우팅 메모:**
 
-- 기본 사용자 명령은 `commandChannelIds` 기준으로 채널을 검증한다.
+- `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`, `#time-start-here` 전용 채널에서만 실행된다.
 - stale `/apply-wakeup` interaction 이 들어오면 커맨드 미존재 오류로 끝내지 않고 `/register` migration 안내를 ephemeral 응답으로 반환한다.
 - `/apply-cam`은 `#start-here` 전용 채널에서만 실행된다.
 - 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId` 전용으로 실행된다.
@@ -679,10 +684,9 @@ flowchart TD
   "logChannelId": "학습 시간 로그 채널 ID",
   "resultChannelId": "결과/리더보드 채널 ID",
   "voiceChannelId": "캠스터디 음성 채널 ID",
-  "noticeChannelId": "운영 공지 채널 ID",
-  "vacancesRegisterChannelId": "기상 self-service 채널 ID",
   "testChannelId": "테스트 채널 ID",
   "startHereChannelId": "#start-here 채널 ID",
+  "timeStartHereChannelId": "기상 self-service 시작 채널 ID",
   "wakeUpRoleId": "@wake-up 역할 ID",
   "camStudyRoleId": "@cam-study 역할 ID"
 }
@@ -703,6 +707,7 @@ flowchart TD
 - `/register`는 Discord 한국어 locale에서 `/기상등록`으로 표시된다.
 - `/register`는 같은 날 두 번째 변경을 거부한다.
 - `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산하고 현재 월 `Users` 스냅샷을 보장한다.
+- `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`, `#time-start-here`에서만 실행된다.
 - `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 미래 월 자동 참여만 중단한다.
 - `/delete`는 지정한 `(userid, yearmonth)`를 exclusion 으로 기록해 같은 달 자동 스냅샷 생성이 사용자를 다시 만들지 않게 한다.
 - `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 현재 월 날짜 단위(`yyyymmdd`)로 동작한다.

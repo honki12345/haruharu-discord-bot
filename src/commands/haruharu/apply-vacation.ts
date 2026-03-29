@@ -1,7 +1,9 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { startHereChannelId, timeStartHereChannelId } from '../../config.js';
 
 export const command = {
   cooldown: 5,
+  allowedChannelIds: [startHereChannelId, timeStartHereChannelId],
   data: new SlashCommandBuilder()
     .setName('apply-vacation')
     .setDescription('apply your vacation for a specific date')

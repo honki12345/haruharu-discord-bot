@@ -6,14 +6,13 @@ export interface AppConfig {
   guildId?: string;
   databaseUser?: string;
   password?: string;
-  noticeChannelId?: string;
-  vacancesRegisterChannelId?: string;
   checkChannelId?: string;
   testChannelId?: string;
   logChannelId?: string;
   resultChannelId?: string;
   voiceChannelId?: string;
   startHereChannelId?: string;
+  timeStartHereChannelId?: string;
   wakeUpRoleId?: string;
   camStudyRoleId?: string;
 }
@@ -39,17 +38,14 @@ export const clientId = getRequiredConfig('clientId');
 export const guildId = getRequiredConfig('guildId');
 export const databaseUser = getOptionalConfig('databaseUser');
 export const password = getOptionalConfig('password');
-export const noticeChannelId = getRequiredConfig('noticeChannelId');
-export const vacancesRegisterChannelId = getRequiredConfig('vacancesRegisterChannelId');
 export const checkChannelId = getRequiredConfig('checkChannelId');
 export const testChannelId = getRequiredConfig('testChannelId');
 export const logChannelId = getRequiredConfig('logChannelId');
 export const resultChannelId = getRequiredConfig('resultChannelId');
 export const voiceChannelId = getRequiredConfig('voiceChannelId');
 export const startHereChannelId = getRequiredConfig('startHereChannelId');
+export const timeStartHereChannelId = getRequiredConfig('timeStartHereChannelId');
 export const wakeUpRoleId = getRequiredConfig('wakeUpRoleId');
 export const camStudyRoleId = getRequiredConfig('camStudyRoleId');
 
-export const commandChannelIds = new Set(
-  [noticeChannelId, vacancesRegisterChannelId, checkChannelId, testChannelId, logChannelId].filter(Boolean),
-);
+export const commandChannelIds = new Set([checkChannelId, testChannelId, logChannelId].filter(Boolean));

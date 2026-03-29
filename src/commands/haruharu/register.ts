@@ -1,8 +1,10 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { startHereChannelId, timeStartHereChannelId } from '../../config.js';
 import { logger } from '../../logger.js';
 
 export const command = {
   cooldown: 5,
+  allowedChannelIds: [startHereChannelId, timeStartHereChannelId],
   data: new SlashCommandBuilder()
     .setName('register')
     .setDescription('register or update your challenge waketime')
