@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import { sequelize } from './config.js';
+import { AttendanceLog } from './AttendanceLog.js';
 import { TimeLog } from './TimeLog.js';
 import { Users } from './Users.js';
 import { VacationLog } from './VacationLog.js';
@@ -10,6 +11,8 @@ const findChallengeUser = (userid: string, yearmonth: string) => Users.findOne({
 const listChallengeUsers = (yearmonth: string) => Users.findAll({ where: { yearmonth } });
 
 const listChallengeLogs = (yearmonthday: string) => TimeLog.findAll({ where: { yearmonthday } });
+
+const listChallengeAttendanceLogs = (yearmonthday: string) => AttendanceLog.findAll({ where: { yearmonthday } });
 
 const listUserChallengeLogs = (userid: string, yearmonthday: string) =>
   TimeLog.findAll({ where: { userid, yearmonthday } });
@@ -57,6 +60,7 @@ export {
   createChallengeLog,
   createVacationLog,
   createWaketimeChangeLog,
+  listChallengeAttendanceLogs,
   findChallengeUser,
   findVacationLog,
   findWaketimeChangeLog,

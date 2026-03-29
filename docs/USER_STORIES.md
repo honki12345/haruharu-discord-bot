@@ -2,6 +2,45 @@
 
 ## 기상 챌린지 (Morning Challenge)
 
+### US-13: 운영 daily message 자동 생성
+
+```
+AS A 챌린저
+I WANT TO 매일 아침 운영 채널에 오늘의 daily message와 출석 thread가 열리길 원한다
+SO THAT 그날의 출석 진입점이 하나로 유지된다
+```
+
+**인수 조건:**
+
+- 운영 채널에 매일 오전 06:00 daily message와 출석 thread를 생성한다
+- 같은 날짜에는 daily message/thread를 한 번만 생성한다
+- 봇 재시작 후에도 오늘 thread를 다시 찾아 재사용할 수 있다
+- 테스트 채널 demo thread와 운영 thread는 다른 채널/이름 규칙을 사용한다
+
+```mermaid
+sequenceDiagram
+    participant S as Scheduler
+    participant B as Bot
+    participant D as Discord
+    participant C as Check Channel
+
+    Note over S: 매일 06:00 트리거
+    S->>B: ensureTodayAttendanceThread()
+    B->>C: 오늘 날짜 thread 조회
+
+    alt 오늘 thread가 이미 존재
+        C-->>B: 기존 thread 반환
+        B->>B: 기존 thread 재사용
+    else 오늘 thread가 없음
+        B->>C: daily message 전송
+        C-->>B: messageId
+        B->>D: 출석 thread 생성
+        B->>D: 안내 메시지 전송
+    end
+```
+
+---
+
 ### US-1: 챌린저 등록/수정
 
 ```
@@ -239,11 +278,13 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 
 **인수 조건:**
 
-- 출석/지각/휴가/결석 인원 집계
+- `AttendanceLog` 기준 출석/지각/결석 인원 집계
+- 휴가 등록된 날짜는 `휴가`로 표시하고 결석으로 처리하지 않음
+- 댓글이 없는 사용자도 결석으로 확정
+- 전환 기간에는 `AttendanceLog`가 없을 때만 기존 `TimeLog`를 fallback 으로 사용
 - 주말 및 공휴일 제외
-- 휴가 등록된 날짜는 결석으로 처리하지 않음
-- 결석자는 결석 횟수 증가
-- 지각자는 지각 횟수 증가
+- `late` 상태는 `latecount` 증가
+- `absent` 상태 또는 무댓글 사용자는 `absencecount` 증가
 
 ```mermaid
 sequenceDiagram
@@ -253,7 +294,7 @@ sequenceDiagram
     participant C as Check Channel
 
     Note over S: 매일 13:00 트리거
-    S->>B: printChallengeInterval()
+    S->>B: buildChallengeReport()
 
     B->>B: 요일 확인
     alt 토요일 또는 일요일
@@ -265,29 +306,36 @@ sequenceDiagram
         B->>B: 스킵 (24시간 후 재시도)
     end
 
-    B->>DB: 전일자 TimeLog 전체 조회
     B->>DB: 이번 달 Users 전체 조회
+    B->>DB: 당일 AttendanceLog 전체 조회
+    B->>DB: 필요 시 당일 TimeLog 전체 조회
 
     B->>B: 출석 현황 집계
 
     loop 각 사용자별
-        alt 체크인 & 체크아웃 완료
-            alt 둘 중 하나라도 지각
-                B->>DB: Users.latecount++
-                B->>B: 지각자 목록에 추가
-            else 모두 정시
-                B->>B: 출석자 목록에 추가
-            end
-        else 휴가 등록됨
+        alt 휴가 등록됨
             B->>B: 휴가자 목록에 추가
-        else 체크인 또는 체크아웃 미완료
+        else AttendanceLog 없음 and TimeLog 2건 정시
+            B->>B: 출석자 목록에 추가
+        else AttendanceLog 없음 and TimeLog 2건 중 지각 존재
+            B->>DB: Users.latecount++
+            B->>B: 지각자 목록에 추가
+        else AttendanceLog 없음 and fallback 불가
             B->>DB: Users.absencecount++
             B->>B: 결석자 목록에 추가
+        else AttendanceLog.status = late
+            B->>DB: Users.latecount++
+            B->>B: 지각자 목록에 추가
+        else AttendanceLog.status = absent
+            B->>DB: Users.absencecount++
+            B->>B: 결석자 목록에 추가
+        else AttendanceLog.status = attended
+            B->>B: 출석자 목록에 추가
         end
     end
 
     B->>C: 리포트 메시지 전송
-    Note over C: 📊 출석 현황 (12/06)<br/>✅ 출석: 홍길동, 김철수<br/>⏰ 지각: 이영희<br/>🌴 휴가: 박민수<br/>❌ 결석: 최민지
+    Note over C: ### 20251208 출석표<br/>- 홍길동: 출석<br/>- 이영희: 지각 (3)<br/>- 박민수: 휴가<br/>- 최민지: 결석 (2/5)
 ```
 
 ---

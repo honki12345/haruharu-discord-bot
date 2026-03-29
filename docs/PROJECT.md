@@ -32,6 +32,7 @@ haruharu-discord-bot/
 │   ├── deployConfig.ts          # 슬래시 커맨드 배포용 최소 설정 로더
 │   ├── logger.ts                # Winston 로깅 설정
 │   ├── attendance.ts            # 출석 판정 및 이모지 유틸리티
+│   ├── daily-attendance.ts      # 운영 daily message/thread 생성 및 재탐색 유틸리티
 │   ├── daily-message.ts         # daily message 질문 풀과 랜덤 선택 유틸리티
 │   ├── utils.ts                 # 분리된 유틸 모듈 배럴 export
 │   ├── deploy-commands.ts       # 슬래시 커맨드 등록
@@ -174,18 +175,20 @@ haruharu-discord-bot/
 
 #### ready.ts
 
-| 항목   | 내용                                                                                                                                     |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 트리거 | 봇 Discord 연결 완료                                                                                                                     |
-| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `CamStudy*`), 서비스 기반 리포트 스케줄러 등록 |
+| 항목   | 내용                                                                                                                                                    |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 트리거 | 봇 Discord 연결 완료                                                                                                                                    |
+| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `CamStudy*`), 운영 daily message/thread 생성 및 스케줄러 등록 |
 
 **스케줄러:**
 
+- 운영 daily message/thread 생성: 매일 06:00
 - 기상 챌린지 리포트: 매일 13:00
 - 캠스터디 리포트: 매일 23:59
 
 **구현 메모:**
 
+- 운영 daily message/thread 중복 방지와 재탐색은 `src/daily-attendance.ts`가 담당한다.
 - 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
 - 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
 
@@ -216,12 +219,19 @@ haruharu-discord-bot/
 | 트리거 | 일반 메시지 생성                                                            |
 | 기능   | 테스트 채널의 출석 demo thread에서 첫 댓글을 감지하고 출석 상태 이모지 반응 |
 
+#### daily-attendance.ts
+
+| 항목   | 내용                                                                                        |
+| ------ | ------------------------------------------------------------------------------------------- |
+| 역할   | 운영 채널용 daily message 본문, thread 이름 규칙, today thread 재탐색/중복 방지 로직을 제공 |
+| 사용처 | `ready.ts` 운영 daily message/thread 자동 생성 스케줄                                       |
+
 #### daily-message.ts
 
 | 항목   | 내용                                                            |
 | ------ | --------------------------------------------------------------- |
 | 역할   | daily message에 넣을 질문 100개를 보관하고 랜덤으로 하나를 선택 |
-| 사용처 | `/demo-daily-message` 커맨드                                    |
+| 사용처 | `/demo-daily-message` 커맨드, 운영 daily message 본문 생성      |
 
 ---
 
@@ -253,11 +263,11 @@ haruharu-discord-bot/
 
 #### reporting.ts
 
-| 항목   | 내용                                                                                                                             |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                 |
-| 담당   | 모델 동기화, 기상 챌린지 출석표 생성, 휴가일 결석 제외 처리, 월말 생존 명단 생성, 캠스터디 일일/주간 집계, 스케줄 중복 실행 방지 |
-| 호출처 | `src/events/ready.ts`                                                                                                            |
+| 항목   | 내용                                                                                                                                                                                     |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                                                                         |
+| 담당   | 모델 동기화, `AttendanceLog` 기반 기상 챌린지 출석표 생성, 전환 기간 `TimeLog` fallback 호환, 휴가일 결석 제외 처리, 월말 생존 명단 생성, 캠스터디 일일/주간 집계, 스케줄 중복 실행 방지 |
+| 호출처 | `src/events/ready.ts`                                                                                                                                                                    |
 
 ---
 
@@ -265,10 +275,10 @@ haruharu-discord-bot/
 
 #### Repository helper 모듈
 
-| 파일                     | 역할                                                                                        |
-| ------------------------ | ------------------------------------------------------------------------------------------- |
-| `challengeRepository.ts` | `Users`, `TimeLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
-| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼             |
+| 파일                     | 역할                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `challengeRepository.ts` | `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
+| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼                              |
 
 #### Users (기상 챌린지 참가자)
 
@@ -299,6 +309,7 @@ haruharu-discord-bot/
 
 - 레거시 `/check-in`, `/check-out` 2건 구조 전용 테이블이다.
 - thread 기반 하루 1회 출석 전환과 별도로 유지된다.
+- 13:00 집계는 `AttendanceLog`가 없는 전환 기간 동안에만 이 테이블을 fallback 으로 읽는다.
 
 #### VacationLog (휴가 사용 기록)
 
@@ -351,7 +362,8 @@ haruharu-discord-bot/
 
 - `(userid, yearmonthday)` 조합은 UNIQUE이며 하루 1건만 저장한다.
 - `too-early`는 공식 출석 로그에 저장하지 않는다.
-- 이 테이블은 phase 1 저장 구조 도입용이며, 기존 일일 리포트는 아직 `TimeLog`를 기준으로 동작한다.
+- 13:00 출석 집계의 우선 원본이며, `attended` / `late` / `absent` 상태에 따라 결과표와 `latecount` / `absencecount`가 반영된다.
+- 전환 기간에는 `AttendanceLog`가 없는 사용자만 `TimeLog` fallback 으로 판정하고, 둘 다 없으면 결석으로 확정된다.
 
 #### CamStudyUsers (캠스터디 참가자)
 

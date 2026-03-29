@@ -10,12 +10,17 @@
 ## 변경 흐름 (Mermaid)
 
 - 구조, 실행 흐름, 데이터 흐름이 바뀌면 `Before` / `After` 두 개의 mermaid 다이어그램으로 요약해주세요.
+- 비교 다이어그램을 쓸 때는 아래 `### Before`, `### After` 헤더를 그대로 유지해주세요.
 - 흐름 변화가 없으면 단일 `Current` 다이어그램만 적거나, 아주 작은 변경이면 생략하고 이유를 적어주세요.
+
+### Before
 
 ```mermaid
 flowchart TD
   A[Before Trigger] --> B[Before Flow]
 ```
+
+### After
 
 ```mermaid
 flowchart TD

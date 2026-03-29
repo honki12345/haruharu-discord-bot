@@ -8,6 +8,7 @@ import {
 } from '../repository/camStudyRepository.js';
 import {
   listChallengeLogs,
+  listChallengeAttendanceLogs,
   listChallengeUsers,
   listMonthlySurvivors,
   listVacationLogs,
@@ -73,18 +74,27 @@ const buildChallengeReport = async () => {
   const yearmonthday = getYearMonthDay(year, month, date);
   const users = await listChallengeUsers(yearmonth);
   const userMap = new Map(users.map(user => [user.userid, user]));
-  const timelogs = await listChallengeLogs(yearmonthday);
+  const attendanceLogs = await listChallengeAttendanceLogs(yearmonthday);
+  const timeLogs = await listChallengeLogs(yearmonthday);
   const vacationLogs = await listVacationLogs(yearmonthday);
+  const attendanceLogsByUserId = new Map(attendanceLogs.map(attendanceLog => [attendanceLog.userid, attendanceLog]));
   const vacationUserIds = new Set(vacationLogs.map(vacationLog => vacationLog.userid));
-  const timelogsGroupById = users.reduce<Record<string, TimeLog[]>>((accumulator, user) => {
+  const timeLogsByUserId = users.reduce<Record<string, TimeLog[]>>((accumulator, user) => {
     accumulator[user.userid] = [];
     return accumulator;
   }, {});
 
-  timelogs.forEach(timelog => {
-    timelogsGroupById[timelog.userid]?.push(timelog);
+  timeLogs.forEach(timeLog => {
+    timeLogsByUserId[timeLog.userid]?.push(timeLog);
   });
-  logger.info(`user id 로 그룹핑한 timelog 인스턴스들: `, { timelogsGroupById });
+  logger.info(`user id 로 그룹핑한 attendanceLog 인스턴스들 요약: `, {
+    totalUsers: attendanceLogsByUserId.size,
+    attendanceSummary: Array.from(attendanceLogsByUserId.values()).map(log => ({
+      userid: log.userid,
+      status: log.status,
+    })),
+  });
+  logger.info(`user id 로 그룹핑한 timeLog fallback 인스턴스들: `, { timeLogsByUserId });
 
   let attendanceMessage = `### ${yearmonthday} 출석표\n`;
   let attendees = '';
@@ -92,32 +102,47 @@ const buildChallengeReport = async () => {
   let vacationers = '';
   let absentees = '';
 
-  for (const [userid, logs] of Object.entries(timelogsGroupById)) {
+  for (const userid of userMap.keys()) {
     const user = userMap.get(userid);
     if (!user) {
       continue;
     }
 
-    if (logs.length === 0 && vacationUserIds.has(userid)) {
+    if (vacationUserIds.has(userid)) {
       vacationers += `- ${user.username}: 휴가\n`;
       continue;
     }
 
-    if (logs.length !== 2) {
+    const attendanceLog = attendanceLogsByUserId.get(userid);
+    const fallbackTimeLogs = timeLogsByUserId[userid] ?? [];
+
+    if (!attendanceLog && fallbackTimeLogs.length === 2) {
+      if (fallbackTimeLogs.every(timeLog => timeLog.isintime)) {
+        attendees += `- ${user.username}: 출석\n`;
+        continue;
+      }
+
+      const nextLateCount = (user.latecount ?? 0) + 1;
+      await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
+      latecomers += `- ${user.username}: 지각 (${nextLateCount})\n`;
+      continue;
+    }
+
+    if (!attendanceLog || attendanceLog.status === 'absent') {
       const nextAbsenceCount = (user.absencecount ?? 0) + 1;
       await updateChallengeUser(userid, yearmonth, { absencecount: nextAbsenceCount });
       absentees += `- ${user.username}: 결석 (${nextAbsenceCount}/${user.vacances})\n`;
       continue;
     }
 
-    if (!logs[0].isintime || !logs[1].isintime) {
+    if (attendanceLog.status === 'late') {
       const nextLateCount = (user.latecount ?? 0) + 1;
       await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
-      latecomers += `- ${logs[0].username}: 지각 (${nextLateCount})\n`;
+      latecomers += `- ${user.username}: 지각 (${nextLateCount})\n`;
       continue;
     }
 
-    attendees += `- ${logs[0].username}: 출석\n`;
+    attendees += `- ${user.username}: 출석\n`;
   }
 
   if (attendees) attendanceMessage += attendees;
