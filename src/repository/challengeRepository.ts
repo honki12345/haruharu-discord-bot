@@ -78,6 +78,16 @@ const createWakeUpMembership = (payload: {
   stoppedat?: string | null;
 }) => WakeUpMembership.create(payload);
 
+const bulkCreateWakeUpMemberships = (
+  payloads: Array<{
+    userid: string;
+    username: string;
+    waketime: string;
+    status: 'active' | 'stopped';
+    stoppedat?: string | null;
+  }>,
+) => WakeUpMembership.bulkCreate(payloads, { ignoreDuplicates: true });
+
 const updateWakeUpMembership = (
   userid: string,
   values: Partial<Pick<WakeUpMembership, 'status' | 'stoppedat' | 'username' | 'waketime'>>,
@@ -94,6 +104,7 @@ export {
   createChallengeLog,
   createChallengeUserExclusion,
   createVacationLog,
+  bulkCreateWakeUpMemberships,
   createWakeUpMembership,
   createWaketimeChangeLog,
   listChallengeAttendanceLogs,

@@ -299,4 +299,37 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(membership?.waketime).toBe('0710');
     expect(stopInteraction.getLastReply()).toContain('중단했습니다');
   });
+
+  it('TC-WM10: legacy Users backfill 경로는 동시 /stop-wakeup 요청에도 unique 충돌 없이 idempotent 하다', async () => {
+    vi.setSystemTime(new Date('2025-12-20T07:05:00Z'));
+    await TestUsers.create({
+      userid: 'legacy-concurrent-user',
+      username: '동시중단',
+      yearmonth: '202512',
+      waketime: '0715',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    vi.setSystemTime(new Date('2026-01-08T07:05:00Z'));
+    const { executeStopWakeUp } = await import('../services/challengeSelfService.js');
+
+    await expect(
+      Promise.all([
+        executeStopWakeUp({ userId: 'legacy-concurrent-user' }),
+        executeStopWakeUp({ userId: 'legacy-concurrent-user' }),
+      ]),
+    ).resolves.toEqual([
+      expect.objectContaining({ reply: expect.stringContaining('중단') }),
+      expect.objectContaining({ reply: expect.any(String) }),
+    ]);
+
+    const memberships = await TestWakeUpMembership.findAll({
+      where: { userid: 'legacy-concurrent-user' },
+    });
+
+    expect(memberships).toHaveLength(1);
+    expect(memberships[0]?.status).toBe('stopped');
+  });
 });

@@ -1,4 +1,5 @@
 import {
+  bulkCreateWakeUpMemberships,
   createChallengeUserExclusion,
   countUserVacationLogs,
   createWakeUpMembership,
@@ -139,7 +140,7 @@ const backfillWakeUpMembershipsFromLatestUsers = async () => {
     return;
   }
 
-  await Promise.all(membershipsToCreate.map(membership => createWakeUpMembership(membership)));
+  await bulkCreateWakeUpMemberships(membershipsToCreate);
 };
 
 const findWakeUpMembershipWithLegacyBackfill = async (userId: string) => {
