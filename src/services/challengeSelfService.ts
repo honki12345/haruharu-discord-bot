@@ -11,6 +11,7 @@ import {
   findWaketimeChangeLog,
   listActiveWakeUpMemberships,
   listChallengeUserExclusions,
+  listWakeUpMembershipsByUserIds,
   updateWakeUpMembership,
 } from '../repository/challengeRepository.js';
 import { isValidWakeTime } from '../attendance.js';
@@ -106,7 +107,43 @@ const ensureWakeUpMembershipSnapshot = async (userId: string, yearmonth: string)
 const ensureWakeUpMembershipSnapshotForDate = async (userId: string, yearmonthday: string) =>
   ensureWakeUpMembershipSnapshot(userId, yearmonthday.slice(0, 6));
 
+const backfillWakeUpMembershipsFromLatestUsers = async () => {
+  const latestUserSnapshot = await Users.findOne({
+    attributes: ['yearmonth'],
+    order: [['yearmonth', 'DESC']],
+  });
+  if (!latestUserSnapshot) {
+    return;
+  }
+
+  const latestUsers = await Users.findAll({
+    where: { yearmonth: latestUserSnapshot.yearmonth },
+  });
+  if (!latestUsers.length) {
+    return;
+  }
+
+  const existingMemberships = await listWakeUpMembershipsByUserIds(latestUsers.map(user => user.userid));
+  const existingMembershipUserIds = new Set(existingMemberships.map(membership => membership.userid));
+  const membershipsToCreate = latestUsers
+    .filter(user => !existingMembershipUserIds.has(user.userid))
+    .map(user => ({
+      userid: user.userid,
+      username: user.username,
+      waketime: user.waketime,
+      status: 'active' as const,
+      stoppedat: null,
+    }));
+
+  if (!membershipsToCreate.length) {
+    return;
+  }
+
+  await Promise.all(membershipsToCreate.map(membership => createWakeUpMembership(membership)));
+};
+
 const ensureActiveWakeUpMembershipSnapshots = async (yearmonth: string) => {
+  await backfillWakeUpMembershipsFromLatestUsers();
   const memberships = await listActiveWakeUpMemberships();
   if (!memberships.length) {
     return;
@@ -207,6 +244,12 @@ const findRegisteredUserForDate = async (userId: string, yearmonthday: string) =
 const executeApplyVacation = async ({ userId, yearmonthday }: { userId: string; yearmonthday: string }) => {
   if (!isCanonicalYearMonthDay(yearmonthday)) {
     return { reply: '휴가 날짜를 yyyymmdd 형식으로 입력해주세요' };
+  }
+
+  const { year, month } = getYearMonthDate();
+  const currentYearmonth = getYearMonth(year, month);
+  if (yearmonthday.slice(0, 6) !== currentYearmonth) {
+    return { reply: '휴가는 현재 월 날짜만 신청할 수 있습니다' };
   }
 
   const user = await findRegisteredUserForDate(userId, yearmonthday);

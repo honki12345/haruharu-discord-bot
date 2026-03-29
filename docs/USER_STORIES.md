@@ -781,6 +781,7 @@ SO THAT 운영자 개입 없이 휴가 사용을 관리할 수 있다
 - 등록된 사용자만 가능
 - 본인 데이터만 변경 가능
 - 날짜는 `yyyymmdd` 형식이어야 함
+- 현재 월 날짜만 신청 가능
 - 같은 날짜 중복 등록 불가
 - 잔여 휴가가 있을 때만 등록 가능
 - 활성 membership 이 있으면 현재 월 `Users` 스냅샷이 없어도 자동 생성 후 처리된다
@@ -794,6 +795,11 @@ sequenceDiagram
 
     U->>D: /휴가신청 날짜:20251208
     D->>B: InteractionCreate 이벤트
+
+    B->>B: 현재 월 날짜인지 확인
+    alt 현재 월이 아님
+        B-->>U: "휴가는 현재 월 날짜만 신청할 수 있습니다"
+    end
 
     B->>DB: WakeUpMembership 기반 현재 월 Users 스냅샷 보장
     B->>DB: Users 조회 (userid, 202512)
@@ -813,4 +819,35 @@ sequenceDiagram
 
     B->>DB: VacationLog 생성
     B-->>U: "20251208 휴가를 등록했습니다"
+```
+
+---
+
+### US-16A: 레거시 Users 기반 membership backfill
+
+```
+AS A 운영자
+I WANT TO 배포 시 기존 `Users` 참가자가 membership 부재 때문에 다음 달 자동 이월에서 빠지지 않길 원한다
+SO THAT 기능 롤아웃이 기존 참여자 데이터를 끊지 않는다
+```
+
+**인수 조건:**
+
+- 최신 `Users.yearmonth` 스냅샷의 참가자 중 membership 이 없는 사용자는 자동으로 `WakeUpMembership`이 생성된다
+- backfill 된 membership 은 최신 `Users.waketime`을 사용한다
+- 이후 월 자동 스냅샷 생성은 backfill 된 membership 을 기준으로 이어진다
+
+```mermaid
+sequenceDiagram
+    participant B as Bot
+    participant DB as SQLite
+    participant R as 월 스냅샷 보장 경로
+
+    B->>DB: 최신 Users.yearmonth 조회
+    B->>DB: 최신 월 Users 목록 조회
+    B->>DB: 기존 WakeUpMembership 조회
+    B->>DB: 누락 사용자 membership 생성
+
+    R->>B: 다음 달 스냅샷 보장
+    B->>DB: active membership 기준 Users 생성
 ```

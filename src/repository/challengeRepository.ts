@@ -67,6 +67,9 @@ const findWakeUpMembership = (userid: string) => WakeUpMembership.findOne({ wher
 
 const listActiveWakeUpMemberships = () => WakeUpMembership.findAll({ where: { status: 'active' } });
 
+const listWakeUpMembershipsByUserIds = (userids: string[]) =>
+  WakeUpMembership.findAll({ where: { userid: { [Op.in]: userids } } });
+
 const createWakeUpMembership = (payload: {
   userid: string;
   username: string;
@@ -105,6 +108,7 @@ export {
   listMonthlySurvivors,
   listUserChallengeLogs,
   listVacationLogs,
+  listWakeUpMembershipsByUserIds,
   listMonthlyVacationLogs,
   countUserVacationLogs,
   updateChallengeUser,

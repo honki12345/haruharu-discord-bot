@@ -191,6 +191,9 @@ haruharu-discord-bot/
 | ------------- | ----------------- | ---- | ------------------------- |
 | date          | 날짜              | O    | 휴가 대상 날짜 (yyyymmdd) |
 
+- 현재 월 날짜만 신청할 수 있다.
+- 활성 membership 이 있고 현재 월 `Users` 스냅샷이 없으면 자동 생성 후 처리한다.
+
 #### `/apply-cam` (`/캠스터디신청`)
 
 - 별도 파라미터 없음
@@ -371,11 +374,11 @@ flowchart TD
 
 #### challengeSelfService.ts
 
-| 항목   | 내용                                                                                                                                                                                           |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                |
-| 담당   | `WakeUpMembership` 생성/재활성화/중단, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
-| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                         |
+| 항목   | 내용                                                                                                                                                                                                                                                            |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                                                                                 |
+| 담당   | `WakeUpMembership` 생성/재활성화/중단, latest `Users` 기반 membership backfill, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 현재 월 휴가 날짜 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                                                                                          |
 
 #### reporting.ts
 
@@ -416,6 +419,7 @@ flowchart TD
 
 - `(userid)` 조합은 UNIQUE이며 기상 챌린지 참여 상태를 사용자당 1건으로 유지한다.
 - `/register`가 이 테이블을 생성하거나 `stopped -> active`로 재활성화하고, 최근 등록 기상시간을 함께 갱신한다.
+- membership 이 아직 없는 레거시 운영 데이터는 최신 `Users.yearmonth` 스냅샷을 기준으로 자동 backfill 된다.
 - 일일 리포트와 휴가 self-service는 활성 membership의 현재 월 `Users` 스냅샷을 필요 시 자동 생성한다.
 
 #### Users (기상 챌린지 참가자)
@@ -673,7 +677,7 @@ flowchart TD
 - `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 미래 월 자동 참여만 중단한다.
 - `/delete`는 지정한 `(userid, yearmonth)`를 exclusion 으로 기록해 같은 달 자동 스냅샷 생성이 사용자를 다시 만들지 않게 한다.
 - `/approve-application`, `/reject-application`은 현재 `cam-study` 프로그램에만 사용한다.
-- `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 날짜 단위(`yyyymmdd`)로 동작한다.
+- `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 현재 월 날짜 단위(`yyyymmdd`)로 동작한다.
 - 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.
 - 데모 전용 커맨드는 Discord 한국어 locale에서 `admin-demo-...` 접두어로 표시된다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.

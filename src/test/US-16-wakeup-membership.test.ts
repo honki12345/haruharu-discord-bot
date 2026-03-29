@@ -48,7 +48,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(attendanceMessage).toContain('홍길동: 결석');
   });
 
-  it('TC-WM02: 활성 사용자는 다음 달 휴가 신청 시 현재 월 스냅샷이 없어도 자동으로 생성된다', async () => {
+  it('TC-WM02: 활성 사용자는 현재 월 휴가 신청 시 현재 월 스냅샷이 없어도 자동으로 생성된다', async () => {
     vi.setSystemTime(new Date('2025-12-07T07:05:00Z'));
     await TestWakeUpMembership.create({
       userid: 'vacation-user',
@@ -62,7 +62,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
       userId: 'vacation-user',
       globalName: '김영희',
       options: {
-        date: '20260109',
+        date: '20251209',
       },
     });
 
@@ -70,10 +70,10 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     await command.execute(interaction as never);
 
     const currentMonthUser = await TestUsers.findOne({
-      where: { userid: 'vacation-user', yearmonth: '202601' },
+      where: { userid: 'vacation-user', yearmonth: '202512' },
     });
     const vacationLog = await TestVacationLog.findOne({
-      where: { userid: 'vacation-user', yearmonthday: '20260109' },
+      where: { userid: 'vacation-user', yearmonthday: '20251209' },
     });
 
     expect(currentMonthUser).not.toBeNull();
@@ -243,5 +243,32 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(deleteInteraction.getLastReply()).toContain('삭제했습니다');
     expect(currentMonthUser).toBeNull();
     expect(attendanceMessage).not.toContain('삭제대상');
+  });
+
+  it('TC-WM08: membership이 없는 기존 Users 참가자도 다음 달 자동 이월 대상에 포함된다', async () => {
+    vi.setSystemTime(new Date('2025-12-07T07:05:00Z'));
+    await TestUsers.create({
+      userid: 'legacy-user',
+      username: '기존참가자',
+      yearmonth: '202512',
+      waketime: '0645',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    vi.setSystemTime(new Date('2026-01-08T07:05:00Z'));
+    const { buildChallengeReport } = await import('../services/reporting.js');
+    const { attendanceMessage } = await buildChallengeReport();
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'legacy-user' } });
+    const currentMonthUser = await TestUsers.findOne({
+      where: { userid: 'legacy-user', yearmonth: '202601' },
+    });
+
+    expect(membership?.status).toBe('active');
+    expect(membership?.waketime).toBe('0645');
+    expect(currentMonthUser?.waketime).toBe('0645');
+    expect(attendanceMessage).toContain('기존참가자: 결석');
   });
 });
