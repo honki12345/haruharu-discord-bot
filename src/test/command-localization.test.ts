@@ -36,6 +36,7 @@ const commandSpecs = [
     baseName: 'register',
     koName: '기상등록',
     koDescription: '자신의 기상시간을 등록하거나 수정합니다',
+    category: 'user',
     options: [{ name: 'waketime', koName: '기상시간', koDescription: '기상시간을 입력합니다 (HHmm)' }],
   },
   {
@@ -43,13 +44,31 @@ const commandSpecs = [
     baseName: 'apply-vacation',
     koName: '휴가신청',
     koDescription: '특정 날짜에 사용할 휴가를 신청합니다',
+    category: 'user',
     options: [{ name: 'date', koName: '날짜', koDescription: '휴가 날짜를 입력합니다 (yyyymmdd)' }],
+  },
+  {
+    modulePath: '../commands/haruharu/apply-wakeup.js',
+    baseName: 'apply-wakeup',
+    koName: '기상인증신청',
+    koDescription: '기상인증 참여를 신청합니다',
+    category: 'user',
+    options: [],
+  },
+  {
+    modulePath: '../commands/haruharu/apply-cam.js',
+    baseName: 'apply-cam',
+    koName: '캠스터디신청',
+    koDescription: '캠스터디 참여를 신청합니다',
+    category: 'user',
+    options: [],
   },
   {
     modulePath: '../commands/haruharu/add-vacances.js',
     baseName: 'add-vacances',
     koName: 'admin-휴가추가',
     koDescription: '관리자가 대상 사용자의 월별 휴가일수를 추가합니다',
+    category: 'admin',
     options: [
       { name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' },
       { name: 'yearmonth', koName: '년월', koDescription: '대상 년월을 입력합니다 (yyyymm)' },
@@ -57,10 +76,34 @@ const commandSpecs = [
     ],
   },
   {
+    modulePath: '../commands/haruharu/approve-application.js',
+    baseName: 'approve-application',
+    koName: 'admin-신청승인',
+    koDescription: '관리자가 참여 신청을 승인합니다',
+    category: 'admin',
+    options: [
+      { name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' },
+      { name: 'program', koName: '프로그램', koDescription: '대상 프로그램을 선택합니다' },
+    ],
+  },
+  {
+    modulePath: '../commands/haruharu/reject-application.js',
+    baseName: 'reject-application',
+    koName: 'admin-신청거절',
+    koDescription: '관리자가 참여 신청을 거절합니다',
+    category: 'admin',
+    options: [
+      { name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' },
+      { name: 'program', koName: '프로그램', koDescription: '대상 프로그램을 선택합니다' },
+      { name: 'reason', koName: '사유', koDescription: '거절 사유를 입력합니다' },
+    ],
+  },
+  {
     modulePath: '../commands/haruharu/delete.js',
     baseName: 'delete',
     koName: 'admin-챌린저삭제',
     koDescription: '관리자가 기상 챌린지 사용자를 삭제합니다',
+    category: 'admin',
     options: [
       { name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' },
       { name: 'yearmonth', koName: '년월', koDescription: '대상 년월을 입력합니다 (yyyymm)' },
@@ -71,6 +114,7 @@ const commandSpecs = [
     baseName: 'register-cam',
     koName: 'admin-캠스터디등록',
     koDescription: '관리자가 캠스터디 참가자를 등록합니다',
+    category: 'admin',
     options: [
       { name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' },
       { name: 'username', koName: '이름', koDescription: '표시 이름을 입력합니다' },
@@ -81,6 +125,7 @@ const commandSpecs = [
     baseName: 'delete-cam',
     koName: 'admin-캠스터디삭제',
     koDescription: '관리자가 캠스터디 참가자를 삭제합니다',
+    category: 'admin',
     options: [{ name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' }],
   },
   {
@@ -88,6 +133,7 @@ const commandSpecs = [
     baseName: 'demo-daily-message',
     koName: 'admin-demo-출석생성',
     koDescription: '관리자가 테스트 채널에 데일리 출석 메시지와 데모 쓰레드를 생성합니다',
+    category: 'admin-demo',
     options: [],
   },
   {
@@ -95,6 +141,7 @@ const commandSpecs = [
     baseName: 'ping',
     koName: 'admin-상태확인',
     koDescription: '관리자가 봇 응답 상태를 확인합니다',
+    category: 'admin',
     options: [],
   },
 ] as const;
@@ -127,16 +174,14 @@ describe('슬래시 커맨드 한국어 localization', () => {
   });
 
   it('관리자 커맨드는 admin 접두어, 데모 커맨드는 admin-demo 접두어를 사용한다', async () => {
-    const adminExpected = commandSpecs
-      .filter(spec => spec.baseName !== 'register' && spec.baseName !== 'apply-vacation')
-      .map(spec => ({ baseName: spec.baseName, koName: spec.koName }));
+    const adminExpected = commandSpecs.filter(spec => spec.category === 'admin' || spec.category === 'admin-demo');
 
     for (const spec of adminExpected) {
       const { command } = await import(commandSpecs.find(item => item.baseName === spec.baseName)!.modulePath);
       const json = command.data.toJSON();
       const localizedName = json.name_localizations?.ko ?? '';
 
-      if (spec.baseName === 'demo-daily-message') {
+      if (spec.category === 'admin-demo') {
         expect(localizedName.startsWith('admin-demo-')).toBe(true);
       } else {
         expect(localizedName.startsWith('admin-')).toBe(true);

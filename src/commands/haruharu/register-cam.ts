@@ -34,6 +34,7 @@ export const command = {
 
     if (foundUser) {
       await interaction.reply('캠스터디 등록 실패: 이미 존재하는 회원입니다');
+      return;
     }
 
     // add logic

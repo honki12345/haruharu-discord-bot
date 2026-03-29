@@ -53,16 +53,20 @@
 
 ### 커맨드 이름 매핑
 
-| 내부 key             | 현재 노출             | 한국어 표시명 초안     | 비고                                       |
-| -------------------- | --------------------- | ---------------------- | ------------------------------------------ |
-| `register`           | `/register`           | `/기상등록`            | 사용자가 자신의 기상시간 등록/수정         |
-| `apply-vacation`     | `/apply-vacation`     | `/휴가신청`            | 사용자가 자신의 특정 날짜 휴가 신청        |
-| `add-vacances`       | `/add-vacances`       | `/admin-휴가추가`      | 관리자가 월별 휴가일수 지급                |
-| `delete`             | `/delete`             | `/admin-챌린저삭제`    | 관리자용 기상 챌린지 사용자 삭제           |
-| `register-cam`       | `/register-cam`       | `/admin-캠스터디등록`  | 관리자용 캠스터디 참가자 등록              |
-| `delete-cam`         | `/delete-cam`         | `/admin-캠스터디삭제`  | 관리자용 캠스터디 참가자 삭제              |
-| `demo-daily-message` | `/demo-daily-message` | `/admin-demo-출석생성` | 테스트 채널 daily message/demo thread 생성 |
-| `ping`               | `/ping`               | `/admin-상태확인`      | 관리자용 봇 헬스체크                       |
+| 내부 key              | 현재 노출              | 한국어 표시명 초안     | 비고                                       |
+| --------------------- | ---------------------- | ---------------------- | ------------------------------------------ |
+| `register`            | `/register`            | `/기상등록`            | 사용자가 자신의 기상시간 등록/수정         |
+| `apply-vacation`      | `/apply-vacation`      | `/휴가신청`            | 사용자가 자신의 특정 날짜 휴가 신청        |
+| `apply-wakeup`        | `/apply-wakeup`        | `/기상인증신청`        | 사용자가 기상인증 참여를 신청              |
+| `apply-cam`           | `/apply-cam`           | `/캠스터디신청`        | 사용자가 캠스터디 참여를 신청              |
+| `add-vacances`        | `/add-vacances`        | `/admin-휴가추가`      | 관리자가 월별 휴가일수 지급                |
+| `approve-application` | `/approve-application` | `/admin-신청승인`      | 관리자가 역할 기반 참여 신청을 승인        |
+| `reject-application`  | `/reject-application`  | `/admin-신청거절`      | 관리자가 역할 기반 참여 신청을 거절        |
+| `delete`              | `/delete`              | `/admin-챌린저삭제`    | 관리자용 기상 챌린지 사용자 삭제           |
+| `register-cam`        | `/register-cam`        | `/admin-캠스터디등록`  | 관리자용 캠스터디 참가자 등록              |
+| `delete-cam`          | `/delete-cam`          | `/admin-캠스터디삭제`  | 관리자용 캠스터디 참가자 삭제              |
+| `demo-daily-message`  | `/demo-daily-message`  | `/admin-demo-출석생성` | 테스트 채널 daily message/demo thread 생성 |
+| `ping`                | `/ping`                | `/admin-상태확인`      | 관리자용 봇 헬스체크                       |
 
 ### 옵션 이름 매핑
 
@@ -70,6 +74,8 @@
 | ----------- | ------------------ | ------------------------------------------------------ |
 | `waketime`  | `기상시간`         | `register`                                             |
 | `date`      | `날짜`             | `apply-vacation`                                       |
+| `program`   | `프로그램`         | `approve-application`, `reject-application`            |
+| `reason`    | `사유`             | `reject-application`                                   |
 | `userid`    | `사용자id`         | `add-vacances`, `delete`, `register-cam`, `delete-cam` |
 | `yearmonth` | `년월`             | `add-vacances`, `delete`                               |
 | `count`     | `추가일수`         | `add-vacances`                                         |
@@ -77,16 +83,20 @@
 
 ### 설명 문구 초안
 
-| 대상                 | 한국어 설명 초안                                                     |
-| -------------------- | -------------------------------------------------------------------- |
-| `register`           | 자신의 기상시간을 등록하거나 수정합니다                              |
-| `apply-vacation`     | 특정 날짜에 사용할 휴가를 신청합니다                                 |
-| `add-vacances`       | 관리자가 대상 사용자의 월별 휴가일수를 추가합니다                    |
-| `delete`             | 관리자가 기상 챌린지 사용자를 삭제합니다                             |
-| `register-cam`       | 관리자가 캠스터디 참가자를 등록합니다                                |
-| `delete-cam`         | 관리자가 캠스터디 참가자를 삭제합니다                                |
-| `demo-daily-message` | 관리자가 테스트 채널에 데일리 출석 메시지와 데모 쓰레드를 생성합니다 |
-| `ping`               | 관리자가 봇 응답 상태를 확인합니다                                   |
+| 대상                  | 한국어 설명 초안                                                     |
+| --------------------- | -------------------------------------------------------------------- |
+| `register`            | 자신의 기상시간을 등록하거나 수정합니다                              |
+| `apply-vacation`      | 특정 날짜에 사용할 휴가를 신청합니다                                 |
+| `apply-wakeup`        | 기상인증 참여를 신청합니다                                           |
+| `apply-cam`           | 캠스터디 참여를 신청합니다                                           |
+| `add-vacances`        | 관리자가 대상 사용자의 월별 휴가일수를 추가합니다                    |
+| `approve-application` | 관리자가 참여 신청을 승인합니다                                      |
+| `reject-application`  | 관리자가 참여 신청을 거절합니다                                      |
+| `delete`              | 관리자가 기상 챌린지 사용자를 삭제합니다                             |
+| `register-cam`        | 관리자가 캠스터디 참가자를 등록합니다                                |
+| `delete-cam`          | 관리자가 캠스터디 참가자를 삭제합니다                                |
+| `demo-daily-message`  | 관리자가 테스트 채널에 데일리 출석 메시지와 데모 쓰레드를 생성합니다 |
+| `ping`                | 관리자가 봇 응답 상태를 확인합니다                                   |
 
 ## 완료조건
 

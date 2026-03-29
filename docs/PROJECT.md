@@ -56,7 +56,11 @@ haruharu-discord-bot/
 │   │   └── haruharu/
 │   │       ├── register.ts      # 사용자 기상 챌린지 등록/수정
 │   │       ├── apply-vacation.ts # 사용자 휴가 등록
+│   │       ├── apply-wakeup.ts  # 사용자 기상인증 참여 신청
+│   │       ├── apply-cam.ts     # 사용자 캠스터디 참여 신청
 │   │       ├── add-vacances.ts  # 휴가 추가
+│   │       ├── approve-application.ts # 참여 신청 승인
+│   │       ├── reject-application.ts # 참여 신청 거절
 │   │       ├── delete.ts        # 챌린저 삭제
 │   │       ├── register-cam.ts  # 캠스터디 등록
 │   │       ├── delete-cam.ts    # 캠스터디 삭제
@@ -135,6 +139,15 @@ haruharu-discord-bot/
 | `/add-vacances`   | `/admin-휴가추가`   | 관리자 | 휴가일수 추가                        |
 | `/delete`         | `/admin-챌린저삭제` | 관리자 | 챌린저 삭제                          |
 
+#### 역할 기반 참여 신청 커맨드
+
+| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                     |
+| ---------------------- | ----------------- | ------ | ------------------------ |
+| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 참여 신청       |
+| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 신청       |
+| `/approve-application` | `/admin-신청승인` | 관리자 | 역할 기반 참여 신청 승인 |
+| `/reject-application`  | `/admin-신청거절` | 관리자 | 역할 기반 참여 신청 거절 |
+
 #### 캠스터디 커맨드
 
 | 내부 key        | 한국어 표시명(ko)     | 권한   | 설명          |
@@ -165,6 +178,16 @@ haruharu-discord-bot/
 | ------------- | ----------------- | ---- | ------------------------- |
 | date          | 날짜              | O    | 휴가 대상 날짜 (yyyymmdd) |
 
+#### `/apply-wakeup` (`/기상인증신청`)
+
+- 별도 파라미터 없음
+- `#apply` 채널에서만 실행 가능
+
+#### `/apply-cam` (`/캠스터디신청`)
+
+- 별도 파라미터 없음
+- `#apply` 채널에서만 실행 가능
+
 #### `/add-vacances` (`/admin-휴가추가`)
 
 | 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                 |
@@ -172,6 +195,21 @@ haruharu-discord-bot/
 | userid        | 사용자id          | O    | Discord 사용자 ID    |
 | yearmonth     | 년월              | O    | 년월 (yyyymm)        |
 | count         | 추가일수          | O    | 추가 지급할 휴가일수 |
+
+#### `/approve-application` (`/admin-신청승인`)
+
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
+| ------------- | ----------------- | ---- | ----------------- |
+| userid        | 사용자id          | O    | Discord 사용자 ID |
+| program       | 프로그램          | O    | 대상 프로그램     |
+
+#### `/reject-application` (`/admin-신청거절`)
+
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
+| ------------- | ----------------- | ---- | ----------------- |
+| userid        | 사용자id          | O    | Discord 사용자 ID |
+| program       | 프로그램          | O    | 대상 프로그램     |
+| reason        | 사유              | O    | 거절 사유         |
 
 #### `/delete`, `/delete-cam` (`/admin-챌린저삭제`, `/admin-캠스터디삭제`)
 

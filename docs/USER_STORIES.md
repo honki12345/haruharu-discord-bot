@@ -38,13 +38,13 @@ sequenceDiagram
 
 ```
 AS A 서버 사용자
-I WANT TO /apply-wakeup 또는 /apply-cam 으로 직접 신청하고 운영자 승인을 받고 싶다
+I WANT TO /기상인증신청 또는 /캠스터디신청 으로 직접 신청하고 운영자 승인을 받고 싶다
 SO THAT 승인된 프로그램의 전용 채널만 자동으로 열리길 원한다
 ```
 
 **인수 조건:**
 
-- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행된다
+- `/기상인증신청` (`/apply-wakeup`), `/캠스터디신청` (`/apply-cam`)은 `#apply`에서만 실행된다
 - 신청 응답은 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
 - 신청 시 운영 채널에 승인/거절용 안내가 전송된다
 - 운영자가 승인하면 해당 역할이 자동 부여된다
@@ -59,19 +59,19 @@ sequenceDiagram
     participant O as #ops
     participant D as Discord Role
 
-    U->>A: /apply-wakeup 또는 /apply-cam
+    U->>A: /기상인증신청 또는 /캠스터디신청
     A->>B: InteractionCreate 이벤트
     B->>DB: ParticipationApplication 조회/생성
     B-->>U: ephemeral "신청이 접수되었어요"
     B->>O: 승인/거절 안내 전송
 
     alt 운영자가 승인
-        O->>B: /approve-application
+        O->>B: /admin-신청승인
         B->>DB: status = approved
         B->>D: 역할 부여
         B-->>U: 승인 안내
     else 운영자가 거절
-        O->>B: /reject-application
+        O->>B: /admin-신청거절
         B->>DB: status = rejected
         B-->>U: 거절 사유 + 재신청 안내
     end

@@ -41,8 +41,7 @@ describe('US-07: /register-cam 커맨드', () => {
     expect(interaction.getLastReply()).toContain('캠스터디 참가자로 등록했습니다');
   });
 
-  // 참고: register-cam.ts에 버그 있음 - foundUser 체크 후 return 없음
-  it('TC-RC02: 이미 등록된 사용자 (버그: 중복 체크 후 return 없음)', async () => {
+  it('TC-RC02: 이미 등록된 사용자는 중복 생성하지 않고 한 번만 실패 응답한다', async () => {
     await TestCamStudyUsers.create({
       userid: 'cam-user-123',
       username: '홍길동',
@@ -58,8 +57,11 @@ describe('US-07: /register-cam 커맨드', () => {
     const { command } = await import('../commands/haruharu/register-cam.js');
     await command.execute(interaction as never);
 
-    // 첫 번째 reply는 "이미 존재" 메시지
     const replies = interaction.getReplies();
+    const userCount = await TestCamStudyUsers.count({ where: { userid: 'cam-user-123' } });
+
+    expect(userCount).toBe(1);
+    expect(replies).toHaveLength(1);
     expect(replies[0]).toContain('이미 존재');
   });
 });
