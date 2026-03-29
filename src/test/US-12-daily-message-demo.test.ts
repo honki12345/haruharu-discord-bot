@@ -103,7 +103,10 @@ describe('US-12: daily message 데모', () => {
 
     expect(fetch).toHaveBeenCalledWith('valid-test-channel-id');
     expect(send).toHaveBeenCalledOnce();
-    expect(send.mock.calls[0]?.[0]).toContain('📝 오늘의 질문: 오늘 꼭 이루고 싶은 한 가지는 무엇인가요?');
+    expect(send.mock.calls[0]?.[0]).toContain('오늘의 질문:');
+    expect(send.mock.calls[0]?.[0]).toContain('"오늘 꼭 이루고 싶은 한 가지는 무엇인가요?"');
+    expect(send.mock.calls[0]?.[0]).toContain('👇 아래 쓰레드에 오늘 출석과 함께 답변을 남겨주세요');
+    expect(send.mock.calls[0]?.[0]).not.toContain('오늘의 한마디:');
     expect(startThread).toHaveBeenCalledOnce();
     expect(threadSend).toHaveBeenCalledOnce();
     expect(interaction.getLastReply()).toContain('데모 출석 메시지와 쓰레드를 생성했습니다');
