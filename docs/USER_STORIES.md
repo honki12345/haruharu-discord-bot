@@ -263,6 +263,7 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 **인수 조건:**
 - `AttendanceLog` 기준 출석/지각/결석 인원 집계
 - 댓글이 없는 사용자도 결석으로 확정
+- 전환 기간에는 `AttendanceLog`가 없을 때만 기존 `TimeLog`를 fallback 으로 사용
 - 주말 및 공휴일 제외
 - `late` 상태는 `latecount` 증가
 - `absent` 상태 또는 무댓글 사용자는 `absencecount` 증가
@@ -289,11 +290,17 @@ sequenceDiagram
 
     B->>DB: 이번 달 Users 전체 조회
     B->>DB: 당일 AttendanceLog 전체 조회
+    B->>DB: 필요 시 당일 TimeLog 전체 조회
 
     B->>B: 출석 현황 집계
 
     loop 각 사용자별
-        alt AttendanceLog 없음
+        alt AttendanceLog 없음 and TimeLog 2건 정시
+            B->>B: 출석자 목록에 추가
+        else AttendanceLog 없음 and TimeLog 2건 중 지각 존재
+            B->>DB: Users.latecount++
+            B->>B: 지각자 목록에 추가
+        else AttendanceLog 없음 and fallback 불가
             B->>DB: Users.absencecount++
             B->>B: 결석자 목록에 추가
         else AttendanceLog.status = late

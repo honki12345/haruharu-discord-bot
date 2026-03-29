@@ -7,6 +7,7 @@ import {
   updateWeeklyCamStudyTimeLog,
 } from '../repository/camStudyRepository.js';
 import {
+  listChallengeLogs,
   listChallengeAttendanceLogs,
   listChallengeUsers,
   listMonthlySurvivors,
@@ -69,10 +70,20 @@ const buildChallengeReport = async () => {
   const users = await listChallengeUsers(yearmonth);
   const userMap = new Map(users.map(user => [user.userid, user]));
   const attendanceLogs = await listChallengeAttendanceLogs(yearmonthday);
+  const timeLogs = await listChallengeLogs(yearmonthday);
   const attendanceLogsByUserId = new Map(attendanceLogs.map(attendanceLog => [attendanceLog.userid, attendanceLog]));
+  const timeLogsByUserId = users.reduce<Record<string, TimeLog[]>>((accumulator, user) => {
+    accumulator[user.userid] = [];
+    return accumulator;
+  }, {});
+
+  timeLogs.forEach(timeLog => {
+    timeLogsByUserId[timeLog.userid]?.push(timeLog);
+  });
   logger.info(`user id 로 그룹핑한 attendanceLog 인스턴스들: `, {
     attendanceLogsByUserId: Object.fromEntries(attendanceLogsByUserId),
   });
+  logger.info(`user id 로 그룹핑한 timeLog fallback 인스턴스들: `, { timeLogsByUserId });
 
   let attendanceMessage = `### ${yearmonthday} 출석표\n`;
   let attendees = '';
@@ -86,6 +97,19 @@ const buildChallengeReport = async () => {
     }
 
     const attendanceLog = attendanceLogsByUserId.get(userid);
+    const fallbackTimeLogs = timeLogsByUserId[userid] ?? [];
+
+    if (!attendanceLog && fallbackTimeLogs.length === 2) {
+      if (fallbackTimeLogs.every(timeLog => timeLog.isintime)) {
+        attendees += `- ${user.username}: 출석\n`;
+        continue;
+      }
+
+      const nextLateCount = (user.latecount ?? 0) + 1;
+      await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
+      latecomers += `- ${user.username}: 지각 (${nextLateCount})\n`;
+      continue;
+    }
 
     if (!attendanceLog || attendanceLog.status === 'absent') {
       const nextAbsenceCount = (user.absencecount ?? 0) + 1;

@@ -3,7 +3,7 @@ import './test-setup.js';
 import { logger } from '../logger.js';
 import { buildChallengeReport, scheduleDailyReports, syncModels } from '../services/reporting.js';
 import { ONE_DAY_MILLISECONDS } from '../utils.js';
-import { TestAttendanceLog, TestUsers, clearAllTables, testSequelize } from './test-setup.js';
+import { TestAttendanceLog, TestTimeLog, TestUsers, clearAllTables, testSequelize } from './test-setup.js';
 
 describe('reporting service', () => {
   beforeEach(async () => {
@@ -47,6 +47,46 @@ describe('reporting service', () => {
     expect(attendanceMessage).toContain('홍길동: 출석');
   });
 
+  it('AttendanceLog가 아직 없더라도 기존 TimeLog 2건 정시 출석은 출석으로 유지된다', async () => {
+    vi.setSystemTime(new Date('2025-12-08T13:00:00'));
+
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    await TestTimeLog.bulkCreate([
+      {
+        userid: 'user1',
+        username: '홍길동',
+        yearmonthday: '20251208',
+        checkintime: '0700',
+        checkouttime: null,
+        isintime: true,
+      },
+      {
+        userid: 'user1',
+        username: '홍길동',
+        yearmonthday: '20251208',
+        checkintime: null,
+        checkouttime: '0800',
+        isintime: true,
+      },
+    ]);
+
+    const { attendanceMessage } = await buildChallengeReport();
+    const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+
+    expect(updatedUser?.latecount).toBe(0);
+    expect(updatedUser?.absencecount).toBe(0);
+    expect(attendanceMessage).toContain('홍길동: 출석');
+  });
+
   it('AttendanceLog.status=late 사용자는 지각으로 출력되고 latecount가 1 증가한다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
@@ -76,6 +116,46 @@ describe('reporting service', () => {
     expect(updatedUser?.latecount).toBe(1);
     expect(attendanceMessage).toContain('지각 (1)');
     expect(attendanceMessage).not.toContain('NaN');
+  });
+
+  it('AttendanceLog가 아직 없더라도 기존 TimeLog 지각 기록은 latecount로 반영된다', async () => {
+    vi.setSystemTime(new Date('2025-12-08T13:00:00'));
+
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    await TestTimeLog.bulkCreate([
+      {
+        userid: 'user1',
+        username: '홍길동',
+        yearmonthday: '20251208',
+        checkintime: '0711',
+        checkouttime: null,
+        isintime: false,
+      },
+      {
+        userid: 'user1',
+        username: '홍길동',
+        yearmonthday: '20251208',
+        checkintime: null,
+        checkouttime: '0800',
+        isintime: true,
+      },
+    ]);
+
+    const { attendanceMessage } = await buildChallengeReport();
+    const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+
+    expect(updatedUser?.latecount).toBe(1);
+    expect(updatedUser?.absencecount).toBe(0);
+    expect(attendanceMessage).toContain('홍길동: 지각 (1)');
   });
 
   it('AttendanceLog.status=absent 사용자는 결석으로 출력되고 absencecount가 1 증가한다', async () => {
