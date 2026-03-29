@@ -344,6 +344,53 @@ describe('US-13: 운영 daily message 자동화', () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
+  it('syncModels 동안 06시를 넘기면 현재 시각 기준으로 오늘 운영 daily message 생성을 즉시 시도한다', async () => {
+    vi.setSystemTime(new Date('2026-03-29T05:59:59'));
+    mockSyncModels.mockImplementationOnce(async () => {
+      vi.setSystemTime(new Date('2026-03-29T06:00:01'));
+    });
+
+    const startThread = vi.fn().mockResolvedValue({
+      id: 'attendance-thread',
+      send: vi.fn(),
+      toString: () => '<#attendance-thread>',
+    });
+    const send = vi.fn().mockResolvedValue({
+      id: 'daily-message',
+      startThread,
+    });
+    const fetch = vi.fn().mockResolvedValue({
+      type: 0,
+      id: 'valid-channel-id',
+      send,
+      threads: {
+        fetchActive: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+        fetchArchived: vi.fn().mockResolvedValue({
+          threads: new Collection(),
+        }),
+      },
+    });
+
+    const { event } = await import('../events/ready.js');
+
+    await event.execute({
+      channels: {
+        fetch,
+        cache: {
+          get: vi.fn(),
+        },
+      },
+      user: {
+        tag: 'haruharu#0001',
+      },
+    } as never);
+
+    expect(fetch).toHaveBeenCalledWith('valid-channel-id');
+    expect(send).toHaveBeenCalledOnce();
+  });
+
   it('운영 daily message 생성 실패는 로그로 남긴다', async () => {
     const send = vi.fn().mockRejectedValue(new Error('send failed'));
     const fetch = vi.fn().mockResolvedValue({

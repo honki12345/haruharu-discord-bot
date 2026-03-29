@@ -17,8 +17,8 @@ export const event = {
   name: Events.ClientReady,
   once: true,
   async execute(client: Client) {
-    const { hours } = getYearMonthDate();
     await syncModels();
+    const { hours } = getYearMonthDate();
 
     if (Number(hours) >= 6) {
       await ensureDailyAttendanceThreadInterval(client);
