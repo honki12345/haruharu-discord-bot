@@ -60,13 +60,20 @@ const replaceWeeklyCamStudyTimeLogs = async (
     totalminutes: number;
   }>,
 ) => {
-  await CamStudyWeeklyTimeLog.destroy({ where: { weektimes } });
-
-  if (!payloads.length) {
-    return;
+  const sequelize = CamStudyWeeklyTimeLog.sequelize;
+  if (!sequelize) {
+    throw new Error('CamStudyWeeklyTimeLog sequelize instance is not initialized');
   }
 
-  await CamStudyWeeklyTimeLog.bulkCreate(payloads);
+  await sequelize.transaction(async transaction => {
+    await CamStudyWeeklyTimeLog.destroy({ where: { weektimes }, transaction });
+
+    if (!payloads.length) {
+      return;
+    }
+
+    await CamStudyWeeklyTimeLog.bulkCreate(payloads, { transaction });
+  });
 };
 
 export {

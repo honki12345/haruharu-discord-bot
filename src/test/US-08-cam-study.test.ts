@@ -25,6 +25,17 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
     vi.useRealTimers();
   });
 
+  it('테스트 헬퍼는 channelId로 null을 넘기면 null을 그대로 보존한다', () => {
+    const state = createMockVoiceState({
+      channelId: null,
+      streaming: false,
+      userId: 'test-user-id',
+    });
+
+    expect(state.channelId).toBeNull();
+    expect(state.channel).toBeNull();
+  });
+
   describe('TC-CS01: 미등록 사용자', () => {
     it('등록되지 않은 사용자가 채널에 입장하면 알림 메시지를 보낸다', async () => {
       const oldState = createMockVoiceState({

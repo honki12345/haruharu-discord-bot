@@ -432,8 +432,9 @@ interface MockVoiceStateOptions {
 
 export function createMockVoiceState(opts: MockVoiceStateOptions) {
   const sendMock = vi.fn();
+  const channelId = opts.channelId !== undefined ? opts.channelId : 'valid-voice-channel-id';
   return {
-    channelId: opts.channelId ?? 'valid-voice-channel-id',
+    channelId,
     selfVideo: opts.selfVideo ?? false,
     streaming: opts.streaming ?? false,
     id: opts.userId,
@@ -446,7 +447,7 @@ export function createMockVoiceState(opts: MockVoiceStateOptions) {
         },
       },
     },
-    channel: opts.channelId ? { send: sendMock } : null,
+    channel: channelId ? { send: sendMock } : null,
     _sendMock: sendMock,
   };
 }

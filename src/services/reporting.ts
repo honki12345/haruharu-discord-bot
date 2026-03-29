@@ -155,8 +155,17 @@ const buildChallengeReport = async () => {
   return { attendanceMessage, hallOfFameMessage };
 };
 
-const toYearMonthDay = (target: Date) =>
-  `${target.getFullYear()}${padTwoDigits(target.getMonth() + 1)}${padTwoDigits(target.getDate())}`;
+const toUtcYearMonthDay = (target: Date) =>
+  `${target.getUTCFullYear()}${padTwoDigits(target.getUTCMonth() + 1)}${padTwoDigits(target.getUTCDate())}`;
+
+const getWeekStartDate = (weektimes: number) =>
+  new Date(
+    Date.UTC(
+      HARUHARU_TIMES.getUTCFullYear(),
+      HARUHARU_TIMES.getUTCMonth(),
+      HARUHARU_TIMES.getUTCDate() + weektimes * 7,
+    ),
+  );
 
 const buildCamStudyReports = async () => {
   logger.info('print cam_study start');
@@ -184,10 +193,9 @@ const buildCamStudyReports = async () => {
   logger.info(`cam study final string`, { string: dailyMessage });
 
   const weektimes = calculateWeekTimes();
-  const weekStartDate = new Date(HARUHARU_TIMES);
-  weekStartDate.setHours(0, 0, 0, 0);
-  weekStartDate.setDate(weekStartDate.getDate() + weektimes * 7);
-  const weeklyTimelogs = await listCamStudyTimeLogsBetween(toYearMonthDay(weekStartDate), yearmonthday);
+  const weekStartDate = getWeekStartDate(weektimes);
+  const weekStartYearMonthDay = toUtcYearMonthDay(weekStartDate);
+  const weeklyTimelogs = await listCamStudyTimeLogsBetween(weekStartYearMonthDay, yearmonthday);
   const weeklyTotals = new Map<string, { totalminutes: number; username: string }>();
 
   weeklyTimelogs.forEach(timelog => {
@@ -212,7 +220,7 @@ const buildCamStudyReports = async () => {
   await replaceWeeklyCamStudyTimeLogs(weektimes, weeklyRows);
   logger.info('cam study weekly totals recalculated', {
     endYearMonthDay: yearmonthday,
-    startYearMonthDay: toYearMonthDay(weekStartDate),
+    startYearMonthDay: weekStartYearMonthDay,
     userCount: weeklyRows.length,
     weektimes,
   });
