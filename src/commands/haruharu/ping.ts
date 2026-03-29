@@ -1,8 +1,10 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { testChannelId } from '../../config.js';
 import { PERMISSION_NUM_ADMIN } from '../../utils.js';
 
 export const command = {
   cooldown: 5,
+  allowedChannelIds: [testChannelId],
   data: new SlashCommandBuilder()
     .setName('ping')
     .setDescription('Replies with Pong!')

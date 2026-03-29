@@ -4,17 +4,17 @@
 
 ## 참여 온보딩
 
-- `/apply-wakeup`은 `@wake-up` 역할을 즉시 부여하고 참여 상태를 활성화합니다.
-- `/apply-wakeup` 뒤에는 사용자가 `/register <waketime>`로 실제 기상시간을 등록해야 기상 챌린지 참가가 완료됩니다.
+- `#start-here`가 온보딩 안내와 self-service 진입점 역할을 함께 맡습니다.
+- 기상 챌린지는 `/register <waketime>`로 참여를 시작하고, `/stop-wakeup`으로 이후 월 자동 참여를 중단합니다.
 - `/apply-cam`은 `@cam-study` 역할과 캠스터디 참가자 상태를 즉시 활성화합니다.
-- `/approve-application`, `/reject-application`은 deprecated 안내용 명령으로만 남아 있습니다.
+- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서 실행합니다.
 
 ## 캠스터디
 
 - self-service 온보딩
+  - `/apply-cam`은 `#start-here`에서 실행합니다.
   - `/apply-cam`을 실행하면 `@cam-study` 역할과 캠스터디 등록이 즉시 활성화됩니다.
   - 역할이 제거되면 새 세션 추적은 중단되고, 이미 진행 중이던 세션만 종료 시점까지 정산됩니다.
-  - `/register-cam`, `/delete-cam`은 deprecated 상태이며 더 이상 운영 등록용으로 사용하지 않습니다.
 
 - 공부시간
   - 평일 09:00 ~ 18:00
@@ -36,9 +36,9 @@
 ## 기상챌린지
 
 - self-service 온보딩
-  - `/apply-wakeup`을 실행하면 `@wake-up` 역할이 즉시 활성화됩니다.
-  - 실제 챌린지 참여 기준 시간은 `/register`로 직접 입력해야 합니다.
-  - `/approve-application`, `/reject-application`은 deprecated 상태이며 더 이상 승인 단계로 사용하지 않습니다.
+  - 기상 참여 시작은 `/register`로 처리합니다.
+  - `#start-here`에 남아 있는 stale `/apply-wakeup` 등록은 `/register` 사용 안내로 전환됩니다.
+  - 참여 중단은 `/stop-wakeup`으로 처리합니다.
 
 - 초기화:
   - 사용자가 `/register`로 자신의 월별 기상시간을 등록합니다.
@@ -68,11 +68,10 @@
 - `/register <waketime>`
   - 사용자가 자신의 월별 기상시간을 직접 등록하거나 수정한다
   - 같은 날에는 한 번만 변경할 수 있다
-- `/apply-wakeup`
-  - 사용자가 자신의 기상인증 역할을 즉시 활성화한다
-  - 실제 기상시간 입력은 별도로 `/register`를 사용한다
+- `/stop-wakeup`
+  - 사용자가 이후 월 기상스터디 자동 참여를 중단한다
 - `/apply-cam`
-  - 사용자가 자신의 캠스터디 역할과 참가 등록을 즉시 활성화한다
+  - 사용자가 `#start-here`에서 자신의 캠스터디 역할과 참가 등록을 즉시 활성화한다
 - `/apply-vacation <yyyymmdd>`
   - 등록된 사용자가 특정 날짜 휴가를 직접 등록한다
   - 이미 등록한 날짜는 중복 등록할 수 없다

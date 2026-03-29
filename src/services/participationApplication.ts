@@ -5,7 +5,6 @@ import { ParticipationApplication } from '../repository/ParticipationApplication
 import { removeCamStudyUser, upsertCamStudyUser } from '../repository/camStudyRepository.js';
 
 export type ParticipationProgram = 'cam-study';
-export type LegacyParticipationProgram = 'wake-up' | 'cam-study';
 
 const PROGRAM_METADATA: Record<
   ParticipationProgram,
@@ -34,13 +33,7 @@ const buildActivatedReply = () => ({
 });
 
 const persistApprovedApplication = async (
-  existingApplication: {
-    userid: string;
-    username: string;
-    program: LegacyParticipationProgram;
-    status: 'pending' | 'approved' | 'rejected';
-    reason: string | null;
-  } | null,
+  existingApplication: Pick<ParticipationApplication, 'userid' | 'username' | 'program' | 'status' | 'reason'> | null,
   userid: string,
   username: string,
   program: ParticipationProgram,
@@ -185,41 +178,4 @@ const submitParticipationApplication = async (
   return buildActivatedReply();
 };
 
-const approveParticipationApplication = async (
-  interaction: ChatInputCommandInteraction,
-  userid: string,
-  program: LegacyParticipationProgram,
-) => {
-  void interaction;
-  void userid;
-
-  if (program === 'wake-up') {
-    return 'approve-application is deprecated. Wake-up participation is now handled by /register.';
-  }
-
-  return 'approve-application is deprecated. Cam-study participation is activated automatically when users run /apply-cam.';
-};
-
-const rejectParticipationApplication = async (
-  interaction: ChatInputCommandInteraction,
-  userid: string,
-  program: LegacyParticipationProgram,
-  reason: string,
-) => {
-  void interaction;
-  void userid;
-  void reason;
-
-  if (program === 'wake-up') {
-    return 'reject-application is deprecated. Wake-up participation is now handled by /register.';
-  }
-
-  return 'reject-application is deprecated. Cam-study participation is activated automatically when users run /apply-cam.';
-};
-
-export {
-  PROGRAM_METADATA,
-  approveParticipationApplication,
-  rejectParticipationApplication,
-  submitParticipationApplication,
-};
+export { PROGRAM_METADATA, submitParticipationApplication };

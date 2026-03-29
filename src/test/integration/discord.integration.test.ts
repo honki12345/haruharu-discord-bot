@@ -166,12 +166,9 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
       expect(command?.options.find(opt => opt.name === 'date')).toBeDefined();
     });
 
-    it('register-cam 커맨드가 등록되어 있어야 한다', () => {
+    it('register-cam 커맨드는 더 이상 등록되어 있지 않아야 한다', () => {
       const command = commands.find(cmd => cmd.name === 'register-cam');
-      expect(command).toBeDefined();
-      expect(command?.description).toBe('deprecated: grant @cam-study role instead');
-      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
-      expect(command?.options.find(opt => opt.name === 'username')).toBeDefined();
+      expect(command).toBeUndefined();
     });
 
     it('stop-wakeup 커맨드가 등록되어 있어야 한다', () => {
@@ -186,28 +183,19 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
       expect(command?.description).toBe('apply for cam study program');
     });
 
-    it('delete-cam 커맨드가 등록되어 있어야 한다', () => {
+    it('delete-cam 커맨드는 더 이상 등록되어 있지 않아야 한다', () => {
       const command = commands.find(cmd => cmd.name === 'delete-cam');
-      expect(command).toBeDefined();
-      expect(command?.description).toBe('deprecated: remove @cam-study role instead');
-      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
+      expect(command).toBeUndefined();
     });
 
-    it('approve-application 커맨드가 등록되어 있어야 한다', () => {
+    it('approve-application 커맨드는 더 이상 등록되어 있지 않아야 한다', () => {
       const command = commands.find(cmd => cmd.name === 'approve-application');
-      expect(command).toBeDefined();
-      expect(command?.description).toBe('deprecated: participation is activated automatically');
-      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
-      expect(command?.options.find(opt => opt.name === 'program')).toBeDefined();
+      expect(command).toBeUndefined();
     });
 
-    it('reject-application 커맨드가 등록되어 있어야 한다', () => {
+    it('reject-application 커맨드는 더 이상 등록되어 있지 않아야 한다', () => {
       const command = commands.find(cmd => cmd.name === 'reject-application');
-      expect(command).toBeDefined();
-      expect(command?.description).toBe('deprecated: participation is activated automatically');
-      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
-      expect(command?.options.find(opt => opt.name === 'program')).toBeDefined();
-      expect(command?.options.find(opt => opt.name === 'reason')).toBeDefined();
+      expect(command).toBeUndefined();
     });
   });
 });

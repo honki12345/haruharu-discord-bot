@@ -6,13 +6,11 @@ import {
   ThreadChannel,
   ThreadAutoArchiveDuration,
 } from 'discord.js';
-import { createRequire } from 'node:module';
+import { testChannelId } from '../../config.js';
 import { pickDailyMessageQuestion } from '../../daily-message.js';
 import { logger } from '../../logger.js';
 import { getYearMonthDate, PERMISSION_NUM_ADMIN } from '../../utils.js';
 
-const jsonRequire = createRequire(import.meta.url);
-const { testChannelId } = jsonRequire('../../../config.json');
 const pendingDemoThreadCreations = new Map<string, Promise<{ thread: ThreadChannel; created: boolean }>>();
 
 const findExistingThread = async (channel: TextChannel, threadName: string) => {
@@ -41,6 +39,7 @@ const buildDailyMessageContent = (year: number, month: string, date: string, que
 
 export const command = {
   cooldown: 5,
+  allowedChannelIds: [testChannelId],
   data: new SlashCommandBuilder()
     .setName('demo-daily-message')
     .setDescription('create a demo daily attendance message in the test channel')

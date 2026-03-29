@@ -19,8 +19,7 @@ vi.mock('node:module', async importOriginal => {
           voiceChannelId: 'valid-voice-channel-id',
           logChannelId: 'valid-log-channel-id',
           resultChannelId: 'valid-result-channel-id',
-          applyChannelId: 'valid-apply-channel-id',
-          opsChannelId: 'valid-ops-channel-id',
+          startHereChannelId: 'valid-start-here-channel-id',
           wakeUpRoleId: 'valid-wake-up-role-id',
           camStudyRoleId: 'valid-cam-study-role-id',
         };
@@ -76,29 +75,6 @@ const commandSpecs = [
     ],
   },
   {
-    modulePath: '../commands/haruharu/approve-application.js',
-    baseName: 'approve-application',
-    koName: 'admin-신청승인',
-    koDescription: 'deprecated: 참여는 자동으로 활성화됩니다',
-    category: 'admin',
-    options: [
-      { name: 'userid', koName: '사용자id', koDescription: 'deprecated 레거시 사용자 ID' },
-      { name: 'program', koName: '프로그램', koDescription: 'deprecated 레거시 프로그램' },
-    ],
-  },
-  {
-    modulePath: '../commands/haruharu/reject-application.js',
-    baseName: 'reject-application',
-    koName: 'admin-신청거절',
-    koDescription: 'deprecated: 참여는 자동으로 활성화됩니다',
-    category: 'admin',
-    options: [
-      { name: 'userid', koName: '사용자id', koDescription: 'deprecated 레거시 사용자 ID' },
-      { name: 'program', koName: '프로그램', koDescription: 'deprecated 레거시 프로그램' },
-      { name: 'reason', koName: '사유', koDescription: 'deprecated 레거시 사유' },
-    ],
-  },
-  {
     modulePath: '../commands/haruharu/delete.js',
     baseName: 'delete',
     koName: 'admin-챌린저삭제',
@@ -108,25 +84,6 @@ const commandSpecs = [
       { name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' },
       { name: 'yearmonth', koName: '년월', koDescription: '대상 년월을 입력합니다 (yyyymm)' },
     ],
-  },
-  {
-    modulePath: '../commands/haruharu/register-cam.js',
-    baseName: 'register-cam',
-    koName: 'admin-캠스터디등록',
-    koDescription: 'deprecated: @cam-study 역할 부여로 등록합니다',
-    category: 'admin',
-    options: [
-      { name: 'userid', koName: '사용자id', koDescription: 'deprecated 레거시 사용자 ID' },
-      { name: 'username', koName: '이름', koDescription: 'deprecated 레거시 표시 이름' },
-    ],
-  },
-  {
-    modulePath: '../commands/haruharu/delete-cam.js',
-    baseName: 'delete-cam',
-    koName: 'admin-캠스터디삭제',
-    koDescription: 'deprecated: @cam-study 역할 회수로 해제합니다',
-    category: 'admin',
-    options: [{ name: 'userid', koName: '사용자id', koDescription: 'deprecated 레거시 사용자 ID' }],
   },
   {
     modulePath: '../commands/haruharu/demo-daily-message.js',

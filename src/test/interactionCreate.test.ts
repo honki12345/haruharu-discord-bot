@@ -25,7 +25,7 @@ describe('interactionCreate 이벤트', () => {
             'apply-cam',
             {
               data: { name: 'apply-cam' },
-              allowedChannelIds: ['valid-apply-channel-id'],
+              allowedChannelIds: ['valid-start-here-channel-id'],
               execute,
             },
           ],
@@ -42,7 +42,7 @@ describe('interactionCreate 이벤트', () => {
     await event.execute(interaction as never);
 
     expect(reply).toHaveBeenCalledWith({
-      content: '`#apply`에서만 사용할 수 있어요. 질문은 `#qna`를 이용해 주세요.',
+      content: '`#start-here`에서만 사용할 수 있어요. 질문은 `#qna`를 이용해 주세요.',
       ephemeral: true,
     });
     expect(execute).not.toHaveBeenCalled();

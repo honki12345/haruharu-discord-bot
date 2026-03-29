@@ -91,9 +91,10 @@
 - 기상시간 self-service는 `/register` 하나로 기상 참여 시작/재시작과 기상시간 등록/수정을 처리하되 하루 1회 제한을 지켜야 한다.
 - 기상 self-service 중단은 `/stop-wakeup` 으로 처리하고, 현재 월 기록은 유지한 채 이후 월 자동 등록만 중단해야 한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
-- `register-cam`, `delete-cam`은 deprecated 호환용 명령으로만 유지하고, 실제 캠스터디 등록 원본은 `@cam-study` 역할과 `guildMemberUpdate` 동기화로 본다.
+- 캠스터디 등록 원본은 `@cam-study` 역할과 `guildMemberUpdate` 동기화로 본다.
+- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서만 실행되도록 유지한다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
-- 역할 기반 운영 흐름을 추가할 때는 `#apply` 같은 신청 채널과 `#ops` 같은 운영 채널을 분리하고, 신청 응답은 가능하면 `ephemeral`로 처리한다.
+- 역할 기반 운영 흐름을 추가할 때는 `#start-here` 같은 온보딩 채널을 기준으로 두고, 신청 응답은 가능하면 `ephemeral`로 처리한다.
 
 ### `src/events`
 
@@ -105,7 +106,7 @@
 - `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 역할 회수 뒤 종료 시점 정리까지 포함해 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
-- `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#apply`/`#ops` 같은 전용 채널에 묶이는지 문서에 남긴다.
+- `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#start-here`/`test` 같은 전용 채널에 묶이는지 문서에 남긴다.
 
 ### `src/daily-attendance.ts`
 
@@ -126,7 +127,7 @@
 - 기상 챌린지 상시 참여 상태와 최근 `/register` 기상시간은 `WakeUpMembership` 같은 별도 모델로 관리하고, `Users` 는 월별 집계 스냅샷으로 유지한다.
 - 관리자 `/delete` 로 제거한 `(userid, yearmonth)` 월 스냅샷은 별도 exclusion 기록으로 남겨 자동 backfill 이 같은 달 사용자를 되살리지 않도록 유지한다.
 - 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 신청/활성화 상태 모델 책임은 계속 분리한다.
-- 역할 기반 온보딩 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하되, 현재 정책상 `/apply-cam` 실행 시 즉시 `approved` 상태로 반영하고, 관리자 승인/거절 명령은 deprecated 안내만 유지한다.
+- 역할 기반 온보딩 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하되, 현재 정책상 `/apply-cam` 실행 시 즉시 `approved` 상태로 반영한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
   - `docs/PROJECT.md`의 테이블 설명
