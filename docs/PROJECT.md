@@ -15,10 +15,10 @@
 
 ### 핵심 기능
 
-| 기능            | 설명                                                    |
-| --------------- | ------------------------------------------------------- |
-| **기상 챌린지** | 매일 정해진 시간에 기상하여 인증샷을 올리는 월간 챌린지 |
-| **캠스터디**    | Discord 음성 채널에서 카메라를 켜고 공부하는 시간 추적  |
+| 기능            | 설명                                                                 |
+| --------------- | -------------------------------------------------------------------- |
+| **기상 챌린지** | 매일 정해진 시간에 기상하여 인증샷을 올리는 월간 챌린지              |
+| **캠스터디**    | Discord 음성 채널에서 카메라 또는 화면공유를 켜고 공부하는 시간 추적 |
 
 ---
 
@@ -39,7 +39,8 @@ haruharu-discord-bot/
 │   │
 │   ├── commands/
 │   │   └── haruharu/
-│   │       ├── register.ts      # 기상 챌린지 등록
+│   │       ├── register.ts      # 사용자 기상 챌린지 등록/수정
+│   │       ├── apply-vacation.ts # 사용자 휴가 등록
 │   │       ├── add-vacances.ts  # 휴가 추가
 │   │       ├── delete.ts        # 챌린저 삭제
 │   │       ├── register-cam.ts  # 캠스터디 등록
@@ -55,6 +56,7 @@ haruharu-discord-bot/
 │   │
 │   ├── services/
 │   │   ├── attendance.ts        # check-in/check-out 공통 처리
+│   │   ├── challengeSelfService.ts # 사용자 기상시간/휴가 self-service 정책 처리
 │   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
 │   │   └── reporting.ts         # 일일/주간 리포트 생성 및 스케줄링
 │   │
@@ -62,7 +64,9 @@ haruharu-discord-bot/
 │       ├── config.ts            # Sequelize 설정
 │       ├── Users.ts             # 챌린저 모델
 │       ├── AttendanceLog.ts     # thread 기반 하루 1회 출석 로그 모델
+│       ├── VacationLog.ts       # 사용자 휴가 사용 기록 모델
 │       ├── TimeLog.ts           # 출석 로그 모델
+│       ├── WaketimeChangeLog.ts # 사용자 기상시간 변경 이력 모델
 │       ├── CamStudyUsers.ts     # 캠스터디 참가자 모델
 │       ├── CamStudyActiveSession.ts # 진행 중 캠스터디 세션 모델
 │       ├── CamStudyTimeLog.ts   # 일간 학습 로그 모델
@@ -98,11 +102,12 @@ haruharu-discord-bot/
 
 #### 기상 챌린지 커맨드
 
-| 커맨드          | 권한   | 설명                  |
-| --------------- | ------ | --------------------- |
-| `/register`     | 관리자 | 기상 챌린지 등록/수정 |
-| `/add-vacances` | 관리자 | 휴가일수 추가         |
-| `/delete`       | 관리자 | 챌린저 삭제           |
+| 커맨드            | 권한   | 설명                                 |
+| ----------------- | ------ | ------------------------------------ |
+| `/register`       | 사용자 | 자신의 현재 월 기상 챌린지 등록/수정 |
+| `/apply-vacation` | 사용자 | 자신의 특정 날짜 휴가 등록           |
+| `/add-vacances`   | 관리자 | 휴가일수 추가                        |
+| `/delete`         | 관리자 | 챌린저 삭제                          |
 
 #### 캠스터디 커맨드
 
@@ -124,21 +129,23 @@ haruharu-discord-bot/
 
 #### `/register`
 
-| 파라미터  | 필수 | 설명                       |
-| --------- | ---- | -------------------------- |
-| userid    | O    | Discord 사용자 ID          |
-| yearmonth | O    | 년월 (yyyymm)              |
-| waketime  | O    | 기상시간 (HHmm, 0500~0900) |
-| username  | O    | 표시 이름                  |
-| vacances  | X    | 휴가일수 (기본값: 5)       |
+| 파라미터 | 필수 | 설명                       |
+| -------- | ---- | -------------------------- |
+| waketime | O    | 기상시간 (HHmm, 0500~0900) |
+
+#### `/apply-vacation`
+
+| 파라미터 | 필수 | 설명                      |
+| -------- | ---- | ------------------------- |
+| date     | O    | 휴가 대상 날짜 (yyyymmdd) |
 
 #### `/add-vacances`
 
-| 파라미터  | 필수 | 설명              |
-| --------- | ---- | ----------------- |
-| userid    | O    | Discord 사용자 ID |
-| yearmonth | O    | 년월 (yyyymm)     |
-| count     | O    | 추가할 휴가일수   |
+| 파라미터  | 필수 | 설명                 |
+| --------- | ---- | -------------------- |
+| userid    | O    | Discord 사용자 ID    |
+| yearmonth | O    | 년월 (yyyymm)        |
+| count     | O    | 추가 지급할 휴가일수 |
 
 #### `/delete`, `/delete-cam`
 
@@ -159,10 +166,10 @@ haruharu-discord-bot/
 
 #### ready.ts
 
-| 항목   | 내용                                                                                                                                                 |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 트리거 | 봇 Discord 연결 완료                                                                                                                                 |
-| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
+| 항목   | 내용                                                                                                                                                                                     |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                     |
+| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
 
 **스케줄러:**
 
@@ -193,10 +200,10 @@ haruharu-discord-bot/
 
 #### camStudyHandler.ts
 
-| 항목   | 내용                                                                                 |
-| ------ | ------------------------------------------------------------------------------------ |
-| 트리거 | 음성 채널 상태 변경                                                                  |
-| 기능   | 카메라 ON/OFF 감지, 상태 전이를 `src/services/camStudy.ts`에 위임하여 학습 시간 기록 |
+| 항목   | 내용                                                                                                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 트리거 | 음성 채널 상태 변경                                                                                                          |
+| 기능   | 카메라(`selfVideo`) 또는 화면공유(`streaming`) ON/OFF 감지, 상태 전이를 `src/services/camStudy.ts`에 위임하여 학습 시간 기록 |
 
 #### messageCreate.ts
 
@@ -229,15 +236,15 @@ haruharu-discord-bot/
 | ------ | ---------------------------------------------------------------------------------------- |
 | 역할   | 레거시 `TimeLog` 기반 check-in/check-out 기록 로직 보관                                  |
 | 담당   | 채널 검증, 사용자 조회, 중복 출석 확인, 허용 시간 판정, 이미지 첨부 검증, `TimeLog` 생성 |
-| 호출처 | 현재 공식 slash command 호출처 없음. 전환 기간 fallback/참고 구현으로만 남아 있다        |
+| 호출처 | 현재 공식 slash command 호출처 없음. 과거 레거시 데이터 호환과 참고 구현으로만 남아 있다 |
 
 #### camStudy.ts
 
-| 항목   | 내용                                                                                                                                                |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 음성 채널 상태 변경을 캠스터디 시작/종료 이벤트로 해석                                                                                              |
-| 담당   | 입장/퇴장/카메라 ON/OFF 전이 계산, 최소 인정 시간 검증, 일간 로그 생성/갱신, 진행 중 active session 저장, 재기동 시 voice state 기반 복구/종료 정산 |
-| 호출처 | `src/events/camStudyHandler.ts`, `src/events/ready.ts`                                                                                              |
+| 항목   | 내용                                                                                                                                                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 음성 채널 상태 변경을 캠스터디 시작/종료 이벤트로 해석                                                                                                                                 |
+| 담당   | 입장/퇴장/카메라/화면공유 활성 전이 계산, 최소 인정 시간 검증, 일간 로그 생성/갱신, 진행 중 active session 저장, 재기동 시 voice state 기반 복구/종료 정산, 상태 전이 구조화 로그 기록 |
+| 호출처 | `src/events/camStudyHandler.ts`, `src/events/ready.ts`                                                                                                                                 |
 
 비고:
 
@@ -245,13 +252,21 @@ haruharu-discord-bot/
 - 재배포 후 `ready.ts`는 저장된 active session과 현재 음성 채널 상태를 비교해 세션을 유지하거나 마지막 관측 시각 기준으로 종료 정산한다.
 - 종료 이벤트를 놓친 뒤 다음 시작 이벤트가 오면, 남아 있던 active session을 먼저 정리한 뒤 새 세션을 시작한다.
 
+#### challengeSelfService.ts
+
+| 항목   | 내용                                                                                                             |
+| ------ | ---------------------------------------------------------------------------------------------------------------- |
+| 역할   | 사용자 직접 `/register` upsert 와 휴가 등록 정책 처리                                                            |
+| 담당   | 사용자 기준 등록/수정, 기상시간 범위 검증, register 하루 1회 변경 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/apply-vacation.ts`                                   |
+
 #### reporting.ts
 
-| 항목   | 내용                                                                                                                                                                                       |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                                                                           |
-| 담당   | 모델 동기화, `AttendanceLog` 기반 기상 챌린지 출석표 생성, 전환 기간 `TimeLog` fallback 호환, 무댓글 사용자 결석 확정, 월말 생존 명단 생성, 캠스터디 일일/주간 집계, 스케줄 중복 실행 방지 |
-| 호출처 | `src/events/ready.ts`                                                                                                                                                                      |
+| 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                                                                                                                                                                                                                                                                              |
+| 담당   | 모델 동기화, `AttendanceLog` 단일 원본 기반 기상 챌린지 출석표 생성, 휴가일 결석 제외 처리, 무댓글 사용자 결석 확정, 오늘 상태와 월 누적 `latecount` / `absencecount` / 잔여휴가를 함께 표시하는 결과표 생성, Discord 2000자 제한을 넘기면 결과표를 여러 메시지로 분할 전송, 월말 생존 명단 생성, 캠스터디 일일 리포트 생성, 해당 주차 일간 로그 재계산 기반 주간 집계, 스케줄 중복 실행 방지 |
+| 호출처 | `src/events/ready.ts`                                                                                                                                                                                                                                                                                                                                                                         |
 
 비고:
 
@@ -264,23 +279,23 @@ haruharu-discord-bot/
 
 #### Repository helper 모듈
 
-| 파일                     | 역할                                                                                                     |
-| ------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `challengeRepository.ts` | `Users`, `TimeLog`, `AttendanceLog` 기반 기상 챌린지 조회/생성/집계 헬퍼                                 |
-| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼 |
+| 파일                     | 역할                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `challengeRepository.ts` | `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
+| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼     |
 
 #### Users (기상 챌린지 참가자)
 
-| 컬럼         | 타입    | 설명               |
-| ------------ | ------- | ------------------ |
-| id           | INTEGER | PK, Auto Increment |
-| userid       | STRING  | Discord 사용자 ID  |
-| username     | STRING  | 표시 이름          |
-| yearmonth    | STRING  | 년월 (yyyymm)      |
-| waketime     | STRING  | 기상시간 (HHmm)    |
-| vacances     | INTEGER | 휴가일수 (기본: 5) |
-| latecount    | INTEGER | 지각 횟수          |
-| absencecount | INTEGER | 결석 횟수          |
+| 컬럼         | 타입    | 설명                       |
+| ------------ | ------- | -------------------------- |
+| id           | INTEGER | PK, Auto Increment         |
+| userid       | STRING  | Discord 사용자 ID          |
+| username     | STRING  | 표시 이름                  |
+| yearmonth    | STRING  | 년월 (yyyymm)              |
+| waketime     | STRING  | 기상시간 (HHmm)            |
+| vacances     | INTEGER | 총 지급 휴가일수 (기본: 5) |
+| latecount    | INTEGER | 지각 횟수                  |
+| absencecount | INTEGER | 결석 횟수                  |
 
 #### TimeLog (출석 로그)
 
@@ -298,7 +313,39 @@ haruharu-discord-bot/
 
 - 과거 레거시 `/check-in`, `/check-out` 2건 구조 데이터 호환용 테이블이다.
 - thread 기반 하루 1회 출석 전환과 별도로 유지되며, 현재 등록된 slash command 중 이 테이블을 직접 갱신하는 경로는 없다.
-- 13:00 집계는 `AttendanceLog`가 없는 전환 기간 동안에만 이 테이블을 fallback 으로 읽는다.
+- 13:00 집계 원본에는 더 이상 참여하지 않으며, 과거 기록 조회와 레거시 구현 보관 용도로만 유지한다.
+
+#### VacationLog (휴가 사용 기록)
+
+| 컬럼         | 타입    | 설명                      |
+| ------------ | ------- | ------------------------- |
+| id           | INTEGER | PK, Auto Increment        |
+| userid       | STRING  | Discord 사용자 ID         |
+| username     | STRING  | 표시 이름                 |
+| yearmonthday | STRING  | 휴가 사용 날짜 (yyyymmdd) |
+| createdAt    | DATE    | 생성 시각                 |
+| updatedAt    | DATE    | 수정 시각                 |
+
+비고:
+
+- `(userid, yearmonthday)` 조합은 UNIQUE이며 같은 날짜 중복 등록을 막는다.
+- `Users.vacances` 총량과 별도로, 실제 사용한 휴가 날짜를 기록한다.
+- 잔여 휴가 수는 `vacances - VacationLog 월별 사용 건수`로 해석한다.
+
+#### WaketimeChangeLog (기상시간 변경 이력)
+
+| 컬럼         | 타입    | 설명                      |
+| ------------ | ------- | ------------------------- |
+| id           | INTEGER | PK, Auto Increment        |
+| userid       | STRING  | Discord 사용자 ID         |
+| yearmonthday | STRING  | 변경 발생 날짜 (yyyymmdd) |
+| waketime     | STRING  | 변경한 기상시간 (HHmm)    |
+| createdAt    | DATE    | 생성 시각                 |
+| updatedAt    | DATE    | 수정 시각                 |
+
+비고:
+
+- `(userid, yearmonthday)` 조합은 UNIQUE이며 하루 1회 변경 제한을 강제한다.
 
 #### AttendanceLog (thread 출석 로그)
 
@@ -319,8 +366,10 @@ haruharu-discord-bot/
 
 - `(userid, yearmonthday)` 조합은 UNIQUE이며 하루 1건만 저장한다.
 - `too-early`는 공식 출석 로그에 저장하지 않는다.
-- 13:00 출석 집계의 우선 원본이며, `attended` / `late` / `absent` 상태에 따라 결과표와 `latecount` / `absencecount`가 반영된다.
-- 전환 기간에는 `AttendanceLog`가 없는 사용자만 `TimeLog` fallback 으로 판정하고, 둘 다 없으면 결석으로 확정된다.
+- 13:00 출석 집계의 단일 원본이며, `attended` / `late` / `absent` 상태에 따라 결과표와 `latecount` / `absencecount`가 반영된다.
+- `AttendanceLog`가 없는 등록 사용자는 `TimeLog` 여부와 무관하게 결석으로 확정된다.
+- 결과표는 사용자별 오늘 상태와 월 누적 `latecount`, `absencecount`, 잔여휴가를 함께 출력한다.
+- 결과표 길이가 Discord 2000자 제한을 넘기면 줄 경계를 기준으로 여러 메시지로 분할 전송한다.
 
 #### CamStudyUsers (캠스터디 참가자)
 
@@ -367,6 +416,10 @@ haruharu-discord-bot/
 | username     | STRING  | 표시 이름                 |
 | weektimes    | INTEGER | 주차 (2024-04-06 기준)    |
 | totalminutes | INTEGER | 주간 총 학습 분 (기본: 0) |
+
+비고:
+
+- 같은 날짜 리포트를 여러 번 실행해도 같은 `CamStudyTimeLog`가 중복 합산되지 않도록, 해당 주차 범위의 일간 로그를 기준으로 재계산한다.
 
 ---
 
@@ -431,6 +484,17 @@ haruharu-discord-bot/
 - `src/config.ts`는 런타임 진입점에서 사용하는 설정 로더이며 `token`, `clientId`, `guildId`, 각 채널 ID를 fail-fast로 검증한다.
 - `databaseUser`, `password`는 SQLite 사용 기준 optional 값이며 비어 있어도 동작한다.
 - `src/deployConfig.ts`는 slash command 등록 전용 최소 설정 로더이며 `token`, `clientId`, `guildId`만 요구한다.
+
+---
+
+## 운영 메모
+
+- 사용자 직접 변경 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 수정한다.
+- `/register`는 사용자가 자신의 월별 기상시간을 신규 등록하거나 수정하는 단일 명령이다.
+- `/register`는 같은 날 두 번째 변경을 거부한다.
+- `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산한다.
+- `/apply-vacation`은 날짜 단위(`yyyymmdd`)로 동작한다.
+- 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 
 ### package.json 스크립트
 

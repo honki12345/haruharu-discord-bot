@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import {
   testSequelize,
   setupTestDB,
@@ -9,6 +9,7 @@ import {
   TestAttendanceLog,
   TestCamStudyUsers,
   TestCamStudyTimeLog,
+  TestCamStudyWeeklyTimeLog,
 } from './test-setup.js';
 
 describe('Repository 모델 테스트 (인메모리 DB)', () => {
@@ -619,6 +620,37 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
   describe('DB 연결 상태', () => {
     it('인메모리 DB 연결이 정상이다', async () => {
       await expect(testSequelize.authenticate()).resolves.not.toThrow();
+    });
+  });
+
+  describe('CamStudyWeeklyTimeLog 저장', () => {
+    it('주간 로그 교체는 destroy와 bulkCreate를 같은 transaction으로 묶는다', async () => {
+      const destroySpy = vi.spyOn(TestCamStudyWeeklyTimeLog, 'destroy').mockResolvedValue(0);
+      const bulkCreateSpy = vi.spyOn(TestCamStudyWeeklyTimeLog, 'bulkCreate').mockResolvedValue([] as never);
+      const { replaceWeeklyCamStudyTimeLogs } = await import('../repository/camStudyRepository.js');
+
+      await replaceWeeklyCamStudyTimeLogs(12, [
+        {
+          userid: 'user1',
+          username: '홍길동',
+          weektimes: 12,
+          totalminutes: 90,
+        },
+      ]);
+
+      expect(destroySpy).toHaveBeenCalledTimes(1);
+      expect(bulkCreateSpy).toHaveBeenCalledTimes(1);
+      expect(destroySpy.mock.calls[0]?.[0]).toEqual(
+        expect.objectContaining({
+          transaction: expect.anything(),
+          where: { weektimes: 12 },
+        }),
+      );
+      expect(bulkCreateSpy.mock.calls[0]?.[1]).toEqual(
+        expect.objectContaining({
+          transaction: destroySpy.mock.calls[0]?.[0]?.transaction,
+        }),
+      );
     });
   });
 });

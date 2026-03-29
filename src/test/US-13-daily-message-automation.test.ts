@@ -11,6 +11,7 @@ const mockSyncModels = vi.fn().mockResolvedValue(undefined);
 const mockScheduleDailyReports = vi.fn();
 const mockBuildChallengeReport = vi.fn().mockResolvedValue({
   attendanceMessage: 'attendance report',
+  attendanceMessages: ['attendance report'],
   hallOfFameMessage: null,
 });
 const mockBuildCamStudyReports = vi.fn().mockResolvedValue({
@@ -312,6 +313,36 @@ describe('US-13: 운영 daily message 자동화', () => {
     );
     expect(hasDailyScheduler).toBe(true);
     expect(hasHeartbeatScheduler).toBe(true);
+  });
+
+  it('challenge 결과표가 여러 메시지로 분할되면 순서대로 모두 전송한다', async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    mockBuildChallengeReport.mockResolvedValueOnce({
+      attendanceMessage: 'chunk-1chunk-2',
+      attendanceMessages: ['chunk-1', 'chunk-2'],
+      hallOfFameMessage: null,
+    });
+
+    const { event } = await import('../events/ready.js');
+
+    await event.execute({
+      channels: {
+        cache: {
+          get: vi.fn().mockImplementation((id: string) => (id === 'valid-channel-id' ? { send } : { send: vi.fn() })),
+        },
+      },
+      user: {
+        tag: 'haruharu#0001',
+      },
+    } as never);
+
+    const challengeReportRunner = mockScheduleDailyReports.mock.calls[0]?.[0];
+    expect(challengeReportRunner).toBeTypeOf('function');
+
+    await challengeReportRunner();
+
+    expect(send).toHaveBeenNthCalledWith(1, 'chunk-1');
+    expect(send).toHaveBeenNthCalledWith(2, 'chunk-2');
   });
 
   it('06시 이후에 부팅되면 오늘 운영 daily message 생성을 즉시 시도한다', async () => {

@@ -33,7 +33,7 @@ describe('US-15: 재배포 후 캠스터디 active session 복구', () => {
 
   it('재기동 시 live voice state 에만 있는 활성 사용자는 active session 으로 복구한다', async () => {
     await reconcileCamStudyActiveSessions(
-      [{ channelId: 'valid-voice-channel-id', streaming: true, userId: 'test-user-id' }],
+      [{ channelId: 'valid-voice-channel-id', selfVideo: false, streaming: true, userId: 'test-user-id' }],
       'valid-voice-channel-id',
       'ready',
     );
@@ -80,7 +80,9 @@ describe('US-15: 재배포 후 캠스터디 active session 복구', () => {
   });
 
   it('같은 live voice state 로 복구를 두 번 실행해도 active session 이 중복 생성되지 않는다', async () => {
-    const snapshots = [{ channelId: 'valid-voice-channel-id', streaming: true, userId: 'test-user-id' }];
+    const snapshots = [
+      { channelId: 'valid-voice-channel-id', selfVideo: false, streaming: true, userId: 'test-user-id' },
+    ];
 
     await reconcileCamStudyActiveSessions(snapshots, 'valid-voice-channel-id', 'ready');
     await reconcileCamStudyActiveSessions(snapshots, 'valid-voice-channel-id', 'heartbeat');

@@ -52,12 +52,14 @@ export const event = {
 
     scheduleDailyReports(
       async () => {
-        const { attendanceMessage, hallOfFameMessage } = await buildChallengeReport();
+        const { attendanceMessage, attendanceMessages, hallOfFameMessage } = await buildChallengeReport();
         const checkChannel = client.channels.cache.get(checkChannelId);
         const resultChannel = client.channels.cache.get(resultChannelId);
 
         if (attendanceMessage && checkChannel && 'send' in checkChannel) {
-          await checkChannel.send(attendanceMessage);
+          for (const message of attendanceMessages ?? [attendanceMessage]) {
+            await checkChannel.send(message);
+          }
         }
         if (hallOfFameMessage && resultChannel && 'send' in resultChannel) {
           await resultChannel.send(hallOfFameMessage);

@@ -28,6 +28,21 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+const expectMonthlyStatus = (
+  attendanceMessage: string | null,
+  expectation: {
+    username: string;
+    todayStatus: '출석' | '지각' | '결석' | '휴가';
+    latecount: number;
+    absencecount: number;
+    remainingVacances: number;
+  },
+) => {
+  expect(attendanceMessage).toContain(
+    `${expectation.username}: ${expectation.todayStatus} (월 누적 지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
+  );
+};
+
 describe('US-05: 일일 출석 리포트', () => {
   describe('TC-DR01: 출석자 분류', () => {
     it('AttendanceLog.status=attended 사용자는 출석으로 분류된다', async () => {
@@ -54,7 +69,13 @@ describe('US-05: 일일 출석 리포트', () => {
       const { attendanceMessage } = await buildChallengeReport();
       const updated = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
 
-      expect(attendanceMessage).toContain('홍길동: 출석');
+      expectMonthlyStatus(attendanceMessage, {
+        username: '홍길동',
+        todayStatus: '출석',
+        latecount: 0,
+        absencecount: 0,
+        remainingVacances: 5,
+      });
       expect(updated?.latecount).toBe(0);
       expect(updated?.absencecount).toBe(0);
     });
@@ -85,7 +106,13 @@ describe('US-05: 일일 출석 리포트', () => {
       const { attendanceMessage } = await buildChallengeReport();
       const updated = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
 
-      expect(attendanceMessage).toContain('홍길동: 지각 (1)');
+      expectMonthlyStatus(attendanceMessage, {
+        username: '홍길동',
+        todayStatus: '지각',
+        latecount: 1,
+        absencecount: 0,
+        remainingVacances: 5,
+      });
       expect(updated?.latecount).toBe(1);
     });
   });
@@ -105,7 +132,13 @@ describe('US-05: 일일 출석 리포트', () => {
       const { attendanceMessage } = await buildChallengeReport();
       const updated = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
 
-      expect(attendanceMessage).toContain('홍길동: 결석 (1/5)');
+      expectMonthlyStatus(attendanceMessage, {
+        username: '홍길동',
+        todayStatus: '결석',
+        latecount: 0,
+        absencecount: 1,
+        remainingVacances: 5,
+      });
       expect(updated?.absencecount).toBe(1);
     });
   });

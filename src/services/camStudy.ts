@@ -16,6 +16,7 @@ import { getFormattedYesterday, getTimeDiffFromNowInMinutes, getYearMonthDay, pa
 
 interface VoiceStateSnapshot {
   channelId: string | null;
+  selfVideo: boolean;
   streaming: boolean;
   userId: string;
 }
@@ -27,24 +28,30 @@ interface CamStudyEventResult {
 
 type CamStudySyncSource = 'ready' | 'heartbeat';
 
+const isCamStudyActive = (state: Pick<VoiceStateSnapshot, 'selfVideo' | 'streaming'>) =>
+  state.selfVideo || state.streaming;
+
 const resolveCamStudyTransition = (
   oldState: VoiceStateSnapshot,
   newState: VoiceStateSnapshot,
   configuredChannelId: string,
 ) => {
+  const wasOldStateActive = isCamStudyActive(oldState);
   const wasOldStateInChannel = oldState.channelId === configuredChannelId;
-  const wasOldStateVideoOn = oldState.streaming;
-  const wasOldStateVideoOff = !oldState.streaming;
+  const wasOldStateInactive = !wasOldStateActive;
+  const isNewStateActive = isCamStudyActive(newState);
   const isNotNewStateInChannel = newState.channelId !== configuredChannelId;
   const isNewStateInChannel = newState.channelId === configuredChannelId;
-  const isNewStateVideoOff = !newState.streaming;
-  const isNewStateVideoOn = newState.streaming;
+  const isNewStateInactive = !isNewStateActive;
 
   return {
-    shouldEndByQuit: isNotNewStateInChannel && wasOldStateVideoOn && wasOldStateInChannel,
-    shouldEndByTurnOff: wasOldStateInChannel && wasOldStateVideoOn && isNewStateInChannel && isNewStateVideoOff,
-    shouldStart: wasOldStateInChannel && wasOldStateVideoOff && isNewStateInChannel && isNewStateVideoOn,
+    isNewStateActive,
+    wasOldStateActive,
+    shouldEndByQuit: isNotNewStateInChannel && wasOldStateActive && wasOldStateInChannel,
+    shouldEndByTurnOff: wasOldStateInChannel && wasOldStateActive && isNewStateInChannel && isNewStateInactive,
+    shouldStart: isNewStateInChannel && isNewStateActive && (!wasOldStateInChannel || wasOldStateInactive),
     userEnteredConfiguredChannel: isNewStateInChannel,
+    wasOldStateInChannel,
   };
 };
 
@@ -144,7 +151,8 @@ const resolveLegacyCamStudyEnd = async (
   const timelog = await findCamStudyTimeLog(user.userid, today);
 
   if (!timelog) {
-    const yesterdayTimelog = await findCamStudyTimeLog(user.userid, getFormattedYesterday());
+    const yesterday = getFormattedYesterday();
+    const yesterdayTimelog = await findCamStudyTimeLog(user.userid, yesterday);
     if (yesterdayTimelog) {
       const passedMinutes = getTimeDiffFromNowInMinutes(Number(yesterdayTimelog.timestamp));
       await createCamStudyTimeLog({
@@ -155,13 +163,24 @@ const resolveLegacyCamStudyEnd = async (
         totalminutes: passedMinutes,
       });
 
+      logger.info('cam study session rolled over from yesterday', {
+        passedMinutes,
+        today,
+        userId: user.userid,
+        yesterday,
+      });
+
       return {
         target: 'voice-channel' as const,
         message: `${user.username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`,
       };
     }
 
-    logger.info('비정상 공부 종료', { oldState, newState, userid: user.userid });
+    logger.warn('cam study session ended without active log', {
+      newChannelId: newState.channelId,
+      oldChannelId: oldState.channelId,
+      userId: user.userid,
+    });
     return {
       target: 'voice-channel' as const,
       message: `${user.username}님 study end: 공부시간 정상 입력안됨`,
@@ -170,7 +189,12 @@ const resolveLegacyCamStudyEnd = async (
 
   const timeDiffInMinutes = getTimeDiffFromNowInMinutes(Number(timelog.timestamp));
   if (timeDiffInMinutes < LEAST_TIME_LIMIT) {
-    logger.info(`5분 이내 입력 안함, timeDiffInMinutes: ${timeDiffInMinutes}`);
+    logger.info('cam study session ignored because duration is below limit', {
+      minMinutes: LEAST_TIME_LIMIT,
+      timeDiffInMinutes,
+      today,
+      userId: user.userid,
+    });
     await updateCamStudyTimeLog(user.userid, today, { timestamp: timestampNowString });
     return {
       target: 'voice-channel' as const,
@@ -182,6 +206,13 @@ const resolveLegacyCamStudyEnd = async (
   await updateCamStudyTimeLog(user.userid, today, {
     timestamp: timestampNowString,
     totalminutes: totalMinutes,
+  });
+
+  logger.info('cam study session ended', {
+    addedMinutes: timeDiffInMinutes,
+    today,
+    totalMinutes,
+    userId: user.userid,
   });
 
   return {
@@ -199,7 +230,6 @@ const startActiveSession = async (
   const timelog = await findCamStudyTimeLog(user.userid, today);
 
   if (timelog) {
-    logger.info(`userid: ${user.userid} study start => update timestamp ${startedAt}`);
     await updateCamStudyTimeLog(user.userid, today, { timestamp: startedAt });
   } else {
     await createCamStudyTimeLog({
@@ -218,6 +248,8 @@ const startActiveSession = async (
     startedat: startedAt,
     lastobservedat: startedAt,
   });
+
+  return { hadTimeLog: Boolean(timelog), today };
 };
 
 const processCamStudyStateChange = async (
@@ -226,6 +258,18 @@ const processCamStudyStateChange = async (
   configuredChannelId: string,
 ): Promise<CamStudyEventResult | null> => {
   const transition = resolveCamStudyTransition(oldState, newState, configuredChannelId);
+  logger.info('cam study transition evaluated', {
+    newChannelId: newState.channelId,
+    newSelfVideo: newState.selfVideo,
+    newStreaming: newState.streaming,
+    oldChannelId: oldState.channelId,
+    oldSelfVideo: oldState.selfVideo,
+    oldStreaming: oldState.streaming,
+    shouldEndByQuit: transition.shouldEndByQuit,
+    shouldEndByTurnOff: transition.shouldEndByTurnOff,
+    shouldStart: transition.shouldStart,
+    userId: newState.userId,
+  });
   const user = await findCamStudyUser(newState.userId);
 
   if (!user) {
@@ -256,6 +300,12 @@ const processCamStudyStateChange = async (
   }
 
   if (!transition.shouldStart) {
+    logger.info('cam study transition ignored', {
+      newChannelId: newState.channelId,
+      oldChannelId: oldState.channelId,
+      today: getYearMonthDayFromTimestamp(Date.now()),
+      userId: newState.userId,
+    });
     return null;
   }
 
@@ -269,7 +319,17 @@ const processCamStudyStateChange = async (
     );
   }
 
-  await startActiveSession(user, configuredChannelId, Date.now().toString());
+  const timestampNowString = Date.now().toString();
+  const { hadTimeLog, today } = await startActiveSession(user, configuredChannelId, timestampNowString);
+
+  logger.info(hadTimeLog ? 'cam study session restarted' : 'cam study session started', {
+    isNewStateActive: transition.isNewStateActive,
+    timestamp: timestampNowString,
+    today,
+    userId: user.userid,
+    wasOldStateActive: transition.wasOldStateActive,
+    wasOldStateInChannel: transition.wasOldStateInChannel,
+  });
 
   return {
     target: 'voice-channel',
@@ -282,11 +342,10 @@ const reconcileCamStudyActiveSessions = async (
   configuredChannelId: string,
   source: CamStudySyncSource,
 ) => {
-  const timestampNow = Date.now();
-  const timestampNowString = timestampNow.toString();
+  const timestampNowString = Date.now().toString();
   const activeLiveStateByUserId = new Map(
     liveStates
-      .filter(liveState => liveState.channelId === configuredChannelId && liveState.streaming)
+      .filter(liveState => liveState.channelId === configuredChannelId && isCamStudyActive(liveState))
       .map(liveState => [liveState.userId, liveState]),
   );
   const activeSessions = await listCamStudyActiveSessions();
@@ -370,7 +429,7 @@ const extractLiveCamStudySnapshots = async (
       members?: {
         values: () => IterableIterator<{
           id: string;
-          voice: { channelId: string | null; streaming: boolean };
+          voice: { channelId: string | null; selfVideo?: boolean; streaming: boolean };
         }>;
       };
     } | null
@@ -385,6 +444,7 @@ const extractLiveCamStudySnapshots = async (
 
   return Array.from(members.values()).map(member => ({
     channelId: member.voice.channelId,
+    selfVideo: member.voice.selfVideo === true,
     streaming: member.voice.streaming === true,
     userId: member.id,
   }));

@@ -32,6 +32,17 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
     vi.useRealTimers();
   });
 
+  it('테스트 헬퍼는 channelId로 null을 넘기면 null을 그대로 보존한다', () => {
+    const state = createMockVoiceState({
+      channelId: null,
+      streaming: false,
+      userId: 'test-user-id',
+    });
+
+    expect(state.channelId).toBeNull();
+    expect(state.channel).toBeNull();
+  });
+
   describe('TC-CS01: 미등록 사용자', () => {
     it('등록되지 않은 사용자가 채널에 입장하면 알림 메시지를 보낸다', async () => {
       const oldState = createMockVoiceState({
@@ -83,6 +94,77 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       expect(log).not.toBeNull();
       expect(log?.yearmonthday).toBe('20251207');
       expect(log?.totalminutes).toBe(0);
+      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study start');
+    });
+
+    it('채널에서 카메라만 켜도 타임로그가 생성된다', async () => {
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        selfVideo: false,
+        streaming: false,
+        userId: 'test-user-id',
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        selfVideo: true,
+        streaming: false,
+        userId: 'test-user-id',
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
+      expect(log).not.toBeNull();
+      expect(log?.yearmonthday).toBe('20251207');
+      expect(log?.totalminutes).toBe(0);
+      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study start');
+    });
+
+    it('활성 상태로 대상 채널에 입장하면 타임로그가 생성된다', async () => {
+      const oldState = createMockVoiceState({
+        channelId: null,
+        selfVideo: false,
+        streaming: false,
+        userId: 'test-user-id',
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        selfVideo: true,
+        streaming: false,
+        userId: 'test-user-id',
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
+      expect(log).not.toBeNull();
+      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study start');
+    });
+
+    it('다른 채널에서 활성 상태로 이동해도 타임로그가 생성된다', async () => {
+      const oldState = createMockVoiceState({
+        channelId: 'other-channel-id',
+        selfVideo: true,
+        streaming: false,
+        userId: 'test-user-id',
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        selfVideo: true,
+        streaming: false,
+        userId: 'test-user-id',
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
+      expect(log).not.toBeNull();
       expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study start');
     });
 
@@ -219,6 +301,74 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
       expect(log?.totalminutes).toBe(90);
       expect(newState._sendMock).toHaveBeenCalledWith(expect.stringContaining('총 공부시간: 90분'));
+    });
+
+    it('카메라를 꺼도 화면공유가 유지되면 공부 종료로 처리되지 않는다', async () => {
+      const startTime = new Date('2025-12-07T10:00:00').getTime();
+      await TestCamStudyTimeLog.create({
+        userid: 'test-user-id',
+        username: '테스트유저',
+        yearmonthday: '20251207',
+        timestamp: startTime.toString(),
+        totalminutes: 0,
+      });
+
+      vi.setSystemTime(new Date('2025-12-07T10:30:00'));
+
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        selfVideo: true,
+        streaming: true,
+        userId: 'test-user-id',
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        selfVideo: false,
+        streaming: true,
+        userId: 'test-user-id',
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
+      expect(log?.totalminutes).toBe(0);
+      expect(newState._sendMock).not.toHaveBeenCalled();
+    });
+
+    it('화면공유를 꺼도 카메라가 유지되면 공부 종료로 처리되지 않는다', async () => {
+      const startTime = new Date('2025-12-07T10:00:00').getTime();
+      await TestCamStudyTimeLog.create({
+        userid: 'test-user-id',
+        username: '테스트유저',
+        yearmonthday: '20251207',
+        timestamp: startTime.toString(),
+        totalminutes: 0,
+      });
+
+      vi.setSystemTime(new Date('2025-12-07T10:30:00'));
+
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        selfVideo: true,
+        streaming: true,
+        userId: 'test-user-id',
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        selfVideo: true,
+        streaming: false,
+        userId: 'test-user-id',
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
+      expect(log?.totalminutes).toBe(0);
+      expect(newState._sendMock).not.toHaveBeenCalled();
     });
   });
 
@@ -416,6 +566,48 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
       expect(log).toBeNull();
       expect(newState._sendMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('TC-CS08: 캠스터디 이벤트 실패 로깅', () => {
+    beforeEach(async () => {
+      await TestCamStudyUsers.create({
+        userid: 'test-user-id',
+        username: '테스트유저',
+      });
+    });
+
+    it('repository 조회가 실패하면 에러 로그에 상태 전이 문맥을 남긴다', async () => {
+      const { logger } = await import('../logger.js');
+      const findOneSpy = vi.spyOn(TestCamStudyUsers, 'findOne').mockRejectedValueOnce(new Error('db boom'));
+
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        selfVideo: false,
+        streaming: false,
+        userId: 'test-user-id',
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        selfVideo: true,
+        streaming: false,
+        userId: 'test-user-id',
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await expect(event.execute(oldState as never, newState as never)).resolves.toBeUndefined();
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'cam study handler failed',
+        expect.objectContaining({
+          userId: 'test-user-id',
+          oldChannelId: 'valid-voice-channel-id',
+          newChannelId: 'valid-voice-channel-id',
+        }),
+      );
+
+      findOneSpy.mockRestore();
     });
   });
 });
