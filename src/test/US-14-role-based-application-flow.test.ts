@@ -54,6 +54,32 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
     ParticipationApplication.findOne.mockClear();
     ParticipationApplication.create.mockClear();
     ParticipationApplication.update.mockClear();
+    ParticipationApplication.findOne.mockImplementation(
+      async ({ where }: { where: { userid: string; program: ProgramType } }) => {
+        return applications.get(getApplicationKey(where.userid, where.program)) ?? null;
+      },
+    );
+    ParticipationApplication.create.mockImplementation(async (record: ParticipationApplicationRecord) => {
+      applications.set(getApplicationKey(record.userid, record.program), record);
+      return record;
+    });
+    ParticipationApplication.update.mockImplementation(
+      async (
+        values: Partial<ParticipationApplicationRecord>,
+        { where }: { where: { userid: string; program: ProgramType } },
+      ) => {
+        const current = applications.get(getApplicationKey(where.userid, where.program));
+        if (!current) {
+          return [0];
+        }
+
+        applications.set(getApplicationKey(where.userid, where.program), {
+          ...current,
+          ...values,
+        });
+        return [1];
+      },
+    );
   });
 
   it('TC-RA01: /apply-wakeup은 신청을 pending으로 저장하고 ephemeral 응답과 운영 알림을 보낸다', async () => {
@@ -85,7 +111,12 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
       content: expect.stringContaining('기상인증 신청이 접수'),
       ephemeral: true,
     });
-    expect(opsSend).toHaveBeenCalledWith(expect.stringContaining('기상인증'));
+    expect(opsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('기상인증'),
+        allowedMentions: { parse: [] },
+      }),
+    );
   });
 
   it('TC-RA02: /apply-cam은 신청을 pending으로 저장하고 ephemeral 응답과 운영 알림을 보낸다', async () => {
@@ -117,7 +148,102 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
       content: expect.stringContaining('캠스터디 신청이 접수'),
       ephemeral: true,
     });
-    expect(opsSend).toHaveBeenCalledWith(expect.stringContaining('캠스터디'));
+    expect(opsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('캠스터디'),
+        allowedMentions: { parse: [] },
+      }),
+    );
+  });
+
+  it('TC-RA05: 운영 알림 전송이 실패해도 /apply-wakeup은 신청을 저장하고 성공 응답을 유지한다', async () => {
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      client: {
+        channels: {
+          fetch: vi.fn().mockRejectedValue(new Error('missing access')),
+        },
+        users: {
+          fetch: vi.fn(),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/apply-wakeup.js');
+    await command.execute(interaction as never);
+
+    expect(applications.get('test-user-id:wake-up')).toMatchObject({
+      status: 'pending',
+    });
+    expect(interaction.getReplies()[0]).toMatchObject({
+      content: expect.stringContaining('기상인증 신청이 접수'),
+      ephemeral: true,
+    });
+  });
+
+  it('TC-RA06: 중복 신청 race로 create가 unique 제약에 걸려도 pending 상태로 흡수한다', async () => {
+    const opsSend = vi.fn();
+    ParticipationApplication.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'wake-up',
+      status: 'pending',
+      reason: null,
+    });
+    ParticipationApplication.create.mockRejectedValueOnce({
+      name: 'SequelizeUniqueConstraintError',
+    });
+
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      client: {
+        channels: {
+          fetch: vi.fn().mockResolvedValue({
+            send: opsSend,
+          }),
+        },
+        users: {
+          fetch: vi.fn(),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/apply-wakeup.js');
+    await command.execute(interaction as never);
+
+    expect(interaction.getReplies()[0]).toMatchObject({
+      content: expect.stringContaining('이미 접수'),
+      ephemeral: true,
+    });
+    expect(opsSend).not.toHaveBeenCalled();
+  });
+
+  it('TC-RA07: 운영 채널 알림은 사용자 이름에 멘션이 있어도 allowedMentions를 비활성화한다', async () => {
+    const opsSend = vi.fn();
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      globalName: '@everyone',
+      client: {
+        channels: {
+          fetch: vi.fn().mockResolvedValue({
+            send: opsSend,
+          }),
+        },
+        users: {
+          fetch: vi.fn(),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/apply-wakeup.js');
+    await command.execute(interaction as never);
+
+    expect(opsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('@everyone'),
+        allowedMentions: { parse: [] },
+      }),
+    );
   });
 
   it('TC-RA03: /approve-application은 pending 신청을 승인하고 역할을 부여한 뒤 사용자에게 안내를 보낸다', async () => {
@@ -167,6 +293,120 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
     expect(applicantMember.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
     expect(notifyApplicant).toHaveBeenCalledWith(expect.stringContaining('승인'));
     expect(interaction.getLastReply()).toContain('승인');
+  });
+
+  it('TC-RA08: /approve-application은 신청자가 서버에 없으면 역할 부여 전에 명시적으로 실패를 안내한다', async () => {
+    applications.set('test-user-id:wake-up', {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'wake-up',
+      status: 'pending',
+      reason: null,
+    });
+
+    const interaction = createMockInteraction({
+      channelId: 'valid-ops-channel-id',
+      options: {
+        userid: 'test-user-id',
+        program: 'wake-up',
+      },
+      guild: {
+        members: {
+          fetch: vi.fn().mockRejectedValue(new Error('Unknown Member')),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/approve-application.js');
+    await command.execute(interaction as never);
+
+    expect(applications.get('test-user-id:wake-up')?.status).toBe('pending');
+    expect(interaction.getLastReply()).toContain('서버에서 사용자를 찾을 수 없어요');
+  });
+
+  it('TC-RA09: /approve-application은 역할 부여에 실패하면 상태를 승인으로 바꾸지 않는다', async () => {
+    applications.set('test-user-id:wake-up', {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'wake-up',
+      status: 'pending',
+      reason: null,
+    });
+
+    const applicantMember = {
+      roles: {
+        add: vi.fn().mockRejectedValue(new Error('missing permissions')),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-ops-channel-id',
+      options: {
+        userid: 'test-user-id',
+        program: 'wake-up',
+      },
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/approve-application.js');
+    await command.execute(interaction as never);
+
+    expect(applications.get('test-user-id:wake-up')?.status).toBe('pending');
+    expect(interaction.getLastReply()).toContain('역할을 부여하지 못했어요');
+  });
+
+  it('TC-RA10: /approve-application은 DB 업데이트 실패 시 방금 부여한 역할을 롤백한다', async () => {
+    applications.set('test-user-id:wake-up', {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'wake-up',
+      status: 'pending',
+      reason: null,
+    });
+    ParticipationApplication.update.mockRejectedValueOnce(new Error('db update failed'));
+
+    const notifyApplicant = vi.fn();
+    const applicantMember = {
+      roles: {
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: notifyApplicant,
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-ops-channel-id',
+      options: {
+        userid: 'test-user-id',
+        program: 'wake-up',
+      },
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+      client: {
+        channels: {
+          fetch: vi.fn(),
+        },
+        users: {
+          fetch: vi.fn().mockResolvedValue({
+            send: notifyApplicant,
+          }),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/approve-application.js');
+    await command.execute(interaction as never);
+
+    expect(applications.get('test-user-id:wake-up')?.status).toBe('pending');
+    expect(applicantMember.roles.remove).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(interaction.getLastReply()).toContain('승인 처리 중 오류');
   });
 
   it('TC-RA04: /reject-application은 pending 신청을 거절하고 재신청 안내를 보낸다', async () => {

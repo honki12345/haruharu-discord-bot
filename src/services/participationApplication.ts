@@ -33,9 +33,16 @@ const buildOpsNotification = (userid: string, username: string, program: Partici
 };
 
 const sendOpsNotification = async (interaction: ChatInputCommandInteraction, message: string) => {
-  const opsChannel = await interaction.client.channels.fetch(opsChannelId);
-  if (opsChannel && 'send' in opsChannel) {
-    await opsChannel.send(message);
+  try {
+    const opsChannel = await interaction.client.channels.fetch(opsChannelId);
+    if (opsChannel && 'send' in opsChannel) {
+      await opsChannel.send({
+        content: message,
+        allowedMentions: { parse: [] },
+      });
+    }
+  } catch (error) {
+    logger.warn('failed to send ops notification for participation application', { error, opsChannelId });
   }
 };
 
@@ -50,6 +57,19 @@ const notifyApplicant = async (interaction: ChatInputCommandInteraction, userid:
   }
 };
 
+const isUniqueConstraintError = (error: unknown) =>
+  typeof error === 'object' && error !== null && 'name' in error && error.name === 'SequelizeUniqueConstraintError';
+
+const buildPendingReply = (label: string) => ({
+  content: `${label} 신청이 이미 접수되어 있어요. 운영진 승인을 기다려 주세요.`,
+  ephemeral: true,
+});
+
+const buildApprovedReply = (label: string) => ({
+  content: `${label} 참여가 이미 승인되어 있어요. 전용 채널을 확인해 주세요.`,
+  ephemeral: true,
+});
+
 const submitParticipationApplication = async (
   interaction: ChatInputCommandInteraction,
   program: ParticipationProgram,
@@ -62,23 +82,50 @@ const submitParticipationApplication = async (
   });
 
   if (!existingApplication) {
-    await ParticipationApplication.create({
-      userid,
-      username,
-      program,
-      status: 'pending',
-      reason: null,
-    });
+    try {
+      await ParticipationApplication.create({
+        userid,
+        username,
+        program,
+        status: 'pending',
+        reason: null,
+      });
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
+
+      const concurrentApplication = await ParticipationApplication.findOne({
+        where: { userid, program },
+      });
+
+      if (!concurrentApplication) {
+        throw error;
+      }
+
+      if (concurrentApplication.status === 'pending') {
+        return buildPendingReply(label);
+      }
+
+      if (concurrentApplication.status === 'approved') {
+        return buildApprovedReply(label);
+      }
+
+      await ParticipationApplication.update(
+        {
+          username,
+          status: 'pending',
+          reason: null,
+        },
+        {
+          where: { userid, program },
+        },
+      );
+    }
   } else if (existingApplication.status === 'pending') {
-    return {
-      content: `${label} 신청이 이미 접수되어 있어요. 운영진 승인을 기다려 주세요.`,
-      ephemeral: true,
-    };
+    return buildPendingReply(label);
   } else if (existingApplication.status === 'approved') {
-    return {
-      content: `${label} 참여가 이미 승인되어 있어요. 전용 채널을 확인해 주세요.`,
-      ephemeral: true,
-    };
+    return buildApprovedReply(label);
   } else {
     await ParticipationApplication.update(
       {
@@ -117,17 +164,46 @@ const approveParticipationApplication = async (
     return '서버 안에서만 승인할 수 있어요.';
   }
 
-  const member = await guild.members.fetch(userid);
-  await member.roles.add(PROGRAM_METADATA[program].roleId);
-  await ParticipationApplication.update(
-    {
-      status: 'approved',
-      reason: null,
-    },
-    {
-      where: { userid, program },
-    },
-  );
+  const roleId = PROGRAM_METADATA[program].roleId;
+  let member;
+  try {
+    member = await guild.members.fetch(userid);
+  } catch (error) {
+    logger.error('failed to fetch guild member for participation approval', { error, userid, program });
+    return '서버에서 사용자를 찾을 수 없어요. 서버에 남아 있는지 확인해 주세요.';
+  }
+
+  try {
+    await member.roles.add(roleId);
+  } catch (error) {
+    logger.error('failed to add role for participation approval', { error, userid, program, roleId });
+    return '역할을 부여하지 못했어요. 봇 권한과 역할 설정을 확인한 뒤 다시 시도해 주세요.';
+  }
+
+  try {
+    await ParticipationApplication.update(
+      {
+        status: 'approved',
+        reason: null,
+      },
+      {
+        where: { userid, program },
+      },
+    );
+  } catch (error) {
+    logger.error('failed to update participation status to approved', { error, userid, program });
+    try {
+      await member.roles.remove(roleId);
+    } catch (rollbackError) {
+      logger.error('failed to rollback participation approval role', {
+        rollbackError,
+        userid,
+        program,
+        roleId,
+      });
+    }
+    return '승인 처리 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.';
+  }
 
   await notifyApplicant(
     interaction,

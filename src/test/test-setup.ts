@@ -369,6 +369,7 @@ interface MockInteractionOptions {
   channelId?: string;
   userId?: string;
   globalName?: string;
+  username?: string;
   options?: Record<string, string | null>;
   attachment?: { url: string; name: string; contentType: string } | null;
   member?: {
@@ -395,6 +396,11 @@ interface MockInteractionOptions {
 
 export function createMockInteraction(opts: MockInteractionOptions = {}) {
   const replies: Array<string | { content: string; ephemeral?: boolean }> = [];
+  const user = {
+    id: opts.userId ?? 'test-user-id',
+    globalName: opts.globalName ?? '테스트유저',
+    username: opts.username ?? 'test-username',
+  };
   const member = opts.member ?? {
     roles: {
       add: vi.fn(),
@@ -410,10 +416,7 @@ export function createMockInteraction(opts: MockInteractionOptions = {}) {
 
   return {
     channelId: opts.channelId ?? 'valid-channel-id',
-    user: {
-      id: opts.userId ?? 'test-user-id',
-      globalName: opts.globalName ?? '테스트유저',
-    },
+    user,
     member,
     guild,
     options: {
@@ -425,7 +428,12 @@ export function createMockInteraction(opts: MockInteractionOptions = {}) {
         fetch: vi.fn(),
       },
       users: {
-        fetch: vi.fn().mockResolvedValue(member),
+        fetch: vi.fn().mockResolvedValue({
+          id: user.id,
+          username: user.username,
+          globalName: user.globalName,
+          send: vi.fn(),
+        }),
       },
     },
     reply: async (content: string | { content: string; ephemeral?: boolean }) => {
