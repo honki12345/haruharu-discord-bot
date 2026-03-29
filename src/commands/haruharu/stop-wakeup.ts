@@ -1,6 +1,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { startHereChannelId, timeStartHereChannelId } from '../../commandChannelConfig.js';
 import { logger } from '../../logger.js';
+import { replyWithEphemeralAudit } from '../../services/selfServiceAudit.js';
 
 export const command = {
   cooldown: 5,
@@ -17,10 +18,18 @@ export const command = {
       const result = await executeStopWakeUp({
         userId: interaction.user.id,
       });
-      await interaction.reply(result.reply);
+      await replyWithEphemeralAudit({
+        commandName: command.data.name,
+        interaction,
+        content: result.reply,
+      });
     } catch (error) {
       logger.error('stop-wakeup 실행 실패', { error });
-      await interaction.reply('기상스터디 중단 처리에 실패했습니다');
+      await replyWithEphemeralAudit({
+        commandName: command.data.name,
+        interaction,
+        content: '기상스터디 중단 처리에 실패했습니다',
+      });
     }
   },
 };
