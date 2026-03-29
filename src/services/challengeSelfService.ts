@@ -46,7 +46,7 @@ const executeRegister = async ({
   waketime: string;
 }) => {
   if (!isValidChallengeWakeTime(waketime)) {
-    return { reply: 'no valid waketime' };
+    return { reply: '기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요' };
   }
 
   const { year, month, date } = getYearMonthDate();
@@ -70,13 +70,13 @@ const executeRegister = async ({
       vacances: DEFAULT_VACANCES_COUNT,
     });
     await createWaketimeChangeLog({ userid: userId, yearmonthday, waketime });
-    return { reply: `${username} register success => yearmonth: ${yearmonth}, waketime: ${waketime}` };
+    return { reply: `${username}님 기상시간을 등록했습니다. 기준월: ${yearmonth}, 기상시간: ${waketime}` };
   }
 
   await createWaketimeChangeLog({ userid: userId, yearmonthday, waketime });
   await user.update({ username, waketime });
 
-  return { reply: `${username} update success => yearmonth: ${yearmonth}, waketime: ${waketime}` };
+  return { reply: `${username}님 기상시간을 수정했습니다. 기준월: ${yearmonth}, 기상시간: ${waketime}` };
 };
 
 const findRegisteredUserForDate = async (userId: string, yearmonthday: string) =>

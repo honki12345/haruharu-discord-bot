@@ -90,7 +90,7 @@ describe('US-12: daily message 데모', () => {
     expect(send.mock.calls[0]?.[0]).toContain('📝 오늘의 질문: 오늘 꼭 이루고 싶은 한 가지는 무엇인가요?');
     expect(startThread).toHaveBeenCalledOnce();
     expect(threadSend).toHaveBeenCalledOnce();
-    expect(interaction.getLastReply()).toContain('데모 daily message와 쓰레드를 생성했습니다');
+    expect(interaction.getLastReply()).toContain('데모 출석 메시지와 쓰레드를 생성했습니다');
     randomSpy.mockRestore();
   });
 
@@ -185,7 +185,7 @@ describe('US-12: daily message 데모', () => {
     expect(send).toHaveBeenCalledTimes(1);
     expect(startThread).toHaveBeenCalledTimes(1);
     expect(firstInteraction.getLastReply() ?? secondInteraction.getLastReply()).toContain(
-      '데모 daily message와 쓰레드를 생성했습니다',
+      '데모 출석 메시지와 쓰레드를 생성했습니다',
     );
     expect(firstInteraction.getLastReply() ?? secondInteraction.getLastReply()).not.toContain(
       '이미 데모 출석 쓰레드가 있습니다',

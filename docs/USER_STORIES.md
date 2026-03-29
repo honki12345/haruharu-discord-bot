@@ -129,6 +129,7 @@ SO THAT 설정 누락이나 command/event 로더 오류를 production 배포 전
 ```
 
 **인수 조건:**
+
 - `config` 로딩이 CI에서 실패 없이 검증된다
 - Discord client 생성이 실제 로그인 없이 가능하다
 - command/event 동적 로딩이 CI에서 실패 없이 끝난다
@@ -162,6 +163,7 @@ SO THAT 배포 전 검증과 배포 후 확인을 같은 절차로 반복할 수
 ```
 
 **인수 조건:**
+
 - production 배포는 `workflow_dispatch`로만 시작된다
 - verify job이 `lint`, `prettier`, `build`, `test`, `smoke test`를 통과해야 deploy가 실행된다
 - deploy는 GitHub-hosted runner에서 OCI 서버로 SSH 배포한다
@@ -186,7 +188,7 @@ sequenceDiagram
         OCI->>OCI: git fetch / checkout / npm ci / npm run build
         OCI->>PM2: reload or start haruharu-bot
         GH->>OCI: pm2 status / ready log 확인
-        O->>D: /ping 수동 확인
+        O->>D: /admin-상태확인 수동 확인
     end
 ```
 
@@ -196,7 +198,7 @@ sequenceDiagram
 
 ```
 AS A 챌린저
-I WANT TO /register 명령으로 내 기상시간을 등록하거나 수정
+I WANT TO /기상등록 명령으로 내 기상시간을 등록하거나 수정
 SO THAT 운영자 개입 없이 출석 체크 기준 시간을 스스로 설정할 수 있다
 ```
 
@@ -217,14 +219,14 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
 
-    U->>D: /register waketime:0700
+    U->>D: /기상등록 기상시간:0700
 
     D->>B: InteractionCreate 이벤트
     B->>B: 채널 검증
 
     B->>B: waketime 유효성 검사 (0500~0900)
     alt 유효하지 않은 시간
-        B-->>U: "no valid waketime"
+        B-->>U: "기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요"
     end
 
     B->>DB: WaketimeChangeLog 조회 (userid, 오늘 날짜)
@@ -238,11 +240,11 @@ sequenceDiagram
     alt 기존 사용자 존재
         B->>DB: Users 업데이트
         B->>DB: WaketimeChangeLog 생성
-        B-->>U: "update 성공: 홍길동"
+        B-->>U: "홍길동님 기상시간을 수정했습니다"
     else 신규 사용자
         B->>DB: Users 생성
         B->>DB: WaketimeChangeLog 생성
-        B-->>U: "register 성공: 홍길동"
+        B-->>U: "홍길동님 기상시간을 등록했습니다"
     end
 ```
 
@@ -276,17 +278,17 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
 
-    A->>D: /add-vacances userid:USER<br/>yearmonth:202512 count:2
+    A->>D: /admin-휴가추가 사용자id:USER<br/>년월:202512 추가일수:2
 
     D->>B: InteractionCreate 이벤트
 
     B->>DB: Users 조회 (userid, yearmonth)
     alt 미등록 사용자
-        B-->>A: "add-vacances fail: not registered"
+        B-->>A: "휴가 추가 실패: 존재하지 않는 회원입니다"
     end
 
     B->>DB: Users.vacances += count
-    B-->>A: "add-vacances 성공: 홍길동 (기존: 5 -> 현재: 7)"
+    B-->>A: "홍길동님 202512 휴가 일수가 총 7일이 되었습니다"
 ```
 
 ---
@@ -431,7 +433,7 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
 
-    A->>D: /register-cam userid:USER username:홍길동
+    A->>D: /admin-캠스터디등록 사용자id:USER 이름:홍길동
 
     D->>B: InteractionCreate 이벤트
 
@@ -441,7 +443,7 @@ sequenceDiagram
     end
 
     B->>DB: CamStudyUsers 생성
-    B-->>A: "register-cam 성공: 홍길동"
+    B-->>A: "홍길동님을 캠스터디 참가자로 등록했습니다"
 ```
 
 ---
@@ -622,11 +624,11 @@ sequenceDiagram
 
     B->>DB: CamStudyUsers 조회 (userid)
     alt 미등록 사용자
-        B-->>A: "delete-cam fail: not registered"
+        B-->>A: "cam-study 삭제 실패: 존재하지 않는 회원입니다"
     end
 
     B->>DB: CamStudyUsers 삭제
-    B-->>A: "delete-cam 성공"
+    B-->>A: "홍길동님을 캠스터디 참가자에서 삭제했습니다"
 ```
 
 ---
@@ -635,13 +637,13 @@ sequenceDiagram
 
 ```
 AS A 챌린저
-I WANT TO `/register`를 다시 실행해서 자신의 기상시간을 수정
+I WANT TO `/기상등록`을 다시 실행해서 자신의 기상시간을 수정
 SO THAT 같은 명령으로 등록과 수정을 모두 처리할 수 있다
 ```
 
 **인수 조건:**
 
-- 이미 등록된 사용자도 같은 `/register` 명령을 사용한다
+- 이미 등록된 사용자도 같은 `/기상등록` 명령을 사용한다
 - 본인 데이터만 수정 가능
 - 기상시간은 05:00~09:00 범위만 허용
 - 같은 날에는 한 번만 변경 가능
@@ -653,17 +655,17 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
 
-    U->>D: /register waketime:0800
+    U->>D: /기상등록 기상시간:0800
     D->>B: InteractionCreate 이벤트
 
     B->>DB: Users 조회 (userid, yearmonth)
     alt 미등록 사용자
-        B-->>U: "register success"
+        B-->>U: "홍길동님 기상시간을 등록했습니다"
     end
 
     B->>B: waketime 유효성 검사 (0500~0900)
     alt 유효하지 않은 시간
-        B-->>U: "no valid waketime"
+        B-->>U: "기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요"
     end
 
     B->>DB: WaketimeChangeLog 조회 (userid, 오늘 날짜)
@@ -673,7 +675,7 @@ sequenceDiagram
 
     B->>DB: WaketimeChangeLog 생성
     B->>DB: Users.waketime 업데이트
-    B-->>U: "update success"
+    B-->>U: "홍길동님 기상시간을 수정했습니다"
 ```
 
 ---
@@ -701,7 +703,7 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
 
-    U->>D: /apply-vacation date:20251208
+    U->>D: /휴가신청 날짜:20251208
     D->>B: InteractionCreate 이벤트
 
     B->>DB: Users 조회 (userid, 202512)

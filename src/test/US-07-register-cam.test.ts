@@ -38,6 +38,7 @@ describe('US-07: /register-cam 커맨드', () => {
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
     expect(user).not.toBeNull();
     expect(user?.username).toBe('홍길동');
+    expect(interaction.getLastReply()).toContain('캠스터디 참가자로 등록했습니다');
   });
 
   // 참고: register-cam.ts에 버그 있음 - foundUser 체크 후 return 없음

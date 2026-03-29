@@ -41,6 +41,7 @@ describe('US-11: /delete-cam 커맨드', () => {
 
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
     expect(user).toBeNull();
+    expect(interaction.getLastReply()).toContain('캠스터디 참가자에서 삭제했습니다');
   });
 
   it('TC-DC02: 미등록 사용자 삭제 시도', async () => {
