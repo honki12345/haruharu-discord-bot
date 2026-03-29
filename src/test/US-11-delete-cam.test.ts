@@ -1,6 +1,6 @@
 /**
- * US-11: 캠스터디 탈퇴
- * 사용자는 /delete-cam 명령어로 캠스터디에서 탈퇴한다.
+ * US-11: 캠스터디 삭제 명령 deprecated 안내
+ * 운영자는 더 이상 /delete-cam으로 참가자 원본을 직접 제거하지 않는다.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { testSequelize, TestCamStudyUsers, createMockInteraction } from './test-setup.js';
@@ -24,7 +24,7 @@ describe('US-11: /delete-cam 커맨드', () => {
     vi.useRealTimers();
   });
 
-  it('TC-DC01: 캠스터디 탈퇴 성공', async () => {
+  it('TC-DC01: /delete-cam은 역할 회수로 전환되었음을 안내한다', async () => {
     await TestCamStudyUsers.create({
       userid: 'cam-user-123',
       username: '홍길동',
@@ -40,10 +40,11 @@ describe('US-11: /delete-cam 커맨드', () => {
     await command.execute(interaction as never);
 
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
-    expect(user).toBeNull();
+    expect(user).not.toBeNull();
+    expect(interaction.getLastReply()).toContain('@cam-study');
   });
 
-  it('TC-DC02: 미등록 사용자 삭제 시도', async () => {
+  it('TC-DC02: 미등록 사용자여도 역할 회수 흐름을 안내한다', async () => {
     const interaction = createMockInteraction({
       options: {
         userid: 'nonexistent-user',
@@ -53,6 +54,6 @@ describe('US-11: /delete-cam 커맨드', () => {
     const { command } = await import('../commands/haruharu/delete-cam.js');
     await command.execute(interaction as never);
 
-    expect(interaction.getLastReply()).toContain('존재하지 않');
+    expect(interaction.getLastReply()).toContain('deprecated');
   });
 });

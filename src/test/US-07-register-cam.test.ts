@@ -1,6 +1,6 @@
 /**
- * US-07: 캠스터디 등록
- * 사용자는 캠스터디에 참여하기 위해 /register-cam 명령어로 등록한다.
+ * US-07: 캠스터디 등록 명령 deprecated 안내
+ * 운영자는 더 이상 /register-cam으로 참가자 원본을 직접 등록하지 않는다.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { testSequelize, TestCamStudyUsers, createMockInteraction } from './test-setup.js';
@@ -24,7 +24,7 @@ describe('US-07: /register-cam 커맨드', () => {
     vi.useRealTimers();
   });
 
-  it('TC-RC01: 캠스터디 등록 성공', async () => {
+  it('TC-RC01: /register-cam은 역할 기반 등록으로 전환되었음을 안내한다', async () => {
     const interaction = createMockInteraction({
       options: {
         userid: 'cam-user-123',
@@ -36,12 +36,11 @@ describe('US-07: /register-cam 커맨드', () => {
     await command.execute(interaction as never);
 
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
-    expect(user).not.toBeNull();
-    expect(user?.username).toBe('홍길동');
+    expect(user).toBeNull();
+    expect(interaction.getLastReply()).toContain('@cam-study');
   });
 
-  // 참고: register-cam.ts에 버그 있음 - foundUser 체크 후 return 없음
-  it('TC-RC02: 이미 등록된 사용자 (버그: 중복 체크 후 return 없음)', async () => {
+  it('TC-RC02: 기존 등록 여부와 관계없이 역할 부여 흐름으로 유도한다', async () => {
     await TestCamStudyUsers.create({
       userid: 'cam-user-123',
       username: '홍길동',
@@ -57,8 +56,8 @@ describe('US-07: /register-cam 커맨드', () => {
     const { command } = await import('../commands/haruharu/register-cam.js');
     await command.execute(interaction as never);
 
-    // 첫 번째 reply는 "이미 존재" 메시지
-    const replies = interaction.getReplies();
-    expect(replies[0]).toContain('이미 존재');
+    const users = await TestCamStudyUsers.findAll({ where: { userid: 'cam-user-123' } });
+    expect(users).toHaveLength(1);
+    expect(interaction.getLastReply()).toContain('deprecated');
   });
 });

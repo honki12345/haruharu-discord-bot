@@ -48,6 +48,7 @@ SO THAT 승인된 프로그램의 전용 채널만 자동으로 열리길 원한
 - 신청 응답은 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
 - 신청 시 운영 채널에 승인/거절용 안내가 전송된다
 - 운영자가 승인하면 해당 역할이 자동 부여된다
+- 캠스터디 승인 또는 수동 역할 부여로 `@cam-study` 역할을 얻으면 `CamStudyUsers`가 자동 동기화된다
 - 운영자가 거절하면 거절 사유와 재신청 안내가 사용자에게 전달된다
 
 ```mermaid
@@ -69,6 +70,10 @@ sequenceDiagram
         O->>B: /approve-application
         B->>DB: status = approved
         B->>D: 역할 부여
+        opt program = cam-study
+            D->>B: guildMemberUpdate
+            B->>DB: CamStudyUsers upsert
+        end
         B-->>U: 승인 안내
     else 운영자가 거절
         O->>B: /reject-application
@@ -129,6 +134,7 @@ SO THAT 설정 누락이나 command/event 로더 오류를 production 배포 전
 ```
 
 **인수 조건:**
+
 - `config` 로딩이 CI에서 실패 없이 검증된다
 - Discord client 생성이 실제 로그인 없이 가능하다
 - command/event 동적 로딩이 CI에서 실패 없이 끝난다
@@ -162,6 +168,7 @@ SO THAT 배포 전 검증과 배포 후 확인을 같은 절차로 반복할 수
 ```
 
 **인수 조건:**
+
 - production 배포는 `workflow_dispatch`로만 시작된다
 - verify job이 `lint`, `prettier`, `build`, `test`, `smoke test`를 통과해야 deploy가 실행된다
 - deploy는 GitHub-hosted runner에서 OCI 서버로 SSH 배포한다
@@ -411,37 +418,33 @@ sequenceDiagram
 
 ## 캠스터디 (Cam Study)
 
-### US-7: 캠스터디 등록
+### US-7: 캠스터디 역할 기반 등록
 
 ```
-AS A 관리자
-I WANT TO 사용자를 캠스터디에 등록
-SO THAT 해당 사용자의 학습 시간이 추적된다
+AS A 캠스터디 승인 사용자
+I WANT TO `@cam-study` 역할을 받으면 별도 관리자 명령 없이 자동으로 등록되고 싶다
+SO THAT 실제 채널 접근 권한과 학습 추적 대상이 항상 일치한다
 ```
 
 **인수 조건:**
 
-- 사용자 ID와 이름을 입력받는다
-- 중복 등록 불가
+- `@cam-study` 역할 부여 시 `CamStudyUsers`에 자동 등록된다
+- 이미 등록된 사용자면 중복 생성 대신 표시 이름을 갱신한다
+- `/register-cam`은 deprecated 상태로 남고 역할 기반 흐름을 안내만 한다
 
 ```mermaid
 sequenceDiagram
-    participant A as 관리자
-    participant D as Discord
+    participant U as 사용자
+    participant O as 운영진 또는 온보딩 흐름
+    participant D as Discord Role
     participant B as Bot
     participant DB as SQLite
 
-    A->>D: /register-cam userid:USER username:홍길동
-
-    D->>B: InteractionCreate 이벤트
-
-    B->>DB: CamStudyUsers 조회 (userid)
-    alt 이미 등록됨
-        B-->>A: "이미 등록된 사용자입니다"
-    end
-
-    B->>DB: CamStudyUsers 생성
-    B-->>A: "register-cam 성공: 홍길동"
+    U->>O: 캠스터디 권한 획득
+    O->>D: @cam-study 역할 부여
+    D->>B: guildMemberUpdate 이벤트
+    B->>DB: CamStudyUsers upsert
+    B-->>U: 별도 관리자 등록 없이 추적 대상 포함
 ```
 
 ---
@@ -596,37 +599,33 @@ sequenceDiagram
 
 ---
 
-### US-11: 캠스터디 탈퇴
+### US-11: 캠스터디 역할 회수 기반 탈퇴
 
 ```
-AS A 관리자
-I WANT TO 사용자를 캠스터디에서 삭제
-SO THAT 해당 사용자의 학습 시간 추적이 중단된다
+AS A 캠스터디 참가자
+I WANT TO `@cam-study` 역할이 회수되면 자동으로 추적 대상에서 빠지고 싶다
+SO THAT 권한이 없는 사용자의 학습 시간이 계속 기록되지 않는다
 ```
 
 **인수 조건:**
 
-- 등록된 사용자만 삭제 가능
-- 기존 학습 기록은 유지됨
+- `@cam-study` 역할이 제거되면 `CamStudyUsers`에서 자동 해제된다
+- 기존 학습 기록은 유지된다
+- `/delete-cam`은 deprecated 상태로 남고 역할 회수 흐름을 안내만 한다
 
 ```mermaid
 sequenceDiagram
-    participant A as 관리자
-    participant D as Discord
+    participant U as 참가자
+    participant O as 운영진 또는 온보딩 흐름
+    participant D as Discord Role
     participant B as Bot
     participant DB as SQLite
 
-    A->>D: /delete-cam userid:USER
-
-    D->>B: InteractionCreate 이벤트
-
-    B->>DB: CamStudyUsers 조회 (userid)
-    alt 미등록 사용자
-        B-->>A: "delete-cam fail: not registered"
-    end
-
+    U->>O: 캠스터디 역할 회수 요청 또는 운영 해제
+    O->>D: @cam-study 역할 제거
+    D->>B: guildMemberUpdate 이벤트
     B->>DB: CamStudyUsers 삭제
-    B-->>A: "delete-cam 성공"
+    B-->>U: 새 세션부터 추적 대상 제외
 ```
 
 ---

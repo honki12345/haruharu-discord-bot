@@ -60,8 +60,8 @@ haruharu-discord-bot/
 │   │       ├── delete.ts        # 챌린저 삭제
 │   │       ├── apply-wakeup.ts  # 기상인증 참여 신청
 │   │       ├── apply-cam.ts     # 캠스터디 참여 신청
-│   │       ├── register-cam.ts  # 캠스터디 등록
-│   │       ├── delete-cam.ts    # 캠스터디 삭제
+│   │       ├── register-cam.ts  # deprecated: 역할 기반 등록 안내
+│   │       ├── delete-cam.ts    # deprecated: 역할 회수 안내
 │   │       ├── approve-application.ts # 신청 승인 및 역할 부여
 │   │       ├── reject-application.ts  # 신청 거절 및 재신청 안내
 │   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
@@ -69,6 +69,7 @@ haruharu-discord-bot/
 │   │
 │   ├── events/
 │   │   ├── ready.ts             # 봇 시작, DB 동기화, 리포트 스케줄러 등록
+│   │   ├── guildMemberUpdate.ts # @cam-study 역할 기반 참가자 동기화
 │   │   ├── interactionCreate.ts # 슬래시 커맨드 핸들러
 │   │   ├── messageCreate.ts     # 출석 demo thread 댓글 감지
 │   │   └── camStudyHandler.ts   # 음성 채널 상태 감지 및 캠스터디 서비스 위임
@@ -77,6 +78,7 @@ haruharu-discord-bot/
 │   │   ├── attendance.ts        # 레거시 check-in/check-out 처리
 │   │   ├── challengeSelfService.ts # 사용자 기상시간/휴가 self-service 정책 처리
 │   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
+│   │   ├── camStudyRoleSync.ts  # 역할 기반 캠스터디 참가자 동기화
 │   │   ├── participationApplication.ts # 신청/승인/거절/역할 부여 처리
 │   │   └── reporting.ts         # 일일/주간 리포트 생성 및 스케줄링
 │   │
@@ -139,11 +141,11 @@ haruharu-discord-bot/
 
 #### 캠스터디 커맨드
 
-| 커맨드          | 권한   | 설명                    |
-| --------------- | ------ | ----------------------- |
-| `/apply-cam`    | 사용자 | 캠스터디 채널 접근 신청 |
-| `/register-cam` | 관리자 | 캠스터디 등록           |
-| `/delete-cam`   | 관리자 | 캠스터디 삭제           |
+| 커맨드          | 권한   | 설명                                    |
+| --------------- | ------ | --------------------------------------- |
+| `/apply-cam`    | 사용자 | 캠스터디 채널 접근 신청                 |
+| `/register-cam` | 관리자 | deprecated: `@cam-study` 역할 부여 안내 |
+| `/delete-cam`   | 관리자 | deprecated: `@cam-study` 역할 회수 안내 |
 
 #### 온보딩/운영 커맨드
 
@@ -186,16 +188,16 @@ haruharu-discord-bot/
 
 #### `/delete`, `/delete-cam`
 
-| 파라미터 | 필수 | 설명              |
-| -------- | ---- | ----------------- |
-| userid   | O    | Discord 사용자 ID |
+| 파라미터 | 필수 | 설명                                                |
+| -------- | ---- | --------------------------------------------------- |
+| userid   | O    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
 
 #### `/register-cam`
 
-| 파라미터 | 필수 | 설명              |
-| -------- | ---- | ----------------- |
-| userid   | O    | Discord 사용자 ID |
-| username | O    | 표시 이름         |
+| 파라미터 | 필수 | 설명                                                |
+| -------- | ---- | --------------------------------------------------- |
+| userid   | O    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
+| username | O    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
 
 #### `/apply-wakeup`, `/apply-cam`
 
@@ -241,21 +243,33 @@ haruharu-discord-bot/
 - 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
 - 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
 
+#### guildMemberUpdate.ts
+
+| 항목   | 내용                                                                    |
+| ------ | ----------------------------------------------------------------------- |
+| 트리거 | 서버 멤버 역할 변경                                                     |
+| 기능   | `@cam-study` 역할 부여/회수를 감지하고 `CamStudyUsers`를 자동 등록/해제 |
+
+**구현 메모:**
+
+- `CamStudyUsers`는 역할 상태를 반영하는 캐시 인덱스이며, 역할 부여 시 upsert, 역할 회수 시 삭제한다.
+- `@cam-study` 역할 변화가 없으면 아무 작업도 하지 않는다.
+
 ### Runtime / Delivery
 
-| 파일 | 역할 |
-|------|------|
-| `src/index.ts` | 프로세스 진입점. `bootstrapClient()` 호출과 Discord 로그인 시작만 담당 |
-| `src/runtime.ts` | Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집, smoke boot 지원 |
-| `src/deploy-commands.ts` | `src/runtime.ts` 로더를 재사용해 slash command JSON을 생성하고 Discord에 등록 |
+| 파일                     | 역할                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `src/index.ts`           | 프로세스 진입점. `bootstrapClient()` 호출과 Discord 로그인 시작만 담당                    |
+| `src/runtime.ts`         | Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집, smoke boot 지원 |
+| `src/deploy-commands.ts` | `src/runtime.ts` 로더를 재사용해 slash command JSON을 생성하고 Discord에 등록             |
 
 ### GitHub Actions
 
-| Workflow | 트리거 | 역할 |
-|----------|--------|------|
-| `CI` | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
-| `Dependency Review` | `pull_request` + package manifest 변경 | 취약점/라이선스 정책 검토 |
-| `Deploy Production` | `workflow_dispatch` | verify 후 OCI 서버에 SSH 배포하고 PM2/ready 로그를 확인 |
+| Workflow            | 트리거                                      | 역할                                                                                    |
+| ------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `CI`                | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
+| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                               |
+| `Deploy Production` | `workflow_dispatch`                         | verify 후 OCI 서버에 SSH 배포하고 PM2/ready 로그를 확인                                 |
 
 ### Production 배포 흐름
 
@@ -287,6 +301,7 @@ flowchart TD
 - 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
 - `/apply-wakeup`, `/apply-cam`은 `#apply` 전용 채널에서만 실행된다.
 - `/approve-application`, `/reject-application`은 `#ops` 전용 채널에서만 실행된다.
+- `/register-cam`, `/delete-cam`은 deprecated 상태로 남아 있으며 역할 기반 운영 흐름만 안내한다.
 
 #### camStudyHandler.ts
 
@@ -336,6 +351,14 @@ flowchart TD
 | 담당   | 입장/퇴장/카메라/화면공유 활성 전이 계산, 최소 인정 시간 검증, 일간 로그 생성/갱신, 상태 전이 구조화 로그 기록 |
 | 호출처 | `src/events/camStudyHandler.ts`                                                                                |
 
+#### camStudyRoleSync.ts
+
+| 항목   | 내용                                                                                      |
+| ------ | ----------------------------------------------------------------------------------------- |
+| 역할   | `@cam-study` 역할 상태를 `CamStudyUsers` 캐시에 반영                                      |
+| 담당   | 역할 추가/제거 감지, 표시 이름 추출, `CamStudyUsers` upsert/remove, 역할 동기화 로그 기록 |
+| 호출처 | `src/events/guildMemberUpdate.ts`                                                         |
+
 #### challengeSelfService.ts
 
 | 항목   | 내용                                                                                                             |
@@ -349,7 +372,7 @@ flowchart TD
 | 항목   | 내용                                                                                                                                                                         |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 역할   | 참여 신청 저장, 운영 알림, 승인/거절, 역할 부여 및 신청자 안내                                                                                                               |
-| 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 운영 채널 공지, 신청자 안내 메시지 처리                                                             |
+| 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 운영 채널 공지, 신청자 안내 메시지 처리, 캠스터디는 후속 역할 동기화의 진입점 제공                  |
 | 호출처 | `src/commands/haruharu/apply-wakeup.ts`, `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts` |
 
 #### reporting.ts
@@ -465,6 +488,12 @@ flowchart TD
 | id       | INTEGER | PK, Auto Increment         |
 | userid   | STRING  | Discord 사용자 ID (UNIQUE) |
 | username | STRING  | 표시 이름                  |
+
+비고:
+
+- `@cam-study` 역할 상태를 반영하는 캐시/인덱스 성격의 테이블이다.
+- 역할 부여 시 upsert, 역할 회수 시 삭제한다.
+- 과거 학습 로그(`CamStudyTimeLog`, `CamStudyWeeklyTimeLog`)는 역할 회수 후에도 유지된다.
 
 #### CamStudyTimeLog (일간 학습 로그)
 
@@ -589,32 +618,32 @@ flowchart TD
 
 ### package.json 스크립트
 
-| 스크립트               | 설명                                                                                    |
-| ---------------------- | --------------------------------------------------------------------------------------- |
-| `npm run build`        | `dist`를 정리한 뒤 TypeScript를 컴파일                                                  |
-| `npm start`            | TypeScript 컴파일 후 봇 실행                                                            |
-| `npm run pm2`          | 빌드 후 PM2로 프로덕션 프로세스 시작                                                    |
-| `npm run deploy`       | 최신 코드를 pull한 뒤 다시 빌드하고 PM2 프로세스를 reload                               |
-| `npm run deploy:commands` | slash command를 다시 등록                                                            |
-| `npm run local:ci`     | GitHub Actions CI와 같은 로컬 검증 실행 (`lint` + `prettier --check` + `build` + `test`) |
-| `npm run lint`         | ESLint 검사                                                                             |
-| `npm run lint:fix`     | ESLint 자동 수정                                                                        |
-| `npm run test:smoke`   | Discord 로그인 없이 bot boot smoke test 실행                                            |
-| `npm run format`       | Prettier 포맷팅                                                                         |
+| 스크립트                  | 설명                                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run build`           | `dist`를 정리한 뒤 TypeScript를 컴파일                                                   |
+| `npm start`               | TypeScript 컴파일 후 봇 실행                                                             |
+| `npm run pm2`             | 빌드 후 PM2로 프로덕션 프로세스 시작                                                     |
+| `npm run deploy`          | 최신 코드를 pull한 뒤 다시 빌드하고 PM2 프로세스를 reload                                |
+| `npm run deploy:commands` | slash command를 다시 등록                                                                |
+| `npm run local:ci`        | GitHub Actions CI와 같은 로컬 검증 실행 (`lint` + `prettier --check` + `build` + `test`) |
+| `npm run lint`            | ESLint 검사                                                                              |
+| `npm run lint:fix`        | ESLint 자동 수정                                                                         |
+| `npm run test:smoke`      | Discord 로그인 없이 bot boot smoke test 실행                                             |
+| `npm run format`          | Prettier 포맷팅                                                                          |
 
 ---
 
 ## 기술 스택
 
-| 구분         | 기술                                                          |
-| ------------ | ------------------------------------------------------------- |
-| 언어         | TypeScript                                                    |
-| 런타임       | Node.js 20+                                                   |
-| Discord API  | discord.js 14                                                 |
-| 데이터베이스 | SQLite3 + Sequelize                                           |
-| 로깅         | Winston + Daily Rotate                                        |
-| 코드 품질    | ESLint + Prettier                                             |
-| 배포         | GitHub-hosted runner + SSH + PM2                              |
+| 구분         | 기술                                                            |
+| ------------ | --------------------------------------------------------------- |
+| 언어         | TypeScript                                                      |
+| 런타임       | Node.js 20+                                                     |
+| Discord API  | discord.js 14                                                   |
+| 데이터베이스 | SQLite3 + Sequelize                                             |
+| 로깅         | Winston + Daily Rotate                                          |
+| 코드 품질    | ESLint + Prettier                                               |
+| 배포         | GitHub-hosted runner + SSH + PM2                                |
 | CI/CD        | GitHub Actions (`CI`, `Dependency Review`, `Deploy Production`) |
 
 ---

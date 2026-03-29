@@ -7,6 +7,19 @@ const findCamStudyUser = (userid: string) => CamStudyUsers.findOne({ where: { us
 
 const listCamStudyUsers = () => CamStudyUsers.findAll();
 
+const upsertCamStudyUser = async (payload: { userid: string; username: string }) => {
+  const existingUser = await findCamStudyUser(payload.userid);
+
+  if (!existingUser) {
+    return CamStudyUsers.create(payload);
+  }
+
+  await CamStudyUsers.update({ username: payload.username }, { where: { userid: payload.userid } });
+  return findCamStudyUser(payload.userid);
+};
+
+const removeCamStudyUser = (userid: string) => CamStudyUsers.destroy({ where: { userid } });
+
 const findCamStudyTimeLog = (userid: string, yearmonthday: string) =>
   CamStudyTimeLog.findOne({ where: { userid, yearmonthday } });
 
@@ -86,7 +99,9 @@ export {
   listCamStudyTimeLogsBetween,
   listCamStudyUsers,
   listWeeklyCamStudyTimeLogs,
+  removeCamStudyUser,
   replaceWeeklyCamStudyTimeLogs,
+  upsertCamStudyUser,
   updateCamStudyTimeLog,
   updateWeeklyCamStudyTimeLog,
 };
