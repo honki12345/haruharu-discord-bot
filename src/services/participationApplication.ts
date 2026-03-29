@@ -139,14 +139,6 @@ const submitParticipationApplication = async (
 
   const hadRoleBeforeActivation = member.roles.cache?.has(roleId) ?? false;
 
-  if (existingApplication?.status === 'approved' && hadRoleBeforeActivation) {
-    if (program === 'cam-study') {
-      await upsertCamStudyUser({ userid, username });
-    }
-
-    return buildApprovedReply(label);
-  }
-
   if (!hadRoleBeforeActivation) {
     try {
       await member.roles.add(roleId);
@@ -160,6 +152,14 @@ const submitParticipationApplication = async (
   }
 
   try {
+    if (existingApplication?.status === 'approved' && hadRoleBeforeActivation) {
+      if (program === 'cam-study') {
+        await upsertCamStudyUser({ userid, username });
+      }
+
+      return buildApprovedReply(label);
+    }
+
     if (program === 'cam-study') {
       await upsertCamStudyUser({ userid, username });
     }

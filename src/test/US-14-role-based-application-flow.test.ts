@@ -360,7 +360,47 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
     expect(interaction.getLastReply()).toContain('자동 참여 처리 중 오류');
   });
 
-  it('TC-RA09: /approve-application은 deprecated 안내만 반환한다', async () => {
+  it('TC-RA09: approved 상태와 기존 역할이 있는 /apply-cam 재시도에서 row self-heal 실패도 자동 참여 오류로 안내한다', async () => {
+    applications.set('test-user-id:cam-study', {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'cam-study',
+      status: 'approved',
+      reason: null,
+    });
+
+    const applicantMember = {
+      roles: {
+        cache: {
+          has: vi.fn().mockReturnValue(true),
+        },
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+    });
+    const repository = await import('../repository/camStudyRepository.js');
+    vi.spyOn(repository, 'upsertCamStudyUser').mockRejectedValueOnce(new Error('db boom'));
+
+    const { command } = await import('../commands/haruharu/apply-cam.js');
+    await expect(command.execute(interaction as never)).resolves.toBeUndefined();
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'test-user-id' } });
+    expect(applicantMember.roles.add).not.toHaveBeenCalled();
+    expect(applicantMember.roles.remove).not.toHaveBeenCalled();
+    expect(user).toBeNull();
+    expect(interaction.getLastReply()).toContain('자동 참여 처리 중 오류');
+  });
+
+  it('TC-RA10: /approve-application은 deprecated 안내만 반환한다', async () => {
     const { command } = await import('../commands/haruharu/approve-application.js');
     expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false, false]);
 
@@ -377,7 +417,7 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
     expect(interaction.getLastReply()).toContain('deprecated');
   });
 
-  it('TC-RA10: /reject-application은 deprecated 안내만 반환한다', async () => {
+  it('TC-RA11: /reject-application은 deprecated 안내만 반환한다', async () => {
     const { command } = await import('../commands/haruharu/reject-application.js');
     expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false, false, false]);
 
