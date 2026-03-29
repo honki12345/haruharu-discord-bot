@@ -27,6 +27,7 @@ describe('US-11: /delete-cam 커맨드', () => {
   it('TC-DC01: /delete-cam은 역할 회수로 전환되었음을 안내한다', async () => {
     const { command } = await import('../commands/haruharu/delete-cam.js');
     expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false]);
+    expect(command.allowedChannelIds).toEqual(['valid-ops-channel-id']);
 
     await TestCamStudyUsers.create({
       userid: 'cam-user-123',

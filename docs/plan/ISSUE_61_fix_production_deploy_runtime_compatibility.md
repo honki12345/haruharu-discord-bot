@@ -17,12 +17,14 @@
 ## 범위
 
 포함:
+
 - `.github/workflows/deploy-production.yml`의 runner / Node 버전 고정
 - `.github/workflows/ci.yml`의 runner / Node 버전 고정
 - US-15 정적 회귀 테스트 보강
 - 배포 관련 문서 동기화
 
 제외:
+
 - OCI 서버 OS 업그레이드
 - PM2 구조 변경
 - deploy script의 artifact 검증 로직 재설계

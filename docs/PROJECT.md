@@ -144,17 +144,17 @@ haruharu-discord-bot/
 
 #### 역할 기반 참여 신청 커맨드
 
-| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                     |
-| ---------------------- | ----------------- | ------ | ------------------------ |
-| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 참여 즉시 활성화 |
-| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 즉시 활성화 |
+| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                         |
+| ---------------------- | ----------------- | ------ | ---------------------------- |
+| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 참여 즉시 활성화    |
+| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 즉시 활성화    |
 | `/approve-application` | `/admin-신청승인` | 관리자 | deprecated: 자동 활성화 안내 |
 | `/reject-application`  | `/admin-신청거절` | 관리자 | deprecated: 자동 활성화 안내 |
 
 #### 캠스터디 커맨드
 
-| 내부 key        | 한국어 표시명(ko)     | 권한   | 설명          |
-| --------------- | --------------------- | ------ | ------------- |
+| 내부 key        | 한국어 표시명(ko)     | 권한   | 설명                                    |
+| --------------- | --------------------- | ------ | --------------------------------------- |
 | `/register-cam` | `/admin-캠스터디등록` | 관리자 | deprecated: `@cam-study` 역할 부여 안내 |
 | `/delete-cam`   | `/admin-캠스터디삭제` | 관리자 | deprecated: `@cam-study` 역할 회수 안내 |
 
@@ -201,18 +201,18 @@ haruharu-discord-bot/
 
 #### `/approve-application` (`/admin-신청승인`)
 
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
-| ------------- | ----------------- | ---- | ------------------------------ |
-| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID    |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                            |
+| ------------- | ----------------- | ---- | ------------------------------- |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID     |
 | program       | 프로그램          | X    | deprecated 레거시 대상 프로그램 |
 
 #### `/reject-application` (`/admin-신청거절`)
 
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
-| ------------- | ----------------- | ---- | ------------------------------ |
-| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID    |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                            |
+| ------------- | ----------------- | ---- | ------------------------------- |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID     |
 | program       | 프로그램          | X    | deprecated 레거시 대상 프로그램 |
-| reason        | 사유              | X    | deprecated 레거시 사유         |
+| reason        | 사유              | X    | deprecated 레거시 사유          |
 
 #### `/delete` (`/admin-챌린저삭제`)
 
@@ -222,14 +222,14 @@ haruharu-discord-bot/
 
 #### `/delete-cam` (`/admin-캠스터디삭제`)
 
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
-| ------------- | ----------------- | ---- | ------------------------------ |
-| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID    |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                        |
+| ------------- | ----------------- | ---- | --------------------------- |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID |
 
 #### `/register-cam` (`/admin-캠스터디등록`)
 
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                     |
-| ------------- | ----------------- | ---- | ------------------------ |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                        |
+| ------------- | ----------------- | ---- | --------------------------- |
 | userid        | 사용자id          | X    | deprecated 레거시 사용자 ID |
 | username      | 이름              | X    | deprecated 레거시 표시 이름 |
 
@@ -284,10 +284,10 @@ haruharu-discord-bot/
 
 ### GitHub Actions
 
-| Workflow            | 트리거                                      | 역할                                                                                    |
-| ------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `CI`                | `push`, `pull_request`, `workflow_dispatch` | `ubuntu-22.04` + Node.js 24에서 lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
-| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                               |
+| Workflow            | 트리거                                      | 역할                                                                                                                                                                                                         |
+| ------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CI`                | `push`, `pull_request`, `workflow_dispatch` | `ubuntu-22.04` + Node.js 24에서 lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test                                                                                      |
+| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                                                                                                                                                    |
 | `Deploy Production` | `workflow_dispatch`                         | `ubuntu-22.04` + Node.js 24 verify 후 production artifact와 runtime metadata를 만들고 OCI 서버에서 realpath, platform, arch, Node ABI, glibc 호환성 및 staged bundle 검증 뒤 반영한 뒤 PM2/ready 로그를 확인 |
 
 ### Production 배포 흐름
@@ -322,7 +322,7 @@ flowchart TD
 - 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
 - `/apply-wakeup`, `/apply-cam`은 `#apply` 전용 채널에서만 실행된다.
 - `/approve-application`, `/reject-application`은 deprecated 상태로 `#ops`에서만 남아 있고 실제 참여 상태는 바꾸지 않는다.
-- `/register-cam`, `/delete-cam`은 deprecated 상태로 남아 있으며 역할 기반 운영 흐름만 안내한다.
+- `/register-cam`, `/delete-cam`은 deprecated 상태로 `#ops`에서만 남아 있으며 역할 기반 운영 흐름만 안내한다.
 
 #### camStudyHandler.ts
 
@@ -405,6 +405,7 @@ flowchart TD
 | 역할   | self-service 참여 활성화, 역할 부여, deprecated 운영 명령 안내                                                                                                               |
 | 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 신청 즉시 `approved` 반영, 캠스터디 자동 활성화 시 `CamStudyUsers` upsert, 실패 시 role/db rollback |
 | 호출처 | `src/commands/haruharu/apply-wakeup.ts`, `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts` |
+
 #### reporting.ts
 
 | 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                       |
