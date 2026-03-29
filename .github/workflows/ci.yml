@@ -62,7 +62,10 @@ jobs:
   integration-test:
     runs-on: ubuntu-22.04
     needs: [lint-and-format, test, bot-smoke-test]
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    concurrency:
+      group: integration-test-${{ vars.TEST_GUILD_ID || 'default-guild' }}
+      cancel-in-progress: false
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
     steps:
       - uses: actions/checkout@v4
 
@@ -73,6 +76,17 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Prepare integration config.json
+        run: node scripts/write-integration-config.mjs
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          TEST_CHANNEL_ID: ${{ vars.TEST_CHANNEL_ID }}
+          TEST_GUILD_ID: ${{ vars.TEST_GUILD_ID }}
+          START_HERE_CHANNEL_ID: ${{ vars.START_HERE_CHANNEL_ID }}
+
+      - name: Sync slash commands
+        run: npm run deploy:commands
 
       - name: Run integration tests
         run: npm run test:integration

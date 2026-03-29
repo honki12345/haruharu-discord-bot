@@ -7,6 +7,7 @@ import {
   ThreadAutoArchiveDuration,
 } from 'discord.js';
 import { testChannelId } from '../../commandChannelConfig.js';
+import { buildDailyAttendanceMessageContent } from '../../daily-attendance.js';
 import { pickDailyMessageQuestion } from '../../daily-message.js';
 import { logger } from '../../logger.js';
 import { getYearMonthDate, PERMISSION_NUM_ADMIN } from '../../utils.js';
@@ -22,19 +23,6 @@ const findExistingThread = async (channel: TextChannel, threadName: string) => {
 
   const archivedThreads = await channel.threads.fetchArchived();
   return archivedThreads.threads.find(thread => thread.name === threadName) ?? null;
-};
-
-const buildDailyMessageContent = (year: number, month: string, date: string, question: string) => {
-  return [
-    `[🌅 ${year}-${month}-${date}]`,
-    '',
-    '오늘의 한마디:',
-    '"완벽하려고 하지 말고, 시작하자."',
-    '',
-    '👉 오늘 목표 하나만 적고 시작해보세요',
-    `📝 오늘의 질문: ${question}`,
-    '👇 반드시 아래 쓰레드에서 오늘 출석을 남겨주세요',
-  ].join('\n');
 };
 
 export const command = {
@@ -80,7 +68,7 @@ export const command = {
         };
       }
 
-      const dailyMessage = await testChannel.send(buildDailyMessageContent(year, month, date, question));
+      const dailyMessage = await testChannel.send(buildDailyAttendanceMessageContent(year, month, date, question));
       const thread = await dailyMessage.startThread({
         name: threadName,
         autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,

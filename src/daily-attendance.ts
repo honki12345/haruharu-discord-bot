@@ -14,12 +14,10 @@ const buildDailyAttendanceMessageContent = (year: number, month: string, date: s
   return [
     `[🌅 ${year}-${month}-${date}]`,
     '',
-    '오늘의 한마디:',
-    '"완벽하려고 하지 말고, 시작하자."',
+    '오늘의 질문:',
+    `"${question}"`,
     '',
-    '👉 오늘 목표 하나만 적고 시작해보세요',
-    `📝 오늘의 질문: ${question}`,
-    '👇 반드시 아래 쓰레드에서 오늘 출석을 남겨주세요',
+    '👇 아래 쓰레드에 오늘 출석과 함께 답변을 남겨주세요',
   ].join('\n');
 };
 
