@@ -234,7 +234,7 @@ haruharu-discord-bot/
 | 항목 | 내용 |
 |------|------|
 | 역할 | 일일/주간 리포트 생성과 스케줄링 |
-| 담당 | 모델 동기화, 기상 챌린지 출석표 생성, 월말 생존 명단 생성, 캠스터디 일일/주간 집계, 스케줄 중복 실행 방지 |
+| 담당 | 모델 동기화, `AttendanceLog` 기반 기상 챌린지 출석표 생성, 전환 기간 `TimeLog` fallback 호환, 무댓글 사용자 결석 확정, 월말 생존 명단 생성, 캠스터디 일일/주간 집계, 스케줄 중복 실행 방지 |
 | 호출처 | `src/events/ready.ts` |
 
 ---
@@ -245,7 +245,7 @@ haruharu-discord-bot/
 
 | 파일 | 역할 |
 |------|------|
-| `challengeRepository.ts` | `Users`, `TimeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
+| `challengeRepository.ts` | `Users`, `TimeLog`, `AttendanceLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
 | `camStudyRepository.ts` | `CamStudyUsers`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼 |
 
 #### Users (기상 챌린지 참가자)
@@ -276,6 +276,7 @@ haruharu-discord-bot/
 비고:
 - 레거시 `/check-in`, `/check-out` 2건 구조 전용 테이블이다.
 - thread 기반 하루 1회 출석 전환과 별도로 유지된다.
+- 13:00 집계는 `AttendanceLog`가 없는 전환 기간 동안에만 이 테이블을 fallback 으로 읽는다.
 
 #### AttendanceLog (thread 출석 로그)
 
@@ -295,7 +296,8 @@ haruharu-discord-bot/
 비고:
 - `(userid, yearmonthday)` 조합은 UNIQUE이며 하루 1건만 저장한다.
 - `too-early`는 공식 출석 로그에 저장하지 않는다.
-- 이 테이블은 phase 1 저장 구조 도입용이며, 기존 일일 리포트는 아직 `TimeLog`를 기준으로 동작한다.
+- 13:00 출석 집계의 우선 원본이며, `attended` / `late` / `absent` 상태에 따라 결과표와 `latecount` / `absencecount`가 반영된다.
+- 전환 기간에는 `AttendanceLog`가 없는 사용자만 `TimeLog` fallback 으로 판정하고, 둘 다 없으면 결석으로 확정된다.
 
 #### CamStudyUsers (캠스터디 참가자)
 
