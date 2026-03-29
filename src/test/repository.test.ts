@@ -11,6 +11,7 @@ import {
   TestCamStudyTimeLog,
   TestCamStudyWeeklyTimeLog,
 } from './test-setup.js';
+import { upsertCamStudyUser } from '../repository/camStudyRepository.js';
 
 describe('Repository 모델 테스트 (인메모리 DB)', () => {
   beforeAll(async () => {
@@ -483,6 +484,32 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
         });
 
         expect(existing).not.toBeNull();
+      });
+
+      it('TC-RC03: upsertCamStudyUser는 같은 userid 중복 row를 하나로 정리한다', async () => {
+        await TestCamStudyUsers.bulkCreate([
+          {
+            userid: 'cam_user1',
+            username: '홍길동',
+          },
+          {
+            userid: 'cam_user1',
+            username: '홍길동-중복',
+          },
+        ]);
+
+        await upsertCamStudyUser({
+          userid: 'cam_user1',
+          username: '최신이름',
+        });
+
+        const users = await TestCamStudyUsers.findAll({
+          where: { userid: 'cam_user1' },
+          order: [['id', 'ASC']],
+        });
+
+        expect(users).toHaveLength(1);
+        expect(users[0]?.username).toBe('최신이름');
       });
     });
 

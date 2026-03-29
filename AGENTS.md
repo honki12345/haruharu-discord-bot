@@ -73,6 +73,7 @@
 
 - Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집을 담당한다.
 - `src/index.ts`, `src/deploy-commands.ts`, bot boot smoke test가 같은 로더를 재사용하도록 유지한다.
+- 역할 기반 등록/동기화 이벤트를 추가하면 해당 Discord gateway intent(`GuildMembers` 등)가 함께 선언되었는지 확인한다.
 - 새 커맨드/이벤트 파일을 추가하면 source(`.ts`)와 build output(`.js`) 양쪽에서 로더가 동작하는지 확인한다.
 
 ### `src/commands/haruharu`

@@ -61,4 +61,24 @@ describe('US-16: 캠스터디 역할 기반 자동 등록', () => {
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
     expect(user).toBeNull();
   });
+
+  it('TC-CSRS03: guildMemberUpdate는 oldMember가 partial이어도 newMember 현재 역할 상태로 동기화한다', async () => {
+    const oldMember = {
+      partial: true,
+      id: 'cam-user-123',
+      user: {
+        id: 'cam-user-123',
+        globalName: '홍길동',
+        username: 'hong',
+      },
+    };
+    const newMember = createMockMember(['valid-cam-study-role-id']);
+
+    const { event } = await import('../events/guildMemberUpdate.js');
+    await event.execute(oldMember as never, newMember as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
+    expect(user).not.toBeNull();
+    expect(user?.username).toBe('홍길동');
+  });
 });

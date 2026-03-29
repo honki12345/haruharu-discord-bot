@@ -8,14 +8,41 @@ const findCamStudyUser = (userid: string) => CamStudyUsers.findOne({ where: { us
 const listCamStudyUsers = () => CamStudyUsers.findAll();
 
 const upsertCamStudyUser = async (payload: { userid: string; username: string }) => {
-  const existingUser = await findCamStudyUser(payload.userid);
-
-  if (!existingUser) {
-    return CamStudyUsers.create(payload);
+  const sequelize = CamStudyUsers.sequelize;
+  if (!sequelize) {
+    throw new Error('CamStudyUsers sequelize instance is not initialized');
   }
 
-  await CamStudyUsers.update({ username: payload.username }, { where: { userid: payload.userid } });
-  return findCamStudyUser(payload.userid);
+  return sequelize.transaction(async transaction => {
+    const existingUsers = await CamStudyUsers.findAll({
+      where: { userid: payload.userid },
+      order: [['id', 'ASC']],
+      transaction,
+    });
+
+    if (!existingUsers.length) {
+      return CamStudyUsers.create(payload, { transaction });
+    }
+
+    const [primaryUser, ...duplicateUsers] = existingUsers;
+    if (primaryUser.username !== payload.username) {
+      primaryUser.username = payload.username;
+      await primaryUser.save({ transaction });
+    }
+
+    if (duplicateUsers.length) {
+      await CamStudyUsers.destroy({
+        where: {
+          id: {
+            [Op.in]: duplicateUsers.map(user => user.id),
+          },
+        },
+        transaction,
+      });
+    }
+
+    return primaryUser;
+  });
 };
 
 const removeCamStudyUser = (userid: string) => CamStudyUsers.destroy({ where: { userid } });

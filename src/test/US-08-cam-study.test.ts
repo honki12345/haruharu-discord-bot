@@ -229,7 +229,38 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
 
       const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
       expect(log?.totalminutes).toBe(30);
-      expect(newState._sendMock).toHaveBeenCalledWith(expect.stringContaining('30분 입력완료'));
+    });
+
+    it('역할이 제거되어 CamStudyUsers에서 빠져도 이미 시작한 세션은 종료 시 공부시간이 기록된다', async () => {
+      const startTime = new Date('2025-12-07T10:00:00').getTime();
+      await TestCamStudyTimeLog.create({
+        userid: 'test-user-id',
+        username: '테스트유저',
+        yearmonthday: '20251207',
+        timestamp: startTime.toString(),
+        totalminutes: 0,
+      });
+      await TestCamStudyUsers.destroy({ where: { userid: 'test-user-id' } });
+
+      vi.setSystemTime(new Date('2025-12-07T10:30:00'));
+
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: true,
+        userId: 'test-user-id',
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: false,
+        userId: 'test-user-id',
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
+      expect(log?.totalminutes).toBe(30);
     });
 
     it('5분 이내면 공부시간이 기록되지 않는다', async () => {

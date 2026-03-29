@@ -7,7 +7,7 @@ export const command = {
     .setName('delete-cam')
     .setDescription('deprecated: remove @cam-study role instead')
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
-    .addStringOption(option => option.setName('userid').setDescription('set userid').setRequired(true)),
+    .addStringOption(option => option.setName('userid').setDescription('set userid').setRequired(false)),
 
   async execute(interaction: ChatInputCommandInteraction) {
     await interaction.reply(

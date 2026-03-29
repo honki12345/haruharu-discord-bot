@@ -7,8 +7,8 @@ export const command = {
     .setName('register-cam')
     .setDescription('deprecated: grant @cam-study role instead')
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
-    .addStringOption(option => option.setName('userid').setDescription('set userid').setRequired(true))
-    .addStringOption(option => option.setName('username').setDescription('username').setRequired(true)),
+    .addStringOption(option => option.setName('userid').setDescription('set userid').setRequired(false))
+    .addStringOption(option => option.setName('username').setDescription('username').setRequired(false)),
 
   async execute(interaction: ChatInputCommandInteraction) {
     await interaction.reply(

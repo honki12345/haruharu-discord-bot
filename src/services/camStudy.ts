@@ -67,28 +67,37 @@ const processCamStudyStateChange = async (
     shouldStart: transition.shouldStart,
     userId: newState.userId,
   });
+
+  const { year, month, date } = getYearMonthDate();
+  const today = getYearMonthDay(year, month, date);
+  const timestampNowString = Date.now().toString();
+  const timelog = await findCamStudyTimeLog(newState.userId, today);
   const user = await findCamStudyUser(newState.userId);
 
-  if (!user) {
+  if (!user && !(transition.shouldEndByTurnOff || transition.shouldEndByQuit)) {
     if (transition.userEnteredConfiguredChannel) {
       return { target: 'channel', message: '등록되지 않은 회원입니다' };
     }
     return null;
   }
 
-  const { year, month, date } = getYearMonthDate();
-  const today = getYearMonthDay(year, month, date);
-  const timestampNowString = Date.now().toString();
-  const timelog = await findCamStudyTimeLog(user.userid, today);
-
   if (transition.shouldEndByTurnOff || transition.shouldEndByQuit) {
+    const trackedUser =
+      user ??
+      (timelog
+        ? {
+            userid: timelog.userid,
+            username: timelog.username,
+          }
+        : null);
+
     if (!timelog) {
-      const yesterdayTimelog = await findCamStudyTimeLog(user.userid, getFormattedYesterday());
+      const yesterdayTimelog = await findCamStudyTimeLog(newState.userId, getFormattedYesterday());
       if (yesterdayTimelog) {
         const passedMinutes = getTimeDiffFromNowInMinutes(Number(yesterdayTimelog.timestamp));
         await createCamStudyTimeLog({
-          userid: user.userid,
-          username: user.username,
+          userid: yesterdayTimelog.userid,
+          username: yesterdayTimelog.username,
           yearmonthday: today,
           timestamp: timestampNowString,
           totalminutes: passedMinutes,
@@ -97,24 +106,24 @@ const processCamStudyStateChange = async (
         logger.info('cam study session rolled over from yesterday', {
           passedMinutes,
           today,
-          userId: user.userid,
+          userId: yesterdayTimelog.userid,
           yesterday: getFormattedYesterday(),
         });
 
         return {
           target: 'voice-channel',
-          message: `${user.username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`,
+          message: `${yesterdayTimelog.username}님 study end: ${passedMinutes}분 입력완료, 총 공부시간: ${passedMinutes}분`,
         };
       }
 
       logger.warn('cam study session ended without active log', {
         newChannelId: newState.channelId,
         oldChannelId: oldState.channelId,
-        userId: user.userid,
+        userId: trackedUser?.userid ?? newState.userId,
       });
       return {
         target: 'voice-channel',
-        message: `${user.username}님 study end: 공부시간 정상 입력안됨`,
+        message: `${trackedUser?.username ?? '알 수 없는 사용자'}님 study end: 공부시간 정상 입력안됨`,
       };
     }
 
@@ -124,17 +133,17 @@ const processCamStudyStateChange = async (
         minMinutes: LEAST_TIME_LIMIT,
         timeDiffInMinutes,
         today,
-        userId: user.userid,
+        userId: timelog.userid,
       });
-      await updateCamStudyTimeLog(user.userid, today, { timestamp: timestampNowString });
+      await updateCamStudyTimeLog(timelog.userid, today, { timestamp: timestampNowString });
       return {
         target: 'voice-channel',
-        message: `${user.username}님 study end: 5분 이내 입력안됨`,
+        message: `${timelog.username}님 study end: 5분 이내 입력안됨`,
       };
     }
 
     const totalMinutes = Number(timelog.totalminutes) + timeDiffInMinutes;
-    await updateCamStudyTimeLog(user.userid, today, {
+    await updateCamStudyTimeLog(timelog.userid, today, {
       timestamp: timestampNowString,
       totalminutes: totalMinutes,
     });
@@ -143,12 +152,12 @@ const processCamStudyStateChange = async (
       addedMinutes: timeDiffInMinutes,
       today,
       totalMinutes,
-      userId: user.userid,
+      userId: timelog.userid,
     });
 
     return {
       target: 'voice-channel',
-      message: `${user.username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`,
+      message: `${timelog.username}님 study end: ${timeDiffInMinutes}분 입력완료, 총 공부시간: ${totalMinutes}분`,
     };
   }
 
@@ -159,6 +168,10 @@ const processCamStudyStateChange = async (
       today,
       userId: newState.userId,
     });
+    return null;
+  }
+
+  if (!user) {
     return null;
   }
 

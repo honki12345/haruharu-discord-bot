@@ -25,6 +25,9 @@ describe('US-07: /register-cam 커맨드', () => {
   });
 
   it('TC-RC01: /register-cam은 역할 기반 등록으로 전환되었음을 안내한다', async () => {
+    const { command } = await import('../commands/haruharu/register-cam.js');
+    expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false, false]);
+
     const interaction = createMockInteraction({
       options: {
         userid: 'cam-user-123',
@@ -32,7 +35,6 @@ describe('US-07: /register-cam 커맨드', () => {
       },
     });
 
-    const { command } = await import('../commands/haruharu/register-cam.js');
     await command.execute(interaction as never);
 
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });

@@ -25,6 +25,9 @@ describe('US-11: /delete-cam 커맨드', () => {
   });
 
   it('TC-DC01: /delete-cam은 역할 회수로 전환되었음을 안내한다', async () => {
+    const { command } = await import('../commands/haruharu/delete-cam.js');
+    expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false]);
+
     await TestCamStudyUsers.create({
       userid: 'cam-user-123',
       username: '홍길동',
@@ -36,7 +39,6 @@ describe('US-11: /delete-cam 커맨드', () => {
       },
     });
 
-    const { command } = await import('../commands/haruharu/delete-cam.js');
     await command.execute(interaction as never);
 
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });

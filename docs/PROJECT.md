@@ -190,14 +190,14 @@ haruharu-discord-bot/
 
 | 파라미터 | 필수 | 설명                                                |
 | -------- | ---- | --------------------------------------------------- |
-| userid   | O    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
+| userid   | X    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
 
 #### `/register-cam`
 
 | 파라미터 | 필수 | 설명                                                |
 | -------- | ---- | --------------------------------------------------- |
-| userid   | O    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
-| username | O    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
+| userid   | X    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
+| username | X    | deprecated 호환용 입력값. 현재는 안내 메시지만 반환 |
 
 #### `/apply-wakeup`, `/apply-cam`
 
@@ -254,14 +254,16 @@ haruharu-discord-bot/
 
 - `CamStudyUsers`는 역할 상태를 반영하는 캐시 인덱스이며, 역할 부여 시 upsert, 역할 회수 시 삭제한다.
 - `@cam-study` 역할 변화가 없으면 아무 작업도 하지 않는다.
+- `GuildMembers` intent가 활성화되어야 실제 운영 환경에서 역할 변경 이벤트를 수신할 수 있다.
+- `oldMember`가 partial인 경우에도 `newMember` 현재 역할 상태를 기준으로 self-heal 동기화를 수행한다.
 
 ### Runtime / Delivery
 
-| 파일                     | 역할                                                                                      |
-| ------------------------ | ----------------------------------------------------------------------------------------- |
-| `src/index.ts`           | 프로세스 진입점. `bootstrapClient()` 호출과 Discord 로그인 시작만 담당                    |
-| `src/runtime.ts`         | Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집, smoke boot 지원 |
-| `src/deploy-commands.ts` | `src/runtime.ts` 로더를 재사용해 slash command JSON을 생성하고 Discord에 등록             |
+| 파일                     | 역할                                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`           | 프로세스 진입점. `bootstrapClient()` 호출과 Discord 로그인 시작만 담당                                                     |
+| `src/runtime.ts`         | Discord client 생성, `GuildMembers` 포함 intent 선언, 커맨드/이벤트 동적 로딩, slash command payload 수집, smoke boot 지원 |
+| `src/deploy-commands.ts` | `src/runtime.ts` 로더를 재사용해 slash command JSON을 생성하고 Discord에 등록                                              |
 
 ### GitHub Actions
 
@@ -310,6 +312,10 @@ flowchart TD
 | 트리거 | 음성 채널 상태 변경                                                                                                          |
 | 기능   | 카메라(`selfVideo`) 또는 화면공유(`streaming`) ON/OFF 감지, 상태 전이를 `src/services/camStudy.ts`에 위임하여 학습 시간 기록 |
 
+**구현 메모:**
+
+- 학습 세션이 이미 시작된 뒤 `@cam-study` 역할이 제거되어도, 기존 `CamStudyTimeLog`를 기준으로 종료 시점 분 계산은 마무리한다.
+
 #### messageCreate.ts
 
 | 항목   | 내용                                                                        |
@@ -353,11 +359,11 @@ flowchart TD
 
 #### camStudyRoleSync.ts
 
-| 항목   | 내용                                                                                      |
-| ------ | ----------------------------------------------------------------------------------------- |
-| 역할   | `@cam-study` 역할 상태를 `CamStudyUsers` 캐시에 반영                                      |
-| 담당   | 역할 추가/제거 감지, 표시 이름 추출, `CamStudyUsers` upsert/remove, 역할 동기화 로그 기록 |
-| 호출처 | `src/events/guildMemberUpdate.ts`                                                         |
+| 항목   | 내용                                                                                                                    |
+| ------ | ----------------------------------------------------------------------------------------------------------------------- |
+| 역할   | `@cam-study` 역할 상태를 `CamStudyUsers` 캐시에 반영                                                                    |
+| 담당   | 역할 추가/제거 감지, partial member fallback 처리, 표시 이름 추출, `CamStudyUsers` upsert/remove, 역할 동기화 로그 기록 |
+| 호출처 | `src/events/guildMemberUpdate.ts`                                                                                       |
 
 #### challengeSelfService.ts
 
@@ -483,16 +489,17 @@ flowchart TD
 
 #### CamStudyUsers (캠스터디 참가자)
 
-| 컬럼     | 타입    | 설명                       |
-| -------- | ------- | -------------------------- |
-| id       | INTEGER | PK, Auto Increment         |
-| userid   | STRING  | Discord 사용자 ID (UNIQUE) |
-| username | STRING  | 표시 이름                  |
+| 컬럼     | 타입    | 설명               |
+| -------- | ------- | ------------------ |
+| id       | INTEGER | PK, Auto Increment |
+| userid   | STRING  | Discord 사용자 ID  |
+| username | STRING  | 표시 이름          |
 
 비고:
 
 - `@cam-study` 역할 상태를 반영하는 캐시/인덱스 성격의 테이블이다.
 - 역할 부여 시 upsert, 역할 회수 시 삭제한다.
+- 같은 `userid` 중복 row가 발견되면 upsert 과정에서 최신 이름 기준으로 1건으로 정리한다.
 - 과거 학습 로그(`CamStudyTimeLog`, `CamStudyWeeklyTimeLog`)는 역할 회수 후에도 유지된다.
 
 #### CamStudyTimeLog (일간 학습 로그)
