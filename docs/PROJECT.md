@@ -32,16 +32,17 @@
 | `#wake-up`         | 기상인증 전용 채널                        | `@wake-up` 역할 기반 접근, 신청 전에는 보이지 않음                                    |
 | `#cam-study`       | 캠스터디 전용 텍스트 채널                 | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음                                  |
 | `음성: 캠스터디`   | 캠스터디 전용 음성 채널                   | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음                                  |
+| `#test`            | 관리자 운영/감사 채널                     | 관리자 명령 실행과 self-service 결과 로그 확인 용도                                   |
 
 ### 채널별 고정/반복 안내 메시지
 
-| 채널               | 메시지 유형      | 설명                                                                                 | 출처                           |
-| ------------------ | ---------------- | ------------------------------------------------------------------------------------ | ------------------------------ |
-| `#start-here`      | 고정 안내        | 서버 소개, 참여 방법, 공통 self-service 명령어 고정 안내                             | 운영 수동 관리, `USER_STORIES` |
-| `#time-start-here` | 고정 안내        | 기상 self-service 명령어와 시간 설정/휴가 사용 안내                                  | 운영 수동 관리, `USER_STORIES` |
-| `#wake-up`         | 반복 자동 메시지 | 매일 04:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내               | `src/daily-attendance.ts`      |
-| `#wake-up`         | 반복 자동 메시지 | 평일 13:00 당일 출석 thread 댓글로 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영 | `src/services/reporting.ts`    |
-| `#test`            | 관리자 명령 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message` 실행 채널                 | `src/commands/haruharu/*.ts`   |
+| 채널               | 메시지 유형      | 설명                                                                                          | 출처                           |
+| ------------------ | ---------------- | --------------------------------------------------------------------------------------------- | ------------------------------ |
+| `#start-here`      | 고정 안내        | 서버 소개, 참여 방법, 공통 self-service 명령어 고정 안내                                      | 운영 수동 관리, `USER_STORIES` |
+| `#time-start-here` | 고정 안내        | 기상 self-service 명령어와 시간 설정/휴가 사용 안내                                           | 운영 수동 관리, `USER_STORIES` |
+| `#wake-up`         | 반복 자동 메시지 | 매일 04:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내                        | `src/daily-attendance.ts`      |
+| `#wake-up`         | 반복 자동 메시지 | 평일 13:00 당일 출석 thread 댓글로 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영          | `src/services/reporting.ts`    |
+| `#test`            | 관리자 운영 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message` 실행과 self-service 결과 로그 확인 | `src/commands/haruharu/*.ts`   |
 
 ---
 
@@ -85,6 +86,7 @@ haruharu-discord-bot/
 │   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
 │   │   ├── camStudyRoleSync.ts  # 역할 기반 캠스터디 참가자 동기화
 │   │   ├── participationApplication.ts # self-service 활성화/역할 부여 처리
+│   │   ├── selfServiceAudit.ts  # self-service ephemeral 응답 후 test 채널 감사 로그 전송
 │   │   └── reporting.ts         # 일일/주간 리포트 생성 및 스케줄링
 │   │
 │   └── repository/
@@ -184,11 +186,13 @@ haruharu-discord-bot/
 
 비고:
 
+- 저장/응답에 사용할 이름은 Discord 서버 display name을 우선 사용하고, 없으면 `globalName`, 그것도 없으면 `username`으로 fallback 한다.
 - `WakeUpMembership`를 생성 또는 재활성화하고, 현재 월 `Users` 스냅샷이 없으면 자동 생성한다.
 - 성공 시 `@wake-up` 역할도 함께 부여하고, 역할 부여 실패 시 DB 변경은 남기지 않는다.
 - 같은 달에 `/stop-wakeup`으로 중단한 사용자는 다음 달부터 다시 등록할 수 있다.
 - 같은 날 두 번째 변경은 `WaketimeChangeLog`로 거부한다.
 - `#start-here`, `#time-start-here`에서만 실행 가능하다.
+- 응답은 사용자에게만 보이는 `ephemeral`로 반환하고, 결과는 `testChannelId`에도 남긴다.
 
 #### `/stop-wakeup` (`/기상중단`)
 
@@ -198,6 +202,7 @@ haruharu-discord-bot/
 - `WakeUpMembership` 이 아직 없고 latest `Users` 스냅샷만 있는 legacy 참가자도 backfill 후 중단 처리한다.
 - 성공 시 `@wake-up` 역할도 함께 회수하고, 역할 회수 실패 시 `WakeUpMembership.status`는 유지된다.
 - `#start-here`, `#time-start-here`에서만 실행 가능하다.
+- 응답은 사용자에게만 보이는 `ephemeral`로 반환하고, 결과는 `testChannelId`에도 남긴다.
 
 #### `/apply-vacation` (`/휴가신청`)
 
@@ -208,6 +213,7 @@ haruharu-discord-bot/
 - 현재 월 날짜만 신청할 수 있다.
 - 활성 membership 이 있고 현재 월 `Users` 스냅샷이 없으면 자동 생성 후 처리한다.
 - `#start-here`, `#time-start-here`에서만 실행 가능하다.
+- 응답은 사용자에게만 보이는 `ephemeral`로 반환하고, 결과는 `testChannelId`에도 남긴다.
 
 #### `/apply-cam` (`/캠스터디신청`)
 
@@ -215,6 +221,7 @@ haruharu-discord-bot/
 - `#start-here` 채널에서만 실행 가능
 - 다른 채널에서는 `#start-here` 사용과 `#qna` 문의 채널을 안내하는 `ephemeral` 메시지로 종료
 - 이미 활성화된 사용자가 다시 실행하면 전용 채널 확인을 다시 안내
+- 실행 결과는 사용자에게 `ephemeral`로 반환하고, 성공/실패 모두 `testChannelId`에도 남긴다.
 
 #### `/add-vacances` (`/admin-휴가추가`)
 
@@ -328,8 +335,10 @@ flowchart TD
 **채널 라우팅 메모:**
 
 - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`, `#time-start-here` 전용 채널에서만 실행된다.
+- `/register`, `/stop-wakeup`, `/apply-vacation`은 사용자에게 `ephemeral`로 응답하고, 같은 결과를 `testChannelId`에도 남긴다.
 - stale `/apply-wakeup` interaction 이 들어오면 커맨드 미존재 오류로 끝내지 않고 `/register` migration 안내를 ephemeral 응답으로 반환한다.
 - `/apply-cam`은 `#start-here` 전용 채널에서만 실행된다.
+- `/apply-cam`은 사용자에게 `ephemeral`로 응답하고, 성공/실패 모두 `testChannelId`에도 남긴다.
 - 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId` 전용으로 실행된다.
 
 #### camStudyHandler.ts
@@ -413,6 +422,14 @@ flowchart TD
 | 역할   | self-service 참여 활성화와 역할 부여                                                                                                                                      |
 | 담당   | `ParticipationApplication` 조회/갱신, `@cam-study` 역할 매핑, `/apply-cam` 즉시 `approved` 반영, 캠스터디 자동 활성화 시 `CamStudyUsers` upsert, 실패 시 role/db rollback |
 | 호출처 | `src/commands/haruharu/apply-cam.ts`                                                                                                                                      |
+
+#### selfServiceAudit.ts
+
+| 항목   | 내용                                                                                                                                                         |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 역할   | self-service 명령 응답을 사용자 `ephemeral` 응답과 `testChannelId` 운영 로그로 분리                                                                          |
+| 담당   | `/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`의 결과 문자열 추출, `testChannelId` 전송, 전송 실패 시 서버 logger fallback 처리                |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`, `src/commands/haruharu/apply-cam.ts` |
 
 #### reporting.ts
 
@@ -705,6 +722,7 @@ flowchart TD
 - `src/config.ts`는 런타임 진입점에서 사용하는 설정 로더이며 `token`, `clientId`, `guildId`, 각 채널 ID와 역할 ID를 fail-fast로 검증한다.
 - `databaseUser`, `password`는 SQLite 사용 기준 optional 값이며 비어 있어도 동작한다.
 - `src/deployConfig.ts`는 slash command 등록 전용 최소 설정 로더이며 `token`, `clientId`, `guildId`만 요구한다.
+- `testChannelId`는 관리자 명령 실행 채널이면서 self-service 결과 감사 로그 채널로도 재사용된다.
 
 ---
 
@@ -718,6 +736,7 @@ flowchart TD
 - `/register` 성공 시 `wakeUpRoleId` 설정값으로 `@wake-up` 역할을 부여하고, 역할 부여 실패 시 등록을 롤백한다.
 - `/register`는 같은 달 `/stop-wakeup`으로 중단한 사용자의 재등록을 거부하고 다음 달부터 다시 시작하게 한다.
 - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`, `#time-start-here`에서만 실행된다.
+- `/register`, `/stop-wakeup`, `/apply-vacation` 응답은 사용자에게만 보이는 `ephemeral`로 처리되고, 같은 결과를 `testChannelId`에도 남긴다.
 - `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 현재 월 참여를 즉시 중단하고 같은 달 재등록을 막는다.
 - `/stop-wakeup` 성공 시 `wakeUpRoleId` 설정값으로 `@wake-up` 역할을 회수하고, 역할 회수 실패 시 membership 상태를 유지한다.
 - `/delete`는 지정한 `(userid, yearmonth)`를 exclusion 으로 기록해 같은 달 자동 스냅샷 생성이 사용자를 다시 만들지 않게 한다.
@@ -726,7 +745,7 @@ flowchart TD
 - 데모 전용 커맨드는 Discord 한국어 locale에서 `admin-demo-...` 접두어로 표시된다.
 - 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서만 실행된다.
 - stale `/apply-wakeup` interaction 은 잘못된 채널 안내 대신 `/register` migration 응답으로 종료한다.
-- `/apply-cam`은 `#start-here`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답한다.
+- `/apply-cam`은 `#start-here`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답하고 같은 내용을 `testChannelId`에도 남긴다.
 - `/apply-cam` 성공 시 `@cam-study` 역할과 `CamStudyUsers`가 함께 맞춰지고, 이후 역할 변경은 `guildMemberUpdate`가 계속 동기화한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 - 주말/공휴일에도 `#wake-up` daily message/thread는 생성된다.

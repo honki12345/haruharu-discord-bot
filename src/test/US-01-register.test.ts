@@ -155,7 +155,106 @@ describe('US-01: /register 커맨드', () => {
     expect(interaction.getLastReply()).toContain('수정했습니다');
   });
 
-  it('TC-R05: /register 성공 시 @wake-up 역할이 부여된다', async () => {
+  it('TC-R05: 서버 닉네임이 있으면 globalName보다 우선 저장한다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'display-name-user',
+      globalName: '글로벌이름',
+      username: 'plain-user',
+      memberDisplayName: '서버닉네임',
+      options: {
+        waketime: '0700',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const user = await TestUsers.findOne({ where: { userid: 'display-name-user', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'display-name-user' } });
+
+    expect(user?.username).toBe('서버닉네임');
+    expect(membership?.username).toBe('서버닉네임');
+    expect(interaction.getLastReply()).toContain('서버닉네임님');
+  });
+
+  it('TC-R06: 서버 닉네임이 없으면 globalName으로 fallback 한다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'global-name-user',
+      globalName: '글로벌이름',
+      username: 'plain-user',
+      memberDisplayName: null,
+      options: {
+        waketime: '0700',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const user = await TestUsers.findOne({ where: { userid: 'global-name-user', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'global-name-user' } });
+
+    expect(user?.username).toBe('글로벌이름');
+    expect(membership?.username).toBe('글로벌이름');
+    expect(interaction.getLastReply()).toContain('글로벌이름님');
+  });
+
+  it('TC-R07: 서버 닉네임과 globalName이 모두 없으면 username으로 fallback 한다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'username-user',
+      globalName: undefined,
+      username: 'plain-user',
+      memberDisplayName: null,
+      options: {
+        waketime: '0700',
+      },
+    });
+
+    interaction.user.globalName = null;
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const user = await TestUsers.findOne({ where: { userid: 'username-user', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'username-user' } });
+
+    expect(user?.username).toBe('plain-user');
+    expect(membership?.username).toBe('plain-user');
+    expect(interaction.getLastReply()).toContain('plain-user님');
+  });
+
+  it('TC-R08: raw guild interaction에서는 member.nick을 서버 닉네임으로 사용한다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'raw-guild-user',
+      globalName: '글로벌이름',
+      username: 'plain-user',
+      memberDisplayName: null,
+      memberNick: 'raw-서버닉네임',
+      member: {
+        nick: 'raw-서버닉네임',
+        roles: {
+          add: vi.fn(),
+          remove: vi.fn(),
+        },
+        send: vi.fn(),
+      },
+      options: {
+        waketime: '0700',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const user = await TestUsers.findOne({ where: { userid: 'raw-guild-user', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'raw-guild-user' } });
+
+    expect(user?.username).toBe('raw-서버닉네임');
+    expect(membership?.username).toBe('raw-서버닉네임');
+    expect(interaction.getLastReply()).toContain('raw-서버닉네임님');
+  });
+
+  it('TC-R09: /register 성공 시 @wake-up 역할이 부여된다', async () => {
     const interaction = createMockInteraction({
       userId: 'wake-role-user',
       globalName: '역할사용자',
@@ -174,7 +273,7 @@ describe('US-01: /register 커맨드', () => {
     expect(interaction.getLastReply()).toContain('등록했습니다');
   });
 
-  it('TC-R06: @wake-up 역할 부여 실패 시 등록을 중단하고 DB를 변경하지 않는다', async () => {
+  it('TC-R10: @wake-up 역할 부여 실패 시 등록을 중단하고 DB를 변경하지 않는다', async () => {
     const member = {
       roles: {
         add: vi.fn().mockRejectedValue(new Error('role add failed')),

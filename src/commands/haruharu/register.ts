@@ -1,6 +1,24 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { startHereChannelId, timeStartHereChannelId } from '../../commandChannelConfig.js';
 import { logger } from '../../logger.js';
+import { replyWithEphemeralAudit } from '../../services/selfServiceAudit.js';
+
+const resolveRegisterUsername = (interaction: ChatInputCommandInteraction) => {
+  const member = interaction.member as {
+    displayName?: string | null;
+    nickname?: string | null;
+    nick?: string | null;
+  } | null;
+
+  return (
+    member?.displayName ??
+    member?.nickname ??
+    member?.nick ??
+    interaction.user.globalName ??
+    interaction.user.username ??
+    'unknown'
+  );
+};
 
 export const command = {
   cooldown: 5,
@@ -21,7 +39,7 @@ export const command = {
   async execute(interaction: ChatInputCommandInteraction) {
     const waketime = interaction.options.getString('waketime')!;
     const userId = interaction.user.id;
-    const username = interaction.user.globalName ?? 'unknown';
+    const username = resolveRegisterUsername(interaction);
     logger.info(`register 명령행에 입력한 값: userid: ${userId}, waketime: ${waketime}`);
 
     const { executeRegisterWithRoleSync } = await import('../../services/challengeSelfService.js');
@@ -33,10 +51,18 @@ export const command = {
         waketime,
         guild: interaction.guild,
       });
-      await interaction.reply(result.reply);
+      await replyWithEphemeralAudit({
+        commandName: command.data.name,
+        interaction,
+        content: result.reply,
+      });
     } catch (e) {
       logger.error(`register 등록 실패`, { e });
-      await interaction.reply(`register 등록 실패`);
+      await replyWithEphemeralAudit({
+        commandName: command.data.name,
+        interaction,
+        content: 'register 등록 실패',
+      });
     }
   },
 };
