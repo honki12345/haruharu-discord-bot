@@ -1,6 +1,7 @@
 import { AnyThreadChannel, Events, Message } from 'discord.js';
 import { classifyAttendanceStatus, getAttendanceStatusEmoji, getAttendanceStatusLabel } from '../attendance.js';
 import { checkChannelId, testChannelId } from '../config.js';
+import { buildAttendanceThreadName } from '../daily-attendance.js';
 import { logger } from '../logger.js';
 import { AttendanceLog } from '../repository/AttendanceLog.js';
 import { Users } from '../repository/Users.js';
@@ -8,7 +9,6 @@ import { ensureWakeUpMembershipSnapshot } from '../services/challengeSelfService
 import { getYearMonthDay, padTwoDigits } from '../utils.js';
 
 const DEMO_THREAD_SUFFIX = '출석-demo';
-const PRODUCTION_THREAD_SUFFIX = '출석';
 const FINAL_ATTENDANCE_EMOJIS = new Set(['✅', '🟡', '❌']);
 const finalizedAttendanceCache = new Map<string, Set<string>>();
 const inFlightAttendanceKeys = new Set<string>();
@@ -51,12 +51,16 @@ const hasRememberedFinalAttendance = (threadId: string, userId: string) => {
   return finalizedAttendanceCache.get(threadId)?.has(userId) ?? false;
 };
 
-const resolveAttendanceScope = (channel: AnyThreadChannel) => {
+const getProductionAttendanceThreadName = (at: Date) => {
+  return buildAttendanceThreadName(at.getFullYear(), padTwoDigits(at.getMonth() + 1), padTwoDigits(at.getDate()));
+};
+
+const resolveAttendanceScope = (channel: AnyThreadChannel, at: Date) => {
   if (channel.parentId === testChannelId && channel.name.endsWith(DEMO_THREAD_SUFFIX)) {
     return 'demo' as const;
   }
 
-  if (channel.parentId === checkChannelId && channel.name.endsWith(PRODUCTION_THREAD_SUFFIX)) {
+  if (channel.parentId === checkChannelId && channel.name === getProductionAttendanceThreadName(at)) {
     return 'production' as const;
   }
 
@@ -219,7 +223,7 @@ export const event = {
       return;
     }
 
-    const scope = resolveAttendanceScope(message.channel);
+    const scope = resolveAttendanceScope(message.channel, new Date(message.createdTimestamp));
     if (!scope) {
       return;
     }

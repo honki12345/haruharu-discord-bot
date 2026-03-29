@@ -327,6 +327,43 @@ describe('US-12: daily message 데모', () => {
     });
   });
 
+  it('운영 채널의 지난 날짜 출석 쓰레드 댓글은 공식 출석으로 처리하지 않는다', async () => {
+    mockUsers.findOne.mockResolvedValue({
+      userid: 'prod-user',
+      username: '운영유저',
+      waketime: '0700',
+    });
+    mockAttendanceLog.findOrCreate.mockResolvedValue([{}, true]);
+
+    const react = vi.fn();
+    const message = {
+      id: 'message-prod-stale',
+      createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+      author: {
+        id: 'prod-user',
+        bot: false,
+      },
+      inGuild: () => true,
+      react,
+      channel: {
+        id: 'prod-thread-stale',
+        parentId: 'valid-check-channel-id',
+        name: '2026-03-23 출석',
+        isThread: () => true,
+        messages: {
+          fetch: vi.fn(),
+        },
+      },
+    };
+
+    const { event } = await import('../events/messageCreate.js');
+    await event.execute(message as never);
+
+    expect(react).not.toHaveBeenCalled();
+    expect(mockAttendanceLog.findOrCreate).not.toHaveBeenCalled();
+    expect(mockUsers.findOne).not.toHaveBeenCalled();
+  });
+
   it('같은 사용자의 두 번째 댓글은 무시한다', async () => {
     mockUsers.findOne.mockResolvedValue({
       userid: 'demo-user',
