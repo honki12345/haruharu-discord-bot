@@ -152,6 +152,87 @@ TestAttendanceLog.init(
   },
 );
 
+// ============ VacationLog 모델 ============
+export class TestVacationLog extends Model<InferAttributes<TestVacationLog>, InferCreationAttributes<TestVacationLog>> {
+  declare id: CreationOptional<number>;
+  declare userid: string;
+  declare username: string;
+  declare yearmonthday: string;
+  declare createdAt: CreationOptional<Date>;
+  declare updatedAt: CreationOptional<Date>;
+}
+
+TestVacationLog.init(
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    userid: { type: DataTypes.STRING(128), allowNull: false },
+    username: { type: DataTypes.STRING(128), allowNull: false },
+    yearmonthday: {
+      type: DataTypes.STRING(8),
+      allowNull: false,
+      validate: {
+        isCanonicalYearMonthDay(value: string) {
+          if (!isValidYearMonthDay(value)) {
+            throw new Error('yearmonthday must be a canonical yyyymmdd date');
+          }
+        },
+      },
+    },
+  },
+  {
+    sequelize: testSequelize,
+    tableName: 'vacation_logs',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userid', 'yearmonthday'],
+      },
+    ],
+  },
+);
+
+// ============ WaketimeChangeLog 모델 ============
+export class TestWaketimeChangeLog extends Model<
+  InferAttributes<TestWaketimeChangeLog>,
+  InferCreationAttributes<TestWaketimeChangeLog>
+> {
+  declare id: CreationOptional<number>;
+  declare userid: string;
+  declare yearmonthday: string;
+  declare waketime: string;
+  declare createdAt: CreationOptional<Date>;
+  declare updatedAt: CreationOptional<Date>;
+}
+
+TestWaketimeChangeLog.init(
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    userid: { type: DataTypes.STRING(128), allowNull: false },
+    yearmonthday: {
+      type: DataTypes.STRING(8),
+      allowNull: false,
+      validate: {
+        isCanonicalYearMonthDay(value: string) {
+          if (!isValidYearMonthDay(value)) {
+            throw new Error('yearmonthday must be a canonical yyyymmdd date');
+          }
+        },
+      },
+    },
+    waketime: { type: DataTypes.STRING(4), allowNull: false },
+  },
+  {
+    sequelize: testSequelize,
+    tableName: 'waketime_change_logs',
+    indexes: [
+      {
+        unique: true,
+        fields: ['userid', 'yearmonthday'],
+      },
+    ],
+  },
+);
+
 // ============ CamStudyUsers 모델 ============
 export class TestCamStudyUsers extends Model<
   InferAttributes<TestCamStudyUsers>,
@@ -223,6 +304,8 @@ TestCamStudyWeeklyTimeLog.init(
 vi.mock('../repository/Users.js', () => ({ Users: TestUsers }));
 vi.mock('../repository/TimeLog.js', () => ({ TimeLog: TestTimeLog }));
 vi.mock('../repository/AttendanceLog.js', () => ({ AttendanceLog: TestAttendanceLog }));
+vi.mock('../repository/VacationLog.js', () => ({ VacationLog: TestVacationLog }));
+vi.mock('../repository/WaketimeChangeLog.js', () => ({ WaketimeChangeLog: TestWaketimeChangeLog }));
 vi.mock('../repository/CamStudyUsers.js', () => ({ CamStudyUsers: TestCamStudyUsers }));
 vi.mock('../repository/CamStudyTimeLog.js', () => ({ CamStudyTimeLog: TestCamStudyTimeLog }));
 vi.mock('../repository/CamStudyWeeklyTimeLog.js', () => ({ CamStudyWeeklyTimeLog: TestCamStudyWeeklyTimeLog }));
@@ -269,6 +352,8 @@ export async function teardownTestDB() {
 export async function clearAllTables() {
   await TestTimeLog.destroy({ where: {} });
   await TestAttendanceLog.destroy({ where: {} });
+  await TestVacationLog.destroy({ where: {} });
+  await TestWaketimeChangeLog.destroy({ where: {} });
   await TestUsers.destroy({ where: {} });
   await TestCamStudyTimeLog.destroy({ where: {} });
   await TestCamStudyUsers.destroy({ where: {} });

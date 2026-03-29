@@ -11,6 +11,7 @@ import {
   listChallengeAttendanceLogs,
   listChallengeUsers,
   listMonthlySurvivors,
+  listVacationLogs,
   updateChallengeUser,
 } from '../repository/challengeRepository.js';
 import { CamStudyTimeLog } from '../repository/CamStudyTimeLog.js';
@@ -19,6 +20,8 @@ import { CamStudyWeeklyTimeLog } from '../repository/CamStudyWeeklyTimeLog.js';
 import { AttendanceLog } from '../repository/AttendanceLog.js';
 import { TimeLog } from '../repository/TimeLog.js';
 import { Users } from '../repository/Users.js';
+import { VacationLog } from '../repository/VacationLog.js';
+import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
 import { logger } from '../logger.js';
 import { ONE_DAY_MILLISECONDS, PUBLIC_HOLIDAYS_2026, SATURDAY, SUNDAY } from '../utils/constants.js';
 import {
@@ -36,6 +39,8 @@ const syncModels = async () => {
   await Users.sync();
   await TimeLog.sync();
   await AttendanceLog.sync();
+  await VacationLog.sync();
+  await WaketimeChangeLog.sync();
   await CamStudyUsers.sync();
   await CamStudyTimeLog.sync();
   await CamStudyWeeklyTimeLog.sync();
@@ -71,7 +76,9 @@ const buildChallengeReport = async () => {
   const userMap = new Map(users.map(user => [user.userid, user]));
   const attendanceLogs = await listChallengeAttendanceLogs(yearmonthday);
   const timeLogs = await listChallengeLogs(yearmonthday);
+  const vacationLogs = await listVacationLogs(yearmonthday);
   const attendanceLogsByUserId = new Map(attendanceLogs.map(attendanceLog => [attendanceLog.userid, attendanceLog]));
+  const vacationUserIds = new Set(vacationLogs.map(vacationLog => vacationLog.userid));
   const timeLogsByUserId = users.reduce<Record<string, TimeLog[]>>((accumulator, user) => {
     accumulator[user.userid] = [];
     return accumulator;
@@ -92,11 +99,17 @@ const buildChallengeReport = async () => {
   let attendanceMessage = `### ${yearmonthday} 출석표\n`;
   let attendees = '';
   let latecomers = '';
+  let vacationers = '';
   let absentees = '';
 
   for (const userid of userMap.keys()) {
     const user = userMap.get(userid);
     if (!user) {
+      continue;
+    }
+
+    if (vacationUserIds.has(userid)) {
+      vacationers += `- ${user.username}: 휴가\n`;
       continue;
     }
 
@@ -134,6 +147,7 @@ const buildChallengeReport = async () => {
 
   if (attendees) attendanceMessage += attendees;
   if (latecomers) attendanceMessage += latecomers;
+  if (vacationers) attendanceMessage += vacationers;
   if (absentees) attendanceMessage += absentees;
 
   const hallOfFameMessage = await buildMonthlyHallOfFameMessage(year, month, date);
