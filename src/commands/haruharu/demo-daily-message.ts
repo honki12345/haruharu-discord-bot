@@ -44,6 +44,8 @@ export const command = {
   data: new SlashCommandBuilder()
     .setName('demo-daily-message')
     .setDescription('create a demo daily attendance message in the test channel')
+    .setNameLocalizations({ ko: 'admin-demo-출석생성' })
+    .setDescriptionLocalizations({ ko: '관리자가 테스트 채널에 데일리 출석 메시지와 데모 쓰레드를 생성합니다' })
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN),
   async execute(interaction: ChatInputCommandInteraction) {
     const { year, month, date } = getYearMonthDate();
@@ -54,7 +56,7 @@ export const command = {
     if (!channel || channel.type !== ChannelType.GuildText) {
       logger.error('demo-daily-message invalid test channel', { testChannelId });
       return await interaction.reply({
-        content: 'test channel is not available',
+        content: '테스트 채널을 찾을 수 없습니다',
         ephemeral: true,
       });
     }
@@ -113,7 +115,7 @@ export const command = {
     }
 
     await interaction.reply({
-      content: `${result.created ? '데모 daily message와 쓰레드를 생성했습니다' : '이미 데모 출석 쓰레드가 있습니다'}: ${result.thread.toString()}`,
+      content: `${result.created ? '데모 출석 메시지와 쓰레드를 생성했습니다' : '이미 데모 출석 쓰레드가 있습니다'}: ${result.thread.toString()}`,
       ephemeral: true,
     });
   },

@@ -277,6 +277,31 @@ TestCamStudyTimeLog.init(
   { sequelize: testSequelize, tableName: 'cam_study_time_logs' },
 );
 
+// ============ CamStudyActiveSession 모델 ============
+export class TestCamStudyActiveSession extends Model<
+  InferAttributes<TestCamStudyActiveSession>,
+  InferCreationAttributes<TestCamStudyActiveSession>
+> {
+  declare id: CreationOptional<number>;
+  declare userid: string;
+  declare username: string;
+  declare channelid: string;
+  declare startedat: string;
+  declare lastobservedat: string;
+}
+
+TestCamStudyActiveSession.init(
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    userid: { type: DataTypes.STRING, unique: true },
+    username: { type: DataTypes.STRING },
+    channelid: { type: DataTypes.STRING },
+    startedat: { type: DataTypes.STRING },
+    lastobservedat: { type: DataTypes.STRING },
+  },
+  { sequelize: testSequelize, tableName: 'cam_study_active_sessions' },
+);
+
 // ============ CamStudyWeeklyTimeLog 모델 ============
 export class TestCamStudyWeeklyTimeLog extends Model<
   InferAttributes<TestCamStudyWeeklyTimeLog>,
@@ -308,6 +333,7 @@ vi.mock('../repository/VacationLog.js', () => ({ VacationLog: TestVacationLog })
 vi.mock('../repository/WaketimeChangeLog.js', () => ({ WaketimeChangeLog: TestWaketimeChangeLog }));
 vi.mock('../repository/CamStudyUsers.js', () => ({ CamStudyUsers: TestCamStudyUsers }));
 vi.mock('../repository/CamStudyTimeLog.js', () => ({ CamStudyTimeLog: TestCamStudyTimeLog }));
+vi.mock('../repository/CamStudyActiveSession.js', () => ({ CamStudyActiveSession: TestCamStudyActiveSession }));
 vi.mock('../repository/CamStudyWeeklyTimeLog.js', () => ({ CamStudyWeeklyTimeLog: TestCamStudyWeeklyTimeLog }));
 vi.mock('../logger.js', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), error: vi.fn(), warn: vi.fn() },
@@ -364,6 +390,7 @@ export async function clearAllTables() {
     TestWaketimeChangeLog,
     TestUsers,
     TestCamStudyTimeLog,
+    TestCamStudyActiveSession,
     TestCamStudyUsers,
     TestCamStudyWeeklyTimeLog,
   ];
