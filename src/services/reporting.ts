@@ -7,7 +7,6 @@ import {
   updateWeeklyCamStudyTimeLog,
 } from '../repository/camStudyRepository.js';
 import {
-  listChallengeLogs,
   listChallengeAttendanceLogs,
   listChallengeUsers,
   listMonthlySurvivors,
@@ -55,6 +54,29 @@ const buildMonthlyHallOfFameMessage = async (year: number, month: string, date: 
   return message;
 };
 
+const formatChallengeStatusLabel = (status: 'attended' | 'late' | 'absent') => {
+  if (status === 'late') {
+    return '지각';
+  }
+
+  if (status === 'absent') {
+    return '결석';
+  }
+
+  return '출석';
+};
+
+const calculateRemainingVacances = (vacances: number, absencecount: number) => Math.max(vacances - absencecount, 0);
+
+const buildChallengeReportRow = (payload: {
+  username: string;
+  status: 'attended' | 'late' | 'absent';
+  latecount: number;
+  absencecount: number;
+  vacances: number;
+}) =>
+  `- ${payload.username}: ${formatChallengeStatusLabel(payload.status)} (월 누적 지각 ${payload.latecount}회, 결석 ${payload.absencecount}회, 잔여휴가 ${calculateRemainingVacances(payload.vacances, payload.absencecount)}일)\n`;
+
 const buildChallengeReport = async () => {
   logger.info('print challenge start');
   const { year, month, date, day } = getYearMonthDate();
@@ -70,16 +92,7 @@ const buildChallengeReport = async () => {
   const users = await listChallengeUsers(yearmonth);
   const userMap = new Map(users.map(user => [user.userid, user]));
   const attendanceLogs = await listChallengeAttendanceLogs(yearmonthday);
-  const timeLogs = await listChallengeLogs(yearmonthday);
   const attendanceLogsByUserId = new Map(attendanceLogs.map(attendanceLog => [attendanceLog.userid, attendanceLog]));
-  const timeLogsByUserId = users.reduce<Record<string, TimeLog[]>>((accumulator, user) => {
-    accumulator[user.userid] = [];
-    return accumulator;
-  }, {});
-
-  timeLogs.forEach(timeLog => {
-    timeLogsByUserId[timeLog.userid]?.push(timeLog);
-  });
   logger.info(`user id 로 그룹핑한 attendanceLog 인스턴스들 요약: `, {
     totalUsers: attendanceLogsByUserId.size,
     attendanceSummary: Array.from(attendanceLogsByUserId.values()).map(log => ({
@@ -87,7 +100,6 @@ const buildChallengeReport = async () => {
       status: log.status,
     })),
   });
-  logger.info(`user id 로 그룹핑한 timeLog fallback 인스턴스들: `, { timeLogsByUserId });
 
   let attendanceMessage = `### ${yearmonthday} 출석표\n`;
   let attendees = '';
@@ -101,35 +113,43 @@ const buildChallengeReport = async () => {
     }
 
     const attendanceLog = attendanceLogsByUserId.get(userid);
-    const fallbackTimeLogs = timeLogsByUserId[userid] ?? [];
-
-    if (!attendanceLog && fallbackTimeLogs.length === 2) {
-      if (fallbackTimeLogs.every(timeLog => timeLog.isintime)) {
-        attendees += `- ${user.username}: 출석\n`;
-        continue;
-      }
-
-      const nextLateCount = (user.latecount ?? 0) + 1;
-      await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
-      latecomers += `- ${user.username}: 지각 (${nextLateCount})\n`;
-      continue;
-    }
+    const currentLateCount = user.latecount ?? 0;
+    const currentAbsenceCount = user.absencecount ?? 0;
+    const vacances = user.vacances ?? 0;
 
     if (!attendanceLog || attendanceLog.status === 'absent') {
-      const nextAbsenceCount = (user.absencecount ?? 0) + 1;
+      const nextAbsenceCount = currentAbsenceCount + 1;
       await updateChallengeUser(userid, yearmonth, { absencecount: nextAbsenceCount });
-      absentees += `- ${user.username}: 결석 (${nextAbsenceCount}/${user.vacances})\n`;
+      absentees += buildChallengeReportRow({
+        username: user.username,
+        status: 'absent',
+        latecount: currentLateCount,
+        absencecount: nextAbsenceCount,
+        vacances,
+      });
       continue;
     }
 
     if (attendanceLog.status === 'late') {
-      const nextLateCount = (user.latecount ?? 0) + 1;
+      const nextLateCount = currentLateCount + 1;
       await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
-      latecomers += `- ${user.username}: 지각 (${nextLateCount})\n`;
+      latecomers += buildChallengeReportRow({
+        username: user.username,
+        status: 'late',
+        latecount: nextLateCount,
+        absencecount: currentAbsenceCount,
+        vacances,
+      });
       continue;
     }
 
-    attendees += `- ${user.username}: 출석\n`;
+    attendees += buildChallengeReportRow({
+      username: user.username,
+      status: 'attended',
+      latecount: currentLateCount,
+      absencecount: currentAbsenceCount,
+      vacances,
+    });
   }
 
   if (attendees) attendanceMessage += attendees;

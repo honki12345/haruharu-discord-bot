@@ -8,8 +8,6 @@ const findChallengeUser = (userid: string, yearmonth: string) => Users.findOne({
 
 const listChallengeUsers = (yearmonth: string) => Users.findAll({ where: { yearmonth } });
 
-const listChallengeLogs = (yearmonthday: string) => TimeLog.findAll({ where: { yearmonthday } });
-
 const listChallengeAttendanceLogs = (yearmonthday: string) => AttendanceLog.findAll({ where: { yearmonthday } });
 
 const listUserChallengeLogs = (userid: string, yearmonthday: string) =>
@@ -41,7 +39,6 @@ export {
   createChallengeLog,
   listChallengeAttendanceLogs,
   findChallengeUser,
-  listChallengeLogs,
   listChallengeUsers,
   listMonthlySurvivors,
   listUserChallengeLogs,

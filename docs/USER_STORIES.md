@@ -11,6 +11,7 @@ SO THAT 그날의 출석 진입점이 하나로 유지된다
 ```
 
 **인수 조건:**
+
 - 운영 채널에 매일 오전 06:00 daily message와 출석 thread를 생성한다
 - 같은 날짜에는 daily message/thread를 한 번만 생성한다
 - 봇 재시작 후에도 오늘 thread를 다시 찾아 재사용할 수 있다
@@ -49,6 +50,7 @@ SO THAT 해당 사용자가 출석 체크를 할 수 있다
 ```
 
 **인수 조건:**
+
 - 사용자 ID, 년월, 기상시간, 이름을 입력받는다
 - 기상시간은 05:00~09:00 범위만 허용
 - 기본 휴가일수는 5일
@@ -101,6 +103,7 @@ SO THAT 해당 챌린저가 추가 휴식일을 가질 수 있다
 ```
 
 **인수 조건:**
+
 - 기존 휴가일수에 지정한 수만큼 추가
 - 등록된 사용자만 대상
 
@@ -135,12 +138,14 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 ```
 
 **인수 조건:**
+
 - `AttendanceLog` 기준 출석/지각/결석 인원 집계
 - 댓글이 없는 사용자도 결석으로 확정
-- 전환 기간에는 `AttendanceLog`가 없을 때만 기존 `TimeLog`를 fallback 으로 사용
+- `AttendanceLog`가 없는 등록 사용자는 `TimeLog` 여부와 무관하게 결석으로 확정
 - 주말 및 공휴일 제외
 - `late` 상태는 `latecount` 증가
 - `absent` 상태 또는 무댓글 사용자는 `absencecount` 증가
+- 결과표에 사용자별 오늘 상태와 월 누적 `latecount`, `absencecount`, 잔여휴가를 함께 표시
 
 ```mermaid
 sequenceDiagram
@@ -164,22 +169,16 @@ sequenceDiagram
 
     B->>DB: 이번 달 Users 전체 조회
     B->>DB: 당일 AttendanceLog 전체 조회
-    B->>DB: 필요 시 당일 TimeLog 전체 조회
 
     B->>B: 출석 현황 집계
 
     loop 각 사용자별
-        alt AttendanceLog 없음 and TimeLog 2건 정시
-            B->>B: 출석자 목록에 추가
-        else AttendanceLog 없음 and TimeLog 2건 중 지각 존재
-            B->>DB: Users.latecount++
-            B->>B: 지각자 목록에 추가
-        else AttendanceLog 없음 and fallback 불가
+        alt AttendanceLog 없음
             B->>DB: Users.absencecount++
             B->>B: 결석자 목록에 추가
         else AttendanceLog.status = late
-                B->>DB: Users.latecount++
-                B->>B: 지각자 목록에 추가
+            B->>DB: Users.latecount++
+            B->>B: 지각자 목록에 추가
         else AttendanceLog.status = absent
             B->>DB: Users.absencecount++
             B->>B: 결석자 목록에 추가
@@ -189,7 +188,7 @@ sequenceDiagram
     end
 
     B->>C: 리포트 메시지 전송
-    Note over C: ### 20251208 출석표<br/>- 홍길동: 출석<br/>- 이영희: 지각 (3)<br/>- 박민수: 결석 (2/5)
+    Note over C: ### 20251208 출석표<br/>- 홍길동: 출석 (월 누적 지각 0회, 결석 0회, 잔여휴가 5일)<br/>- 이영희: 지각 (월 누적 지각 3회, 결석 1회, 잔여휴가 4일)<br/>- 박민수: 결석 (월 누적 지각 0회, 결석 2회, 잔여휴가 3일)
 ```
 
 ---
@@ -203,6 +202,7 @@ SO THAT 한 달간의 성과를 축하받을 수 있다
 ```
 
 **인수 조건:**
+
 - 매월 마지막 날 출력
 - `absencecount <= vacances` 인 사용자만 포함
 
@@ -247,6 +247,7 @@ SO THAT 해당 사용자의 학습 시간이 추적된다
 ```
 
 **인수 조건:**
+
 - 사용자 ID와 이름을 입력받는다
 - 중복 등록 불가
 
@@ -281,6 +282,7 @@ SO THAT 별도 조작 없이 공부 시간이 측정된다
 ```
 
 **인수 조건:**
+
 - 카메라 ON: 학습 시작
 - 카메라 OFF 또는 채널 퇴장: 학습 종료
 - 5분 미만 세션은 무시
@@ -347,6 +349,7 @@ SO THAT 나의 학습량을 다른 참가자와 비교할 수 있다
 ```
 
 **인수 조건:**
+
 - 학습 시간 기준 내림차순 정렬
 - 시간 형식: "X시간 Y분"
 
@@ -384,6 +387,7 @@ SO THAT 한 주간의 학습량을 확인할 수 있다
 ```
 
 **인수 조건:**
+
 - 매주 금요일 23:59에 출력
 - 월~금 학습 시간 누적
 - 주차 번호: 2024-04-06 기준으로 계산
@@ -434,6 +438,7 @@ SO THAT 해당 사용자의 학습 시간 추적이 중단된다
 ```
 
 **인수 조건:**
+
 - 등록된 사용자만 삭제 가능
 - 기존 학습 기록은 유지됨
 
