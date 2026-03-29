@@ -143,6 +143,11 @@ haruharu-discord-bot/
 | `/add-vacances`   | `/admin-휴가추가`   | 관리자 | 휴가일수 추가                              |
 | `/delete`         | `/admin-챌린저삭제` | 관리자 | 챌린저 삭제                                |
 
+비고:
+
+- `/apply-wakeup` 는 더 이상 등록하지 않는다.
+- 배포 전환 중 stale `/apply-wakeup` 슬래시 등록이 남아 있으면 `interactionCreate.ts`가 `/register` 사용 안내를 ephemeral 응답으로 돌려준다.
+
 #### 역할 기반 참여 신청 커맨드
 
 | 내부 key               | 한국어 표시명(ko) | 권한   | 설명                    |
@@ -184,6 +189,7 @@ haruharu-discord-bot/
 
 - 별도 파라미터 없음
 - 현재 월 기록은 유지하고, 이후 월 `Users` 자동 생성만 중단한다.
+- `WakeUpMembership` 이 아직 없고 latest `Users` 스냅샷만 있는 legacy 참가자도 backfill 후 중단 처리한다.
 
 #### `/apply-vacation` (`/휴가신청`)
 
@@ -317,6 +323,7 @@ flowchart TD
 **채널 라우팅 메모:**
 
 - 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
+- stale `/apply-wakeup` interaction 이 들어오면 커맨드 미존재 오류로 끝내지 않고 `/register` migration 안내를 ephemeral 응답으로 반환한다.
 
 #### camStudyHandler.ts
 
@@ -374,11 +381,11 @@ flowchart TD
 
 #### challengeSelfService.ts
 
-| 항목   | 내용                                                                                                                                                                                                                                                            |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                                                                                 |
-| 담당   | `WakeUpMembership` 생성/재활성화/중단, latest `Users` 기반 membership backfill, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 현재 월 휴가 날짜 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
-| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                                                                                          |
+| 항목   | 내용                                                                                                                                                                                                                                                                                                      |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                                                                                                                           |
+| 담당   | `WakeUpMembership` 생성/재활성화/중단, latest `Users` 기반 membership backfill, legacy 참가자의 `/stop-wakeup` 중단 처리, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 현재 월 휴가 날짜 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                                                                                                                                    |
 
 #### reporting.ts
 

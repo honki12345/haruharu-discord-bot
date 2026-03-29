@@ -142,6 +142,16 @@ const backfillWakeUpMembershipsFromLatestUsers = async () => {
   await Promise.all(membershipsToCreate.map(membership => createWakeUpMembership(membership)));
 };
 
+const findWakeUpMembershipWithLegacyBackfill = async (userId: string) => {
+  const existingMembership = await findWakeUpMembership(userId);
+  if (existingMembership) {
+    return existingMembership;
+  }
+
+  await backfillWakeUpMembershipsFromLatestUsers();
+  return findWakeUpMembership(userId);
+};
+
 const ensureActiveWakeUpMembershipSnapshots = async (yearmonth: string) => {
   await backfillWakeUpMembershipsFromLatestUsers();
   const memberships = await listActiveWakeUpMemberships();
@@ -277,7 +287,7 @@ const executeApplyVacation = async ({ userId, yearmonthday }: { userId: string; 
 };
 
 const executeStopWakeUp = async ({ userId }: { userId: string }) => {
-  const membership = await findWakeUpMembership(userId);
+  const membership = await findWakeUpMembershipWithLegacyBackfill(userId);
   if (!membership || membership.status !== 'active') {
     return { reply: '현재 진행 중인 기상스터디 참여가 없습니다' };
   }

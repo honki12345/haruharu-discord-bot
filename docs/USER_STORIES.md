@@ -264,6 +264,7 @@ SO THAT 다음 달부터 자동 등록되지 않게 하고 싶다
 **인수 조건:**
 
 - 현재 active 상태인 사용자만 중단할 수 있다
+- `WakeUpMembership` 이 아직 없는 legacy 참가자라도 latest `Users` 스냅샷에 있으면 중단할 수 있다
 - 현재 월 `Users`, `AttendanceLog`, `VacationLog` 기록은 유지된다
 - `WakeUpMembership.status` 는 `stopped` 로 바뀐다
 - 이후 월에는 `Users` 자동 생성 대상에서 제외된다
@@ -278,6 +279,10 @@ sequenceDiagram
     U->>D: /기상중단
     D->>B: InteractionCreate 이벤트
     B->>DB: WakeUpMembership 조회
+    alt membership 없음
+        B->>DB: latest Users 기반 membership backfill 시도
+        B->>DB: WakeUpMembership 재조회
+    end
 
     alt active membership 없음
         B-->>U: "현재 진행 중인 기상스터디 참여가 없습니다"
@@ -285,6 +290,34 @@ sequenceDiagram
         B->>DB: WakeUpMembership.status = stopped
         B-->>U: "현재 월 기록은 유지되고 다음 달부터 자동 등록되지 않습니다"
     end
+```
+
+---
+
+### US-1C: stale `/apply-wakeup` 전환 안내
+
+```
+AS A 기존 사용자
+I WANT TO 배포 전환 중 예전 /apply-wakeup 명령을 눌러도 실패 대신 새 진입점 안내를 받고 싶다
+SO THAT slash command 재배포 전에도 무엇을 해야 하는지 알 수 있다
+```
+
+**인수 조건:**
+
+- 새 코드에는 `/apply-wakeup` 실행 핸들러가 없다
+- 하지만 stale Discord 슬래시 등록으로 `apply-wakeup` interaction 이 들어오면 무응답으로 끝나지 않는다
+- 봇은 ephemeral 로 `/register` 사용 안내를 반환한다
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant D as Discord
+    participant B as Bot
+
+    U->>D: /apply-wakeup
+    D->>B: InteractionCreate 이벤트
+    B->>B: command lookup 실패
+    B-->>U: "`/apply-wakeup`는 더 이상 사용되지 않습니다. `/register`를 사용해 주세요."
 ```
 
 ---

@@ -10,6 +10,14 @@ export const event = {
     const command = (interaction.client as MyClient).commands.get(interaction.commandName);
 
     if (!command) {
+      if (interaction.commandName === 'apply-wakeup') {
+        await interaction.reply({
+          content: '`/apply-wakeup`는 더 이상 사용되지 않습니다. `/register`에서 기상시간을 입력해 참여해 주세요.',
+          ephemeral: true,
+        });
+        return;
+      }
+
       console.error(`No command matching ${interaction.commandName} was found`);
       return;
     }

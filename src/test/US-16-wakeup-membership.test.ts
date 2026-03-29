@@ -271,4 +271,32 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(currentMonthUser?.waketime).toBe('0645');
     expect(attendanceMessage).toContain('기존참가자: 결석');
   });
+
+  it('TC-WM09: legacy Users만 있는 참가자도 첫 리포트 전 /stop-wakeup 으로 중단할 수 있다', async () => {
+    vi.setSystemTime(new Date('2025-12-20T07:05:00Z'));
+    await TestUsers.create({
+      userid: 'legacy-stop-user',
+      username: '중단대상',
+      yearmonth: '202512',
+      waketime: '0710',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    vi.setSystemTime(new Date('2026-01-08T07:05:00Z'));
+    const stopInteraction = createMockInteraction({
+      userId: 'legacy-stop-user',
+      globalName: '중단대상',
+    });
+
+    const { command: stopCommand } = await import('../commands/haruharu/stop-wakeup.js');
+    await stopCommand.execute(stopInteraction as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'legacy-stop-user' } });
+
+    expect(membership?.status).toBe('stopped');
+    expect(membership?.waketime).toBe('0710');
+    expect(stopInteraction.getLastReply()).toContain('중단했습니다');
+  });
 });
