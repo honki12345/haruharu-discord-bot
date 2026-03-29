@@ -15,10 +15,24 @@
 
 ### 핵심 기능
 
-| 기능            | 설명                                                                 |
-| --------------- | -------------------------------------------------------------------- |
-| **기상 챌린지** | 매일 정해진 시간에 기상하여 인증샷을 올리는 월간 챌린지              |
-| **캠스터디**    | Discord 음성 채널에서 카메라 또는 화면공유를 켜고 공부하는 시간 추적 |
+| 기능                 | 설명                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| **기상 챌린지**      | 매일 정해진 시간에 기상하여 인증샷을 올리는 월간 챌린지                            |
+| **캠스터디**         | Discord 음성 채널에서 카메라 또는 화면공유를 켜고 공부하는 시간 추적               |
+| **역할 기반 온보딩** | `#start-here`/`#apply`/`#qna`/`#announcements` 구조와 신청/승인 흐름으로 접근 제어 |
+
+### Discord 운영 채널 구조
+
+| 채널             | 역할                             | 비고                          |
+| ---------------- | -------------------------------- | ----------------------------- |
+| `#start-here`    | 환영 및 서버 소개                | 읽기 전용 권장                |
+| `#apply`         | 참여 방법 안내 및 신청 명령 실행 | `/apply-wakeup`, `/apply-cam` |
+| `#qna`           | 질문/응답                        | 일반 문의 채널                |
+| `#announcements` | 운영 공지                        | 관리자 전용 작성 권장         |
+| `#ops`           | 신청 승인/거절 및 운영 처리      | 관리자 전용                   |
+| `#wake-up`       | 기상인증 전용 채널               | `@wake-up` 역할 기반 접근     |
+| `#cam-study`     | 캠스터디 전용 텍스트 채널        | `@cam-study` 역할 기반 접근   |
+| `음성: 캠스터디` | 캠스터디 전용 음성 채널          | `@cam-study` 역할 기반 접근   |
 
 ---
 
@@ -27,7 +41,8 @@
 ```
 haruharu-discord-bot/
 ├── src/
-│   ├── index.ts                 # 봇 진입점, 커맨드/이벤트 로더
+│   ├── index.ts                 # 봇 진입점, runtime 부트스트랩
+│   ├── runtime.ts               # Discord client/커맨드/이벤트 로더
 │   ├── config.ts                # 런타임 설정 로더
 │   ├── deployConfig.ts          # 슬래시 커맨드 배포용 최소 설정 로더
 │   ├── logger.ts                # Winston 로깅 설정
@@ -43,8 +58,12 @@ haruharu-discord-bot/
 │   │       ├── apply-vacation.ts # 사용자 휴가 등록
 │   │       ├── add-vacances.ts  # 휴가 추가
 │   │       ├── delete.ts        # 챌린저 삭제
+│   │       ├── apply-wakeup.ts  # 기상인증 참여 신청
+│   │       ├── apply-cam.ts     # 캠스터디 참여 신청
 │   │       ├── register-cam.ts  # 캠스터디 등록
 │   │       ├── delete-cam.ts    # 캠스터디 삭제
+│   │       ├── approve-application.ts # 신청 승인 및 역할 부여
+│   │       ├── reject-application.ts  # 신청 거절 및 재신청 안내
 │   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
 │   │       └── ping.ts          # 헬스체크
 │   │
@@ -55,9 +74,10 @@ haruharu-discord-bot/
 │   │   └── camStudyHandler.ts   # 음성 채널 상태 감지 및 캠스터디 서비스 위임
 │   │
 │   ├── services/
-│   │   ├── attendance.ts        # check-in/check-out 공통 처리
+│   │   ├── attendance.ts        # 레거시 check-in/check-out 처리
 │   │   ├── challengeSelfService.ts # 사용자 기상시간/휴가 self-service 정책 처리
 │   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
+│   │   ├── participationApplication.ts # 신청/승인/거절/역할 부여 처리
 │   │   └── reporting.ts         # 일일/주간 리포트 생성 및 스케줄링
 │   │
 │   └── repository/
@@ -71,18 +91,27 @@ haruharu-discord-bot/
 │       ├── CamStudyActiveSession.ts # 진행 중 캠스터디 세션 모델
 │       ├── CamStudyTimeLog.ts   # 일간 학습 로그 모델
 │       ├── CamStudyWeeklyTimeLog.ts # 주간 학습 로그 모델
+│       ├── ParticipationApplication.ts # 역할 기반 신청 상태 모델
 │       ├── challengeRepository.ts   # 기상 챌린지 조회/갱신 헬퍼
 │       └── camStudyRepository.ts    # 캠스터디 조회/갱신 헬퍼
 │
 ├── docs/
 │   ├── PROJECT.md               # 프로젝트 문서 (현재 파일)
+│   ├── PRODUCTION_RUNBOOK.md    # production 배포/검증/롤백 runbook
 │   ├── USER_STORIES.md          # 사용자 스토리 및 시퀀스 다이어그램
 │   ├── plan/                    # 이슈별 구현 계획 문서
 │   └── COMMIT_CONVENTION.md     # 커밋 컨벤션
 │
 ├── .github/
+│   ├── dependency-review-config.yml # dependency review 정책
 │   └── workflows/
-│       └── ci.yml               # GitHub Actions CI
+│       ├── ci.yml               # GitHub Actions CI + bot smoke test
+│       ├── dependency-review.yml # 의존성 변경 PR 검토
+│       └── deploy-production.yml # workflow_dispatch production 배포
+│
+├── scripts/
+│   ├── deploy-production.sh     # OCI SSH 배포 스크립트
+│   └── verify-production-readiness.sh # PM2 / ready 로그 확인 스크립트
 │
 ├── logs/                        # 일별 로테이션 로그
 ├── dist/                        # 컴파일된 JavaScript
@@ -111,10 +140,19 @@ haruharu-discord-bot/
 
 #### 캠스터디 커맨드
 
-| 커맨드          | 권한   | 설명          |
-| --------------- | ------ | ------------- |
-| `/register-cam` | 관리자 | 캠스터디 등록 |
-| `/delete-cam`   | 관리자 | 캠스터디 삭제 |
+| 커맨드          | 권한   | 설명                    |
+| --------------- | ------ | ----------------------- |
+| `/apply-cam`    | 사용자 | 캠스터디 채널 접근 신청 |
+| `/register-cam` | 관리자 | 캠스터디 등록           |
+| `/delete-cam`   | 관리자 | 캠스터디 삭제           |
+
+#### 온보딩/운영 커맨드
+
+| 커맨드                 | 권한   | 설명                          |
+| ---------------------- | ------ | ----------------------------- |
+| `/apply-wakeup`        | 사용자 | 기상인증 채널 접근 신청       |
+| `/approve-application` | 관리자 | 참여 신청 승인 및 역할 부여   |
+| `/reject-application`  | 관리자 | 참여 신청 거절 및 재신청 안내 |
 
 #### 유틸리티 커맨드
 
@@ -160,16 +198,37 @@ haruharu-discord-bot/
 | userid   | O    | Discord 사용자 ID |
 | username | O    | 표시 이름         |
 
+#### `/apply-wakeup`, `/apply-cam`
+
+| 파라미터 | 필수 | 설명                                  |
+| -------- | ---- | ------------------------------------- |
+| 없음     | -    | 명령 실행 사용자 자신을 기준으로 신청 |
+
+#### `/approve-application`
+
+| 파라미터 | 필수 | 설명                       |
+| -------- | ---- | -------------------------- |
+| userid   | O    | 승인할 Discord 사용자 ID   |
+| program  | O    | `wake-up` 또는 `cam-study` |
+
+#### `/reject-application`
+
+| 파라미터 | 필수 | 설명                       |
+| -------- | ---- | -------------------------- |
+| userid   | O    | 거절할 Discord 사용자 ID   |
+| program  | O    | `wake-up` 또는 `cam-study` |
+| reason   | O    | 거절 사유                  |
+
 ---
 
 ### Events (이벤트 핸들러)
 
 #### ready.ts
 
-| 항목   | 내용                                                                                                                                                                                     |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                     |
-| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
+| 항목   | 내용                                                                                                                                                                                                                 |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                 |
+| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
 
 **스케줄러:**
 
@@ -186,17 +245,52 @@ haruharu-discord-bot/
 - heartbeat는 `lastobservedat`를 주기적으로 갱신해 재배포 중 종료 이벤트를 놓쳤을 때 손실 범위를 제한한다.
 - 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
 
+### Runtime / Delivery
+
+| 파일                     | 역할                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `src/index.ts`           | 프로세스 진입점. `bootstrapClient()` 호출과 Discord 로그인 시작만 담당                    |
+| `src/runtime.ts`         | Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집, smoke boot 지원 |
+| `src/deploy-commands.ts` | `src/runtime.ts` 로더를 재사용해 slash command JSON을 생성하고 Discord에 등록             |
+
+### GitHub Actions
+
+| Workflow            | 트리거                                      | 역할                                                                                    |
+| ------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `CI`                | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
+| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                               |
+| `Deploy Production` | `workflow_dispatch`                         | verify 후 OCI 서버에 SSH 배포하고 PM2/ready 로그를 확인                                 |
+
+### Production 배포 흐름
+
+```mermaid
+flowchart TD
+  A[workflow_dispatch] --> B[verify job]
+  B --> C[lint + prettier + build + test + smoke]
+  C --> D[deploy job]
+  D --> E[SSH deploy to OCI]
+  E --> F[pm2 reload or start]
+  F --> G[pm2 status + ready log check]
+  G --> H[Manual /ping if needed]
+```
+
 #### interactionCreate.ts
 
-| 항목   | 내용                                |
-| ------ | ----------------------------------- |
-| 트리거 | 슬래시 커맨드 실행                  |
-| 기능   | 채널 검증, 쿨다운 관리, 커맨드 실행 |
+| 항목   | 내용                                                                   |
+| ------ | ---------------------------------------------------------------------- |
+| 트리거 | 슬래시 커맨드 실행                                                     |
+| 기능   | 공통 허용 채널 검증, 커맨드별 허용 채널 검증, 쿨다운 관리, 커맨드 실행 |
 
 **쿨다운:**
 
 - 기본: 3초
 - 기타 커맨드: 5초
+
+**채널 라우팅 메모:**
+
+- 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
+- `/apply-wakeup`, `/apply-cam`은 `#apply` 전용 채널에서만 실행된다.
+- `/approve-application`, `/reject-application`은 `#ops` 전용 채널에서만 실행된다.
 
 #### camStudyHandler.ts
 
@@ -260,13 +354,21 @@ haruharu-discord-bot/
 | 담당   | 사용자 기준 등록/수정, 기상시간 범위 검증, register 하루 1회 변경 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
 | 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/apply-vacation.ts`                                   |
 
+#### participationApplication.ts
+
+| 항목   | 내용                                                                                                                                                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 참여 신청 저장, 운영 알림, 승인/거절, 역할 부여 및 신청자 안내                                                                                                               |
+| 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 운영 채널 공지, 신청자 안내 메시지 처리                                                             |
+| 호출처 | `src/commands/haruharu/apply-wakeup.ts`, `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts` |
+
 #### reporting.ts
 
-| 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                                                                                                                                                                                                                                                                              |
-| 담당   | 모델 동기화, `AttendanceLog` 단일 원본 기반 기상 챌린지 출석표 생성, 휴가일 결석 제외 처리, 무댓글 사용자 결석 확정, 오늘 상태와 월 누적 `latecount` / `absencecount` / 잔여휴가를 함께 표시하는 결과표 생성, Discord 2000자 제한을 넘기면 결과표를 여러 메시지로 분할 전송, 월말 생존 명단 생성, 캠스터디 일일 리포트 생성, 해당 주차 일간 로그 재계산 기반 주간 집계, 스케줄 중복 실행 방지 |
-| 호출처 | `src/events/ready.ts`                                                                                                                                                                                                                                                                                                                                                                         |
+| 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 담당   | `Users`/`TimeLog`/`AttendanceLog`/`ParticipationApplication` 등 모델 sync, `AttendanceLog` 단일 원본 기반 기상 챌린지 출석표 생성, 휴가일 결석 제외 처리, 무댓글 사용자 결석 확정, 오늘 상태와 월 누적 `latecount` / `absencecount` / 잔여휴가를 함께 표시하는 결과표 생성, Discord 2000자 제한 초과 시 결과표 분할 전송, 월말 생존 명단 생성, 캠스터디 일일 리포트 생성, 해당 주차 일간 로그 재계산 기반 주간 집계, 스케줄 중복 실행 방지 |
+| 호출처 | `src/events/ready.ts`                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 비고:
 
@@ -421,6 +523,22 @@ haruharu-discord-bot/
 
 - 같은 날짜 리포트를 여러 번 실행해도 같은 `CamStudyTimeLog`가 중복 합산되지 않도록, 해당 주차 범위의 일간 로그를 기준으로 재계산한다.
 
+#### ParticipationApplication (역할 기반 신청 상태)
+
+| 컬럼     | 타입    | 설명                                |
+| -------- | ------- | ----------------------------------- |
+| id       | INTEGER | PK, Auto Increment                  |
+| userid   | STRING  | Discord 사용자 ID                   |
+| username | STRING  | 표시 이름                           |
+| program  | STRING  | `wake-up` / `cam-study`             |
+| status   | STRING  | `pending` / `approved` / `rejected` |
+| reason   | TEXT    | 거절 사유 또는 마지막 운영 메모     |
+
+비고:
+
+- `(userid, program)` 조합은 UNIQUE이며 사용자별 프로그램 신청 상태를 1건으로 유지한다.
+- 이 테이블은 역할 기반 접근 제어용이며, 실제 기능 사용 등록 정보(`Users`, `CamStudyUsers`)와는 분리된다.
+
 ---
 
 ### Utils (유틸리티)
@@ -469,19 +587,23 @@ haruharu-discord-bot/
   "token": "Discord 봇 토큰",
   "clientId": "봇 애플리케이션 ID",
   "guildId": "대상 Discord 서버 ID",
-  "checkChannelId": "체크인/체크아웃 채널 ID",
+  "checkChannelId": "기상 출석 운영 채널 ID",
   "logChannelId": "학습 시간 로그 채널 ID",
   "resultChannelId": "결과/리더보드 채널 ID",
   "voiceChannelId": "캠스터디 음성 채널 ID",
-  "noticeChannelId": "공지 채널 ID",
-  "vacancesRegisterChannelId": "휴가 등록 채널 ID",
-  "testChannelId": "테스트 채널 ID"
+  "noticeChannelId": "운영 공지 채널 ID",
+  "vacancesRegisterChannelId": "기상 self-service 채널 ID",
+  "testChannelId": "테스트 채널 ID",
+  "applyChannelId": "#apply 채널 ID",
+  "opsChannelId": "#ops 채널 ID",
+  "wakeUpRoleId": "@wake-up 역할 ID",
+  "camStudyRoleId": "@cam-study 역할 ID"
 }
 ```
 
 비고:
 
-- `src/config.ts`는 런타임 진입점에서 사용하는 설정 로더이며 `token`, `clientId`, `guildId`, 각 채널 ID를 fail-fast로 검증한다.
+- `src/config.ts`는 런타임 진입점에서 사용하는 설정 로더이며 `token`, `clientId`, `guildId`, 각 채널 ID와 역할 ID를 fail-fast로 검증한다.
 - `databaseUser`, `password`는 SQLite 사용 기준 optional 값이며 비어 있어도 동작한다.
 - `src/deployConfig.ts`는 slash command 등록 전용 최소 설정 로더이며 `token`, `clientId`, `guildId`만 요구한다.
 
@@ -494,37 +616,44 @@ haruharu-discord-bot/
 - `/register`는 같은 날 두 번째 변경을 거부한다.
 - `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산한다.
 - `/apply-vacation`은 날짜 단위(`yyyymmdd`)로 동작한다.
+- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행되고, 신청 결과는 `ephemeral`로 응답한다.
+- `/approve-application`, `/reject-application`은 `#ops`에서만 실행되고, 승인 시 역할이 자동 부여된다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 
 ### package.json 스크립트
 
-| 스크립트           | 설명                                                                           |
-| ------------------ | ------------------------------------------------------------------------------ |
-| `npm start`        | TypeScript 컴파일 후 봇 실행                                                   |
-| `npm run pm2`      | PM2로 프로덕션 배포                                                            |
-| `npm run local:ci` | GitHub Actions CI와 같은 로컬 검증 실행 (`lint` + `prettier --check` + `test`) |
-| `npm run lint`     | ESLint 검사                                                                    |
-| `npm run lint:fix` | ESLint 자동 수정                                                               |
-| `npm run format`   | Prettier 포맷팅                                                                |
+| 스크립트                  | 설명                                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run build`           | `dist`를 정리한 뒤 TypeScript를 컴파일                                                   |
+| `npm start`               | TypeScript 컴파일 후 봇 실행                                                             |
+| `npm run pm2`             | 빌드 후 PM2로 프로덕션 프로세스 시작                                                     |
+| `npm run deploy`          | 최신 코드를 pull한 뒤 다시 빌드하고 PM2 프로세스를 reload                                |
+| `npm run deploy:commands` | slash command를 다시 등록                                                                |
+| `npm run local:ci`        | GitHub Actions CI와 같은 로컬 검증 실행 (`lint` + `prettier --check` + `build` + `test`) |
+| `npm run lint`            | ESLint 검사                                                                              |
+| `npm run lint:fix`        | ESLint 자동 수정                                                                         |
+| `npm run test:smoke`      | Discord 로그인 없이 bot boot smoke test 실행                                             |
+| `npm run format`          | Prettier 포맷팅                                                                          |
 
 ---
 
 ## 기술 스택
 
-| 구분         | 기술                   |
-| ------------ | ---------------------- |
-| 언어         | TypeScript             |
-| 런타임       | Node.js 20+            |
-| Discord API  | discord.js 14          |
-| 데이터베이스 | SQLite3 + Sequelize    |
-| 로깅         | Winston + Daily Rotate |
-| 코드 품질    | ESLint + Prettier      |
-| 배포         | PM2                    |
-| CI/CD        | GitHub Actions         |
+| 구분         | 기술                                                            |
+| ------------ | --------------------------------------------------------------- |
+| 언어         | TypeScript                                                      |
+| 런타임       | Node.js 20+                                                     |
+| Discord API  | discord.js 14                                                   |
+| 데이터베이스 | SQLite3 + Sequelize                                             |
+| 로깅         | Winston + Daily Rotate                                          |
+| 코드 품질    | ESLint + Prettier                                               |
+| 배포         | GitHub-hosted runner + SSH + PM2                                |
+| CI/CD        | GitHub Actions (`CI`, `Dependency Review`, `Deploy Production`) |
 
 ---
 
 ## 관련 문서
 
+- [Production Runbook](./PRODUCTION_RUNBOOK.md)
 - [사용자 스토리 및 시퀀스 다이어그램](./USER_STORIES.md)
 - [커밋 컨벤션](./COMMIT_CONVENTION.md)

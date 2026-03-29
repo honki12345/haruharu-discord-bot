@@ -16,7 +16,10 @@ const isValidYearMonthDay = (value: string) => {
   return parsed.getUTCFullYear() === year && parsed.getUTCMonth() + 1 === month && parsed.getUTCDate() === date;
 };
 
-class WaketimeChangeLog extends Model<InferAttributes<WaketimeChangeLog>, InferCreationAttributes<WaketimeChangeLog>> {
+class WaketimeChangeLog extends Model<
+  InferAttributes<WaketimeChangeLog, { omit: 'createdAt' | 'updatedAt' }>,
+  InferCreationAttributes<WaketimeChangeLog, { omit: 'createdAt' | 'updatedAt' }>
+> {
   declare id: CreationOptional<number>;
   declare userid: string;
   declare yearmonthday: string;

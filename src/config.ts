@@ -13,6 +13,10 @@ export interface AppConfig {
   logChannelId?: string;
   resultChannelId?: string;
   voiceChannelId?: string;
+  applyChannelId?: string;
+  opsChannelId?: string;
+  wakeUpRoleId?: string;
+  camStudyRoleId?: string;
 }
 
 const jsonRequire = createRequire(import.meta.url);
@@ -43,6 +47,10 @@ export const testChannelId = getRequiredConfig('testChannelId');
 export const logChannelId = getRequiredConfig('logChannelId');
 export const resultChannelId = getRequiredConfig('resultChannelId');
 export const voiceChannelId = getRequiredConfig('voiceChannelId');
+export const applyChannelId = getRequiredConfig('applyChannelId');
+export const opsChannelId = getRequiredConfig('opsChannelId');
+export const wakeUpRoleId = getRequiredConfig('wakeUpRoleId');
+export const camStudyRoleId = getRequiredConfig('camStudyRoleId');
 
 export const commandChannelIds = new Set(
   [noticeChannelId, vacancesRegisterChannelId, checkChannelId, testChannelId, logChannelId].filter(Boolean),

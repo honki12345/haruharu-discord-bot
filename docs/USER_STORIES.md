@@ -1,5 +1,84 @@
 # 사용자 스토리 및 시퀀스 다이어그램
 
+## 공통 온보딩 (Onboarding)
+
+### US-14: 역할 기반 온보딩 안내
+
+```
+AS A 신규 사용자
+I WANT TO #start-here 와 #apply 만 보고 서버 구조와 참여 절차를 이해하고 싶다
+SO THAT 어디서 읽고, 어디서 신청하고, 어디서 질문해야 하는지 헷갈리지 않는다
+```
+
+**인수 조건:**
+
+- `#start-here`에는 서버 소개와 프로그램 요약이 고정 안내로 제공된다
+- `#apply`에는 참여 방법과 신청 명령어가 고정 안내로 제공된다
+- `#qna`는 질문/응답 채널로 분리된다
+- `#announcements`는 운영 공지 전용 채널로 분리된다
+
+```mermaid
+sequenceDiagram
+    participant U as 신규 사용자
+    participant S as #start-here
+    participant A as #apply
+    participant Q as #qna
+
+    U->>S: 서버 소개와 프로그램 요약 확인
+    S-->>U: 참여는 #apply / 질문은 #qna 안내
+    U->>A: 고정 메시지에서 참여 방법 확인
+    alt 질문이 있음
+        U->>Q: 질문 남김
+    end
+```
+
+---
+
+### US-15: 역할 기반 참여 신청과 승인
+
+```
+AS A 서버 사용자
+I WANT TO /apply-wakeup 또는 /apply-cam 으로 직접 신청하고 운영자 승인을 받고 싶다
+SO THAT 승인된 프로그램의 전용 채널만 자동으로 열리길 원한다
+```
+
+**인수 조건:**
+
+- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행된다
+- 신청 응답은 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
+- 신청 시 운영 채널에 승인/거절용 안내가 전송된다
+- 운영자가 승인하면 해당 역할이 자동 부여된다
+- 운영자가 거절하면 거절 사유와 재신청 안내가 사용자에게 전달된다
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant A as #apply
+    participant B as Bot
+    participant DB as SQLite
+    participant O as #ops
+    participant D as Discord Role
+
+    U->>A: /apply-wakeup 또는 /apply-cam
+    A->>B: InteractionCreate 이벤트
+    B->>DB: ParticipationApplication 조회/생성
+    B-->>U: ephemeral "신청이 접수되었어요"
+    B->>O: 승인/거절 안내 전송
+
+    alt 운영자가 승인
+        O->>B: /approve-application
+        B->>DB: status = approved
+        B->>D: 역할 부여
+        B-->>U: 승인 안내
+    else 운영자가 거절
+        O->>B: /reject-application
+        B->>DB: status = rejected
+        B-->>U: 거절 사유 + 재신청 안내
+    end
+```
+
+---
+
 ## 기상 챌린지 (Morning Challenge)
 
 ### US-13: 운영 daily message 자동 생성
@@ -36,6 +115,80 @@ sequenceDiagram
         C-->>B: messageId
         B->>D: 출석 thread 생성
         B->>D: 안내 메시지 전송
+    end
+```
+
+---
+
+### US-14: CI bot boot smoke test
+
+```
+AS A 운영자
+I WANT TO Discord 로그인 없이도 봇 부팅 경로를 CI에서 확인하고 싶다
+SO THAT 설정 누락이나 command/event 로더 오류를 production 배포 전에 막을 수 있다
+```
+
+**인수 조건:**
+
+- `config` 로딩이 CI에서 실패 없이 검증된다
+- Discord client 생성이 실제 로그인 없이 가능하다
+- command/event 동적 로딩이 CI에서 실패 없이 끝난다
+- smoke test는 production 토큰 없이 실행 가능하다
+
+```mermaid
+sequenceDiagram
+    participant PR as Pull Request
+    participant GH as GitHub Actions
+    participant T as Bot Smoke Test
+    participant B as Runtime Loader
+
+    PR->>GH: CI 실행
+    GH->>T: npm run test:smoke
+    T->>B: bootstrapClient(login=false)
+    B->>B: config 로딩
+    B->>B: Discord client 생성
+    B->>B: command/event 동적 로딩
+    B-->>T: 정상 종료
+    T-->>GH: green
+```
+
+---
+
+### US-15: 운영자 production 수동 배포와 롤백
+
+```
+AS A 운영자
+I WANT TO workflow_dispatch로 production 배포를 시작하고 verify 통과 후 자동 배포되길 원한다
+SO THAT 배포 전 검증과 배포 후 확인을 같은 절차로 반복할 수 있다
+```
+
+**인수 조건:**
+
+- production 배포는 `workflow_dispatch`로만 시작된다
+- verify job이 `lint`, `prettier`, `build`, `test`, `smoke test`를 통과해야 deploy가 실행된다
+- deploy는 GitHub-hosted runner에서 OCI 서버로 SSH 배포한다
+- deploy 뒤에는 `pm2 status`와 `Ready! Logged in as` 로그를 확인한다
+- 실패 시 이전 안정 ref로 같은 workflow를 다시 실행해 롤백할 수 있다
+
+```mermaid
+sequenceDiagram
+    participant O as Operator
+    participant GH as GitHub Actions
+    participant OCI as OCI Server
+    participant PM2 as PM2
+    participant D as Discord
+
+    O->>GH: Run workflow_dispatch(ref)
+    GH->>GH: verify job (lint + prettier + build + test + smoke)
+
+    alt verify 실패
+        GH-->>O: 배포 중단
+    else verify 성공
+        GH->>OCI: SSH deploy
+        OCI->>OCI: git fetch / checkout / npm ci / npm run build
+        OCI->>PM2: reload or start haruharu-bot
+        GH->>OCI: pm2 status / ready log 확인
+        O->>D: /ping 수동 확인
     end
 ```
 

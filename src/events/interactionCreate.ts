@@ -1,6 +1,6 @@
 import { Events, Collection, ChatInputCommandInteraction } from 'discord.js';
 import { commandChannelIds } from '../config.js';
-import { MyClient } from '../index.js';
+import type { MyClient } from '../runtime.js';
 
 export const event = {
   name: Events.InteractionCreate,
@@ -15,7 +15,8 @@ export const event = {
     }
 
     const firedChannelId = interaction.channel?.id;
-    const isValidChannelId = firedChannelId ? commandChannelIds.has(firedChannelId) : false;
+    const allowedChannelIds = command.allowedChannelIds ?? Array.from(commandChannelIds);
+    const isValidChannelId = firedChannelId ? allowedChannelIds.includes(firedChannelId) : false;
     if (!isValidChannelId) {
       await interaction.reply({ content: 'no valid channel for command', ephemeral: true });
       return;

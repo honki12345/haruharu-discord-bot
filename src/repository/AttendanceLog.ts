@@ -30,7 +30,10 @@ const isValidYearMonthDay = (value: string) => {
   return parsed.getUTCFullYear() === year && parsed.getUTCMonth() + 1 === month && parsed.getUTCDate() === date;
 };
 
-class AttendanceLog extends Model<InferAttributes<AttendanceLog>, InferCreationAttributes<AttendanceLog>> {
+class AttendanceLog extends Model<
+  InferAttributes<AttendanceLog, { omit: 'createdAt' | 'updatedAt' }>,
+  InferCreationAttributes<AttendanceLog, { omit: 'createdAt' | 'updatedAt' }>
+> {
   declare id: CreationOptional<number>;
   declare userid: string;
   declare username: string;

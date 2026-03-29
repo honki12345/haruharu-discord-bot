@@ -1,0 +1,6 @@
+fail-on-severity: moderate
+warn-only: false
+deny-licenses:
+  - GPL-2.0
+  - GPL-3.0
+  - AGPL-3.0

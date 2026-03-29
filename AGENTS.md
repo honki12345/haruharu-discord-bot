@@ -9,10 +9,12 @@
 ## 프로젝트 요약
 
 - 이 저장소는 Discord 슬래시 커맨드와 음성 채널 이벤트를 처리하는 단일 TypeScript 봇이다.
-- 런타임 진입점은 `src/index.ts`이고, 커맨드 등록 스크립트는 `src/deploy-commands.ts`다.
+- 런타임 진입점은 `src/index.ts`이고, 실제 Discord client 생성/커맨드·이벤트 로딩은 `src/runtime.ts`가 담당한다.
+- 커맨드 등록 스크립트는 `src/deploy-commands.ts`다.
 - 데이터 저장은 SQLite + Sequelize 모델(`src/repository`)로 처리한다.
 - 캠스터디는 진행 중 세션을 `CamStudyActiveSession`으로 별도 저장하고, 재기동 시 `ready.ts`에서 복구한다.
-- 테스트는 Vitest를 사용하며 기본 테스트와 통합 테스트를 분리한다.
+- 테스트는 Vitest를 사용하며 기본 테스트, bot boot smoke test, 통합 테스트를 분리한다.
+- 운영 배포는 GitHub Actions `workflow_dispatch` + SSH + PM2 조합을 기준으로 한다.
 
 ## 우선 참고 문서
 
@@ -30,6 +32,7 @@
 .
 ├── src/
 │   ├── index.ts                  # 봇 런타임 진입점
+│   ├── runtime.ts                # Discord client/커맨드/이벤트 로더와 smoke boot 진입점
 │   ├── deploy-commands.ts        # Discord 슬래시 커맨드 등록
 │   ├── attendance.ts             # 출석 판정/이모지 유틸리티
 │   ├── daily-attendance.ts       # 운영 daily message/thread 생성 및 재탐색 유틸리티
@@ -42,11 +45,13 @@
 │   ├── repository/               # Sequelize 모델과 DB 설정
 │   └── test/                     # Vitest 테스트와 테스트 헬퍼
 ├── docs/                         # 프로젝트/프로세스 문서
+│   ├── PRODUCTION_RUNBOOK.md     # production 배포/검증/롤백 절차
 │   └── plan/                     # 이슈별 구현 계획 문서
 ├── .github/
 │   ├── ISSUE_TEMPLATE/           # GitHub 이슈 템플릿
 │   ├── pull_request_template.md  # GitHub PR 템플릿
-│   └── workflows/                # GitHub Actions
+│   └── workflows/                # GitHub Actions CI / dependency review / deploy
+├── scripts/                      # 배포/운영 헬퍼 스크립트
 ├── logs/                         # 런타임 로그 출력 디렉터리
 ├── README.md
 ├── package.json
@@ -59,9 +64,17 @@
 
 ### `src/index.ts`
 
-- Discord client 생성과 커맨드/이벤트 동적 로딩만 담당한다.
+- 프로세스 시작용 진입점만 담당한다.
+- 실제 Discord client 생성과 커맨드/이벤트 동적 로딩은 `src/runtime.ts`로 위임한다.
 - 새 기능의 비즈니스 로직을 직접 넣지 말고 `commands`, `events`, `repository`, `utils`로 분리한다.
 - 커맨드 모듈은 `export const command`, 이벤트 모듈은 `export const event` 형태를 유지한다.
+- 특정 채널에서만 실행되어야 하는 슬래시 커맨드는 `allowedChannelIds` 메타데이터로 제한하고, 실제 채널 ID는 `config.json`에서 읽는다.
+
+### `src/runtime.ts`
+
+- Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집을 담당한다.
+- `src/index.ts`, `src/deploy-commands.ts`, bot boot smoke test가 같은 로더를 재사용하도록 유지한다.
+- 새 커맨드/이벤트 파일을 추가하면 source(`.ts`)와 build output(`.js`) 양쪽에서 로더가 동작하는지 확인한다.
 
 ### `src/commands/haruharu`
 
@@ -77,6 +90,7 @@
 - 기상시간 self-service는 `/register` 하나로 신규 등록과 수정(upsert)을 처리하되 하루 1회 제한을 지켜야 한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
+- 역할 기반 운영 흐름을 추가할 때는 `#apply` 같은 신청 채널과 `#ops` 같은 운영 채널을 분리하고, 신청 응답은 가능하면 `ephemeral`로 처리한다.
 
 ### `src/events`
 
@@ -86,6 +100,7 @@
 - `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
+- `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#apply`/`#ops` 같은 전용 채널에 묶이는지 문서에 남긴다.
 
 ### `src/daily-attendance.ts`
 
@@ -102,6 +117,7 @@
 - `CamStudyWeeklyTimeLog`는 해당 주차의 `CamStudyTimeLog`를 재계산한 결과를 반영하는 용도로 유지하고, 같은 일간 로그를 누적 덧셈으로 중복 반영하지 않는다.
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
+- 역할 기반 온보딩/신청 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하고, 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 책임을 분리한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
   - `docs/PROJECT.md`의 테이블 설명
@@ -114,6 +130,8 @@
 - 사용자 스토리 또는 버그 시나리오 단위로 테스트를 추가한다.
 - 공통 mock/helper는 `src/test/test-setup.ts`에 둔다.
 - 통합 테스트는 `src/test/integration`에 둔다.
+- bot boot smoke test는 Discord 로그인 없이 `config 로딩 -> client 생성 -> command/event 로딩`까지만 검증한다.
+- workflow/CI 회귀 테스트가 필요하면 `.github/workflows`를 읽는 정적 테스트를 추가할 수 있다.
 - 기능 수정 시 가능하면 회귀 테스트를 같이 추가한다.
 
 ### `docs`
@@ -131,11 +149,16 @@
 - 구현 이슈는 `.github/ISSUE_TEMPLATE/implementation.yml`을 기본으로 사용한다.
 - 이슈 템플릿은 현재 저장소 문맥에 맞는 예시와 완료 조건을 유지한다.
 - 구현 이슈 템플릿에는 최소한 `완료조건`, `검증항목`, `회귀 테스트 계획`, `구현 계획`이 있어야 한다.
+- workflow는 역할을 분리한다.
+  - `ci.yml`: lint / prettier / unit test / smoke test / integration test
+  - `dependency-review.yml`: 의존성 변경 PR 리뷰
+  - `deploy-production.yml`: 수동 시작 production 배포와 readiness 확인
 
 ## 구현 컨벤션
 
 - TypeScript ESM import 경로는 현재 코드베이스처럼 `.js` 확장자를 명시한다.
 - 설정값은 `config.json`에서 읽으며, 현재 패턴대로 `createRequire(import.meta.url)` 사용을 우선한다.
+- 역할 기반 접근 제어를 추가할 때는 채널 ID와 역할 ID를 `config.json`에 명시하고, 코드에서는 하드코딩하지 않는다.
 - 로깅은 `console.log`보다 `src/logger.ts`의 `logger` 사용을 우선한다. 단, 부팅 로더 수준의 단순 진단 출력은 기존 패턴을 따른다.
 - 날짜/시간 계산과 상수는 가능한 한 `src/utils.ts`에 모은다.
 - daily message 질문 정책은 `src/daily-message.ts`, 운영 daily message/thread 생성 규칙은 `src/daily-attendance.ts`에 모은다.
@@ -207,6 +230,7 @@
 - 현재 저장소 기준 최소 확인 명령은 아래와 같다.
   - `npm run lint`
   - `npx prettier --check src`
+  - `npm run build`
   - `npm test`
 
 ## 이슈 작성 원칙
@@ -245,20 +269,24 @@
 
 ## 자주 쓰는 명령
 
+- `npm run build`
 - `npm run local:ci`
 - `npm run lint`
 - `npm run lint:fix`
 - `npm run test`
+- `npm run test:smoke`
 - `npm run test:integration`
 - `npm run start`
 
 ## 문서 갱신 기준
 
 - 새 슬래시 커맨드 추가: `AGENTS.md`, `docs/PROJECT.md`, 필요 시 `docs/USER_STORIES.md`
+- 역할 기반 신청/승인 흐름 추가: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`
 - 이벤트 흐름 변경: `AGENTS.md`, `docs/PROJECT.md`
 - DB 컬럼/테이블 변경: `AGENTS.md`, `docs/PROJECT.md`, 관련 테스트
 - self-service 정책 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `README.md`
 - 정책/운영 규칙 변경: `AGENTS.md`, 해당 정책 문서
+- CI/CD 또는 배포 절차 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `docs/PRODUCTION_RUNBOOK.md`
 - 구현 계획 문서 추가/수정: `AGENTS.md`, `docs/plan/*`
 - GitHub 이슈/PR 프로세스 변경: `AGENTS.md`, `.github/*`, 필요 시 `docs/pull_request_template.md`
 

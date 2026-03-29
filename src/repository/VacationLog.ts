@@ -16,7 +16,10 @@ const isValidYearMonthDay = (value: string) => {
   return parsed.getUTCFullYear() === year && parsed.getUTCMonth() + 1 === month && parsed.getUTCDate() === date;
 };
 
-class VacationLog extends Model<InferAttributes<VacationLog>, InferCreationAttributes<VacationLog>> {
+class VacationLog extends Model<
+  InferAttributes<VacationLog, { omit: 'createdAt' | 'updatedAt' }>,
+  InferCreationAttributes<VacationLog, { omit: 'createdAt' | 'updatedAt' }>
+> {
   declare id: CreationOptional<number>;
   declare userid: string;
   declare username: string;

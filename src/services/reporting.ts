@@ -19,6 +19,7 @@ import { CamStudyUsers } from '../repository/CamStudyUsers.js';
 import { CamStudyWeeklyTimeLog } from '../repository/CamStudyWeeklyTimeLog.js';
 import { CamStudyActiveSession } from '../repository/CamStudyActiveSession.js';
 import { AttendanceLog } from '../repository/AttendanceLog.js';
+import { ParticipationApplication } from '../repository/ParticipationApplication.js';
 import { TimeLog } from '../repository/TimeLog.js';
 import { Users } from '../repository/Users.js';
 import { VacationLog } from '../repository/VacationLog.js';
@@ -43,6 +44,7 @@ const syncModels = async () => {
   await Users.sync();
   await TimeLog.sync();
   await AttendanceLog.sync();
+  await ParticipationApplication.sync();
   await VacationLog.sync();
   await WaketimeChangeLog.sync();
   await CamStudyUsers.sync();
