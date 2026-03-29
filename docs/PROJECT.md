@@ -27,7 +27,8 @@
 ```
 haruharu-discord-bot/
 ├── src/
-│   ├── index.ts                 # 봇 진입점, 커맨드/이벤트 로더
+│   ├── index.ts                 # 봇 진입점, runtime 부트스트랩
+│   ├── runtime.ts               # Discord client/커맨드/이벤트 로더
 │   ├── config.ts                # 런타임 설정 로더
 │   ├── deployConfig.ts          # 슬래시 커맨드 배포용 최소 설정 로더
 │   ├── logger.ts                # Winston 로깅 설정
@@ -73,13 +74,21 @@ haruharu-discord-bot/
 │
 ├── docs/
 │   ├── PROJECT.md               # 프로젝트 문서 (현재 파일)
+│   ├── PRODUCTION_RUNBOOK.md    # production 배포/검증/롤백 runbook
 │   ├── USER_STORIES.md          # 사용자 스토리 및 시퀀스 다이어그램
 │   ├── plan/                    # 이슈별 구현 계획 문서
 │   └── COMMIT_CONVENTION.md     # 커밋 컨벤션
 │
 ├── .github/
+│   ├── dependency-review-config.yml # dependency review 정책
 │   └── workflows/
-│       └── ci.yml               # GitHub Actions CI
+│       ├── ci.yml               # GitHub Actions CI + bot smoke test
+│       ├── dependency-review.yml # 의존성 변경 PR 검토
+│       └── deploy-production.yml # workflow_dispatch production 배포
+│
+├── scripts/
+│   ├── deploy-production.sh     # OCI SSH 배포 스크립트
+│   └── verify-production-readiness.sh # PM2 / ready 로그 확인 스크립트
 │
 ├── logs/                        # 일별 로테이션 로그
 ├── dist/                        # 컴파일된 JavaScript
@@ -176,6 +185,35 @@ haruharu-discord-bot/
 - 운영 daily message/thread 중복 방지와 재탐색은 `src/daily-attendance.ts`가 담당한다.
 - 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
 - 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
+
+### Runtime / Delivery
+
+| 파일 | 역할 |
+|------|------|
+| `src/index.ts` | 프로세스 진입점. `bootstrapClient()` 호출과 Discord 로그인 시작만 담당 |
+| `src/runtime.ts` | Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집, smoke boot 지원 |
+| `src/deploy-commands.ts` | `src/runtime.ts` 로더를 재사용해 slash command JSON을 생성하고 Discord에 등록 |
+
+### GitHub Actions
+
+| Workflow | 트리거 | 역할 |
+|----------|--------|------|
+| `CI` | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
+| `Dependency Review` | `pull_request` + package manifest 변경 | 취약점/라이선스 정책 검토 |
+| `Deploy Production` | `workflow_dispatch` | verify 후 OCI 서버에 SSH 배포하고 PM2/ready 로그를 확인 |
+
+### Production 배포 흐름
+
+```mermaid
+flowchart TD
+  A[workflow_dispatch] --> B[verify job]
+  B --> C[lint + prettier + build + test + smoke]
+  C --> D[deploy job]
+  D --> E[SSH deploy to OCI]
+  E --> F[pm2 reload or start]
+  F --> G[pm2 status + ready log check]
+  G --> H[Manual /ping if needed]
+```
 
 #### interactionCreate.ts
 | 항목 | 내용 |
@@ -391,11 +429,14 @@ haruharu-discord-bot/
 
 | 스크립트 | 설명 |
 |----------|------|
+| `npm run build` | TypeScript 컴파일 |
 | `npm start` | TypeScript 컴파일 후 봇 실행 |
 | `npm run pm2` | PM2로 프로덕션 배포 |
-| `npm run local:ci` | GitHub Actions CI와 같은 로컬 검증 실행 (`lint` + `prettier --check` + `test`) |
+| `npm run deploy:commands` | slash command를 다시 등록 |
+| `npm run local:ci` | GitHub Actions CI와 같은 로컬 검증 실행 (`lint` + `prettier --check` + `build` + `test`) |
 | `npm run lint` | ESLint 검사 |
 | `npm run lint:fix` | ESLint 자동 수정 |
+| `npm run test:smoke` | Discord 로그인 없이 bot boot smoke test 실행 |
 | `npm run format` | Prettier 포맷팅 |
 
 ---
@@ -410,12 +451,13 @@ haruharu-discord-bot/
 | 데이터베이스 | SQLite3 + Sequelize |
 | 로깅 | Winston + Daily Rotate |
 | 코드 품질 | ESLint + Prettier |
-| 배포 | PM2 |
-| CI/CD | GitHub Actions |
+| 배포 | GitHub-hosted runner + SSH + PM2 |
+| CI/CD | GitHub Actions (`CI`, `Dependency Review`, `Deploy Production`) |
 
 ---
 
 ## 관련 문서
 
+- [Production Runbook](./PRODUCTION_RUNBOOK.md)
 - [사용자 스토리 및 시퀀스 다이어그램](./USER_STORIES.md)
 - [커밋 컨벤션](./COMMIT_CONVENTION.md)

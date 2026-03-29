@@ -1,6 +1,6 @@
 import { Events, Collection, ChatInputCommandInteraction } from 'discord.js';
 import { commandChannelIds } from '../config.js';
-import { MyClient } from '../index.js';
+import type { MyClient } from '../runtime.js';
 
 export const event = {
   name: Events.InteractionCreate,
