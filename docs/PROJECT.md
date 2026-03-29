@@ -322,7 +322,7 @@ flowchart TD
 - 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
 - `/apply-wakeup`, `/apply-cam`은 `#apply` 전용 채널에서만 실행된다.
 - `/approve-application`, `/reject-application`은 deprecated 상태로 `#ops`에서만 남아 있고 실제 참여 상태는 바꾸지 않는다.
-- `/register-cam`, `/delete-cam`은 deprecated 상태로 남아 있으며 역할 기반 운영 흐름만 안내한다.
+- `/register-cam`, `/delete-cam`은 deprecated 상태로 `#ops`에서만 남아 있으며 역할 기반 운영 흐름만 안내한다.
 
 #### camStudyHandler.ts
 

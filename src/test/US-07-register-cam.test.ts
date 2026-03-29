@@ -27,6 +27,7 @@ describe('US-07: /register-cam 커맨드', () => {
   it('TC-RC01: /register-cam은 역할 기반 등록으로 전환되었음을 안내한다', async () => {
     const { command } = await import('../commands/haruharu/register-cam.js');
     expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false, false]);
+    expect(command.allowedChannelIds).toEqual(['valid-ops-channel-id']);
 
     const interaction = createMockInteraction({
       options: {

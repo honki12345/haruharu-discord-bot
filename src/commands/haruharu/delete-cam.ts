@@ -1,8 +1,10 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { opsChannelId } from '../../config.js';
 import { PERMISSION_NUM_ADMIN } from '../../utils.js';
 
 export const command = {
   cooldown: 5,
+  allowedChannelIds: [opsChannelId],
   data: new SlashCommandBuilder()
     .setName('delete-cam')
     .setDescription('deprecated: remove @cam-study role instead')
