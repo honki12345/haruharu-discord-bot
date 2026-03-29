@@ -64,6 +64,7 @@ type CommandResult = {
 };
 
 type WakeUpRoleResult = CommandResult | { member: GuildMember };
+const wakeUpUserLocks = new Map<string, Promise<void>>();
 
 const runChallengeTransaction = async <T>(callback: (transaction: Transaction) => Promise<T>) => {
   const sequelize = Users.sequelize;
@@ -72,6 +73,27 @@ const runChallengeTransaction = async <T>(callback: (transaction: Transaction) =
   }
 
   return sequelize.transaction(callback);
+};
+
+const runWithWakeUpUserLock = async <T>(userId: string, callback: () => Promise<T>) => {
+  const previous = wakeUpUserLocks.get(userId) ?? Promise.resolve();
+  let release = () => {};
+  const current = new Promise<void>(resolve => {
+    release = () => resolve();
+  });
+  const queued = previous.catch(() => undefined).then(() => current);
+  wakeUpUserLocks.set(userId, queued);
+
+  await previous.catch(() => undefined);
+
+  try {
+    return await callback();
+  } finally {
+    release();
+    if (wakeUpUserLocks.get(userId) === queued) {
+      wakeUpUserLocks.delete(userId);
+    }
+  }
 };
 
 const createChallengeUserSnapshot = async ({
@@ -350,24 +372,25 @@ const executeRegister = async ({
   userId: string;
   username: string;
   waketime: string;
-}): Promise<CommandResult> => {
-  const { year, month, date } = getYearMonthDate();
-  const yearmonth = getYearMonth(year, month);
-  const yearmonthday = `${yearmonth}${date}`;
-  const prepared = await prepareRegister({
-    userId,
-    username,
-    waketime,
-    yearmonth,
-    yearmonthday,
+}): Promise<CommandResult> =>
+  runWithWakeUpUserLock(userId, async () => {
+    const { year, month, date } = getYearMonthDate();
+    const yearmonth = getYearMonth(year, month);
+    const yearmonthday = `${yearmonth}${date}`;
+    const prepared = await prepareRegister({
+      userId,
+      username,
+      waketime,
+      yearmonth,
+      yearmonthday,
+    });
+
+    if ('reply' in prepared) {
+      return prepared;
+    }
+
+    return persistRegister(prepared);
   });
-
-  if ('reply' in prepared) {
-    return prepared;
-  }
-
-  return persistRegister(prepared);
-};
 
 const findRegisteredUserForDate = async (userId: string, yearmonthday: string) => {
   await ensureWakeUpMembershipSnapshotForDate(userId, yearmonthday);
@@ -508,54 +531,56 @@ const executeRegisterWithRoleSync = async ({
   username: string;
   waketime: string;
   guild: Guild | null;
-}): Promise<CommandResult> => {
-  const { year, month, date } = getYearMonthDate();
-  const yearmonth = getYearMonth(year, month);
-  const yearmonthday = `${yearmonth}${date}`;
-  const prepared = await prepareRegister({
-    userId,
-    username,
-    waketime,
-    yearmonth,
-    yearmonthday,
-  });
+}): Promise<CommandResult> =>
+  runWithWakeUpUserLock(userId, async () => {
+    const { year, month, date } = getYearMonthDate();
+    const yearmonth = getYearMonth(year, month);
+    const yearmonthday = `${yearmonth}${date}`;
+    const prepared = await prepareRegister({
+      userId,
+      username,
+      waketime,
+      yearmonth,
+      yearmonthday,
+    });
 
-  if ('reply' in prepared) {
-    return prepared;
-  }
-
-  const roleResult = await grantWakeUpRole(guild, userId);
-  if ('reply' in roleResult) {
-    return roleResult;
-  }
-
-  try {
-    return await persistRegister(prepared);
-  } catch (error) {
-    logger.error('register persistence failed after wake-up role grant', { error, userId, roleId: wakeUpRoleId });
-
-    try {
-      await roleResult.member.roles.remove(wakeUpRoleId);
-    } catch (rollbackError) {
-      logger.error('failed to rollback wake-up role after register persistence error', {
-        rollbackError,
-        userId,
-        roleId: wakeUpRoleId,
-      });
+    if ('reply' in prepared) {
+      return prepared;
     }
 
-    throw error;
-  }
-};
+    const roleResult = await grantWakeUpRole(guild, userId);
+    if ('reply' in roleResult) {
+      return roleResult;
+    }
 
-const executeStopWakeUp = async ({ userId }: { userId: string }): Promise<CommandResult> => {
-  const prepared = await prepareStopWakeUp({ userId });
-  if ('reply' in prepared) {
-    return prepared;
-  }
+    try {
+      return await persistRegister(prepared);
+    } catch (error) {
+      logger.error('register persistence failed after wake-up role grant', { error, userId, roleId: wakeUpRoleId });
 
-  return persistStopWakeUp(prepared);
-};
+      try {
+        await roleResult.member.roles.remove(wakeUpRoleId);
+      } catch (rollbackError) {
+        logger.error('failed to rollback wake-up role after register persistence error', {
+          rollbackError,
+          userId,
+          roleId: wakeUpRoleId,
+        });
+      }
+
+      throw error;
+    }
+  });
+
+const executeStopWakeUp = async ({ userId }: { userId: string }): Promise<CommandResult> =>
+  runWithWakeUpUserLock(userId, async () => {
+    const prepared = await prepareStopWakeUp({ userId });
+    if ('reply' in prepared) {
+      return prepared;
+    }
+
+    return persistStopWakeUp(prepared);
+  });
 
 const executeStopWakeUpWithRoleSync = async ({
   userId,
@@ -563,35 +588,36 @@ const executeStopWakeUpWithRoleSync = async ({
 }: {
   userId: string;
   guild: Guild | null;
-}): Promise<CommandResult> => {
-  const prepared = await prepareStopWakeUp({ userId });
-  if ('reply' in prepared) {
-    return prepared;
-  }
-
-  const roleResult = await revokeWakeUpRole(guild, userId);
-  if ('reply' in roleResult) {
-    return roleResult;
-  }
-
-  try {
-    return await persistStopWakeUp(prepared);
-  } catch (error) {
-    logger.error('stop-wakeup persistence failed after wake-up role revoke', { error, userId, roleId: wakeUpRoleId });
-
-    try {
-      await roleResult.member.roles.add(wakeUpRoleId);
-    } catch (rollbackError) {
-      logger.error('failed to rollback wake-up role after stop persistence error', {
-        rollbackError,
-        userId,
-        roleId: wakeUpRoleId,
-      });
+}): Promise<CommandResult> =>
+  runWithWakeUpUserLock(userId, async () => {
+    const prepared = await prepareStopWakeUp({ userId });
+    if ('reply' in prepared) {
+      return prepared;
     }
 
-    throw error;
-  }
-};
+    const roleResult = await revokeWakeUpRole(guild, userId);
+    if ('reply' in roleResult) {
+      return roleResult;
+    }
+
+    try {
+      return await persistStopWakeUp(prepared);
+    } catch (error) {
+      logger.error('stop-wakeup persistence failed after wake-up role revoke', { error, userId, roleId: wakeUpRoleId });
+
+      try {
+        await roleResult.member.roles.add(wakeUpRoleId);
+      } catch (rollbackError) {
+        logger.error('failed to rollback wake-up role after stop persistence error', {
+          rollbackError,
+          userId,
+          roleId: wakeUpRoleId,
+        });
+      }
+
+      throw error;
+    }
+  });
 
 export {
   ensureActiveWakeUpMembershipSnapshots,

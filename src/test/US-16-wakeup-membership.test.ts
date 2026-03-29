@@ -427,4 +427,97 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(membership?.status).toBe('active');
     expect(interaction.getLastReply()).toContain('역할');
   });
+
+  it('TC-WM13: /stop-wakeup 과 /register 동시 요청은 같은 사용자 기준으로 직렬화되어 역할-DB 상태가 어긋나지 않는다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'race-user',
+      username: '경합사용자',
+      waketime: '0705',
+      status: 'active',
+      stoppedat: null,
+    });
+    await TestUsers.create({
+      userid: 'race-user',
+      username: '경합사용자',
+      yearmonth: '202601',
+      waketime: '0705',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    let hasWakeUpRole = true;
+    let signalRemoveStarted: (() => void) | null = null;
+    const removeStarted = new Promise<void>(resolve => {
+      signalRemoveStarted = resolve;
+    });
+    let releaseRemove: (() => void) | null = null;
+    const removeCanFinish = new Promise<void>(resolve => {
+      releaseRemove = resolve;
+    });
+
+    const member = {
+      roles: {
+        add: vi.fn(async (roleId: string) => {
+          expect(roleId).toBe('valid-wake-up-role-id');
+          hasWakeUpRole = true;
+        }),
+        remove: vi.fn(async (roleId: string) => {
+          expect(roleId).toBe('valid-wake-up-role-id');
+          hasWakeUpRole = false;
+          signalRemoveStarted?.();
+          await removeCanFinish;
+        }),
+      },
+      send: vi.fn(),
+    };
+    const guild = {
+      members: {
+        fetch: vi.fn().mockResolvedValue(member),
+      },
+    };
+
+    const { executeRegisterWithRoleSync, executeStopWakeUpWithRoleSync } =
+      await import('../services/challengeSelfService.js');
+
+    const stopPromise = executeStopWakeUpWithRoleSync({
+      userId: 'race-user',
+      guild: guild as never,
+    });
+
+    await removeStarted;
+
+    const registerPromise = executeRegisterWithRoleSync({
+      userId: 'race-user',
+      username: '경합사용자',
+      waketime: '0715',
+      guild: guild as never,
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(member.roles.add).not.toHaveBeenCalled();
+
+    releaseRemove?.();
+
+    const [stopResult, registerResult] = await Promise.all([stopPromise, registerPromise]);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'race-user' } });
+    const exclusion = await TestChallengeUserExclusion.findOne({
+      where: { userid: 'race-user', yearmonth: '202601' },
+    });
+    const currentMonthUser = await TestUsers.findOne({
+      where: { userid: 'race-user', yearmonth: '202601' },
+    });
+
+    expect(stopResult.reply).toContain('즉시 중단');
+    expect(registerResult.reply).toContain('다음 달부터 다시 등록');
+    expect(membership?.status).toBe('stopped');
+    expect(exclusion).not.toBeNull();
+    expect(currentMonthUser).toBeNull();
+    expect(hasWakeUpRole).toBe(false);
+  });
 });
