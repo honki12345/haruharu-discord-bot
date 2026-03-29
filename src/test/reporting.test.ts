@@ -172,6 +172,28 @@ describe('reporting service', () => {
     expect(updatedUser?.absencecount).toBe(2);
   });
 
+  it('공휴일에는 출석 집계를 건너뛰고 카운트를 변경하지 않는다', async () => {
+    vi.setSystemTime(new Date('2026-01-01T13:00:00'));
+
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202601',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 1,
+      absencecount: 2,
+    });
+
+    const { attendanceMessage, hallOfFameMessage } = await buildChallengeReport();
+    const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202601' } });
+
+    expect(attendanceMessage).toBeNull();
+    expect(hallOfFameMessage).toBeNull();
+    expect(updatedUser?.latecount).toBe(1);
+    expect(updatedUser?.absencecount).toBe(2);
+  });
+
   it('스케줄 리포트 실행이 실패해도 에러를 로깅하고 다음 실행으로 죽지 않는다', async () => {
     vi.setSystemTime(new Date('2025-12-08T12:59:00'));
 
