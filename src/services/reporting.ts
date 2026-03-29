@@ -80,8 +80,12 @@ const buildChallengeReport = async () => {
   timeLogs.forEach(timeLog => {
     timeLogsByUserId[timeLog.userid]?.push(timeLog);
   });
-  logger.info(`user id 로 그룹핑한 attendanceLog 인스턴스들: `, {
-    attendanceLogsByUserId: Object.fromEntries(attendanceLogsByUserId),
+  logger.info(`user id 로 그룹핑한 attendanceLog 인스턴스들 요약: `, {
+    totalUsers: attendanceLogsByUserId.size,
+    attendanceSummary: Array.from(attendanceLogsByUserId.values()).map(log => ({
+      userid: log.userid,
+      status: log.status,
+    })),
   });
   logger.info(`user id 로 그룹핑한 timeLog fallback 인스턴스들: `, { timeLogsByUserId });
 

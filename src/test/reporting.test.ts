@@ -47,6 +47,37 @@ describe('reporting service', () => {
     expect(attendanceMessage).toContain('홍길동: 출석');
   });
 
+  it('AttendanceLog 요약 로그는 상태만 남기고 thread/message 식별자는 남기지 않는다', async () => {
+    vi.setSystemTime(new Date('2025-12-08T13:00:00'));
+
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    await TestAttendanceLog.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonthday: '20251208',
+      threadid: 'thread-sensitive',
+      messageid: 'message-sensitive',
+      commentedat: '2025-12-07T22:00:00Z',
+      status: 'attended',
+    });
+
+    await buildChallengeReport();
+
+    expect(logger.info).toHaveBeenCalledWith('user id 로 그룹핑한 attendanceLog 인스턴스들 요약: ', {
+      totalUsers: 1,
+      attendanceSummary: [{ userid: 'user1', status: 'attended' }],
+    });
+  });
+
   it('AttendanceLog가 아직 없더라도 기존 TimeLog 2건 정시 출석은 출석으로 유지된다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
