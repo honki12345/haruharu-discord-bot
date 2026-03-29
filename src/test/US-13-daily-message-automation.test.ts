@@ -512,6 +512,41 @@ describe('US-13: 운영 daily message 자동화', () => {
     expect(resultChannelSend).toHaveBeenCalledWith('hall of fame');
   });
 
+  it('출석 thread 확보가 실패해도 월말 생존명단 전송은 계속한다', async () => {
+    const resultChannelSend = vi.fn().mockResolvedValue(undefined);
+    mockBuildChallengeReport.mockResolvedValueOnce({
+      attendanceMessage: 'attendance report',
+      attendanceMessages: ['attendance report'],
+      hallOfFameMessage: 'hall of fame',
+    });
+
+    const { event } = await import('../events/ready.js');
+
+    await event.execute({
+      channels: {
+        fetch: vi.fn().mockRejectedValue(new Error('fetch failed')),
+        cache: {
+          get: vi
+            .fn()
+            .mockImplementation((id: string) =>
+              id === 'valid-result-channel-id' ? { send: resultChannelSend } : undefined,
+            ),
+        },
+      },
+      user: {
+        tag: 'haruharu#0001',
+      },
+    } as never);
+
+    const challengeReportRunner = mockScheduleDailyReports.mock.calls[0]?.[0];
+    expect(challengeReportRunner).toBeTypeOf('function');
+
+    await expect(challengeReportRunner()).resolves.toBeUndefined();
+
+    expect(resultChannelSend).toHaveBeenCalledOnce();
+    expect(resultChannelSend).toHaveBeenCalledWith('hall of fame');
+  });
+
   it('06시 이후에 부팅되면 오늘 운영 daily message 생성을 즉시 시도한다', async () => {
     vi.setSystemTime(new Date('2026-03-29T07:30:00'));
     const startThread = vi.fn().mockResolvedValue({
