@@ -79,7 +79,7 @@ const commandSpecs = [
     modulePath: '../commands/haruharu/approve-application.js',
     baseName: 'approve-application',
     koName: 'admin-신청승인',
-    koDescription: '관리자가 참여 신청을 승인합니다',
+    koDescription: '자동 승인 전환으로 더 이상 사용하지 않는 레거시 명령입니다',
     category: 'admin',
     options: [
       { name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' },
@@ -90,7 +90,7 @@ const commandSpecs = [
     modulePath: '../commands/haruharu/reject-application.js',
     baseName: 'reject-application',
     koName: 'admin-신청거절',
-    koDescription: '관리자가 참여 신청을 거절합니다',
+    koDescription: '자동 승인 전환으로 더 이상 사용하지 않는 레거시 명령입니다',
     category: 'admin',
     options: [
       { name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' },
@@ -113,7 +113,7 @@ const commandSpecs = [
     modulePath: '../commands/haruharu/register-cam.js',
     baseName: 'register-cam',
     koName: 'admin-캠스터디등록',
-    koDescription: '관리자가 캠스터디 참가자를 등록합니다',
+    koDescription: '자동 역할 연동으로 더 이상 사용하지 않는 레거시 명령입니다',
     category: 'admin',
     options: [
       { name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' },
@@ -124,7 +124,7 @@ const commandSpecs = [
     modulePath: '../commands/haruharu/delete-cam.js',
     baseName: 'delete-cam',
     koName: 'admin-캠스터디삭제',
-    koDescription: '관리자가 캠스터디 참가자를 삭제합니다',
+    koDescription: '자동 역할 연동으로 더 이상 사용하지 않는 레거시 명령입니다',
     category: 'admin',
     options: [{ name: 'userid', koName: '사용자id', koDescription: '대상 Discord 사용자 ID를 입력합니다' }],
   },

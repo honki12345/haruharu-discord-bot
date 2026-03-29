@@ -12,6 +12,7 @@ import {
   updateCamStudyActiveSession,
   updateCamStudyTimeLog,
 } from '../repository/camStudyRepository.js';
+import { finalizeDeferredCamStudyUserRemoval } from './camStudyRoleSync.js';
 import { LEAST_TIME_LIMIT } from '../utils/constants.js';
 import { getFormattedYesterday, getYearMonthDay, padTwoDigits } from '../utils/date.js';
 
@@ -242,6 +243,7 @@ const closeActiveSession = async (
 
   const effectiveEndedAt = Math.max(endedAt, Number(claimedSession.lastobservedat));
   const result = await finalizeCamStudyDuration(user, Number(claimedSession.startedat), effectiveEndedAt, reason);
+  await finalizeDeferredCamStudyUserRemoval(user.userid);
   return { ...result, skipped: false };
 };
 
@@ -370,7 +372,7 @@ const processCamStudyStateChange = async (
     shouldStart: transition.shouldStart,
     userId: newState.userId,
   });
-  const user = await findCamStudyUser(newState.userId);
+  let user = await findCamStudyUser(newState.userId);
 
   if (!user) {
     if (transition.userEnteredConfiguredChannel) {
@@ -425,6 +427,14 @@ const processCamStudyStateChange = async (
       logger.info('cam study stale session close skipped before start because another path already handled it', {
         userId: user.userid,
       });
+    }
+
+    user = await findCamStudyUser(user.userid);
+    if (!user) {
+      logger.info('cam study start ignored after deferred revoke removed user', {
+        userId: newState.userId,
+      });
+      return null;
     }
   }
 

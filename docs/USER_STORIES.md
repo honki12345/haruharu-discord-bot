@@ -34,21 +34,22 @@ sequenceDiagram
 
 ---
 
-### US-15: 역할 기반 참여 신청과 승인
+### US-15: 역할 기반 self-service 즉시 활성화
 
 ```
 AS A 서버 사용자
-I WANT TO /기상인증신청 또는 /캠스터디신청 으로 직접 신청하고 운영자 승인을 받고 싶다
-SO THAT 승인된 프로그램의 전용 채널만 자동으로 열리길 원한다
+I WANT TO /기상인증신청 또는 /캠스터디신청 으로 직접 신청하고 즉시 활성화되고 싶다
+SO THAT 운영자 승인 대기 없이 전용 채널 접근과 등록 상태가 바로 맞춰지길 원한다
 ```
 
 **인수 조건:**
 
 - `/기상인증신청` (`/apply-wakeup`), `/캠스터디신청` (`/apply-cam`)은 `#apply`에서만 실행된다
 - 신청 응답은 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
-- 신청 시 운영 채널에 승인/거절용 안내가 전송된다
-- 운영자가 승인하면 해당 역할이 자동 부여된다
-- 운영자가 거절하면 거절 사유와 재신청 안내가 사용자에게 전달된다
+- `/기상인증신청` 실행 시 `@wake-up` 역할과 `ParticipationApplication.status=approved`가 즉시 반영된다
+- `/캠스터디신청` 실행 시 `@cam-study` 역할, `ParticipationApplication.status=approved`, `CamStudyUsers` 등록이 즉시 반영된다
+- `@cam-study` 역할이 제거되면 진행 중 세션이 없을 때는 즉시 추적 대상에서 빠지고, 진행 중 세션이 있으면 종료 시점까지 정산한 뒤 제거된다
+- deprecated `/admin-신청승인`, `/admin-신청거절`은 더 이상 상태를 변경하지 않는다
 
 ```mermaid
 sequenceDiagram
@@ -56,25 +57,16 @@ sequenceDiagram
     participant A as #apply
     participant B as Bot
     participant DB as SQLite
-    participant O as #ops
     participant D as Discord Role
 
     U->>A: /기상인증신청 또는 /캠스터디신청
     A->>B: InteractionCreate 이벤트
-    B->>DB: ParticipationApplication 조회/생성
-    B-->>U: ephemeral "신청이 접수되었어요"
-    B->>O: 승인/거절 안내 전송
-
-    alt 운영자가 승인
-        O->>B: /admin-신청승인
-        B->>DB: status = approved
-        B->>D: 역할 부여
-        B-->>U: 승인 안내
-    else 운영자가 거절
-        O->>B: /admin-신청거절
-        B->>DB: status = rejected
-        B-->>U: 거절 사유 + 재신청 안내
+    B->>D: 역할 즉시 부여
+    B->>DB: ParticipationApplication.status = approved
+    alt 캠스터디 신청
+        B->>DB: CamStudyUsers upsert
     end
+    B-->>U: ephemeral "즉시 활성화되었어요"
 ```
 
 ---
@@ -416,34 +408,25 @@ sequenceDiagram
 ### US-7: 캠스터디 등록
 
 ```
-AS A 관리자
-I WANT TO 사용자를 캠스터디에 등록
-SO THAT 해당 사용자의 학습 시간이 추적된다
+AS A 운영자
+I WANT TO legacy /admin-캠스터디등록 명령이 deprecated 안내만 반환하길 원한다
+SO THAT 실제 등록 경로가 `/캠스터디신청` self-service + 역할 동기화로 일원화된다
 ```
 
 **인수 조건:**
 
-- 사용자 ID와 이름을 입력받는다
-- 중복 등록 불가
+- `/admin-캠스터디등록`은 더 이상 `CamStudyUsers`를 직접 생성하지 않는다
+- 응답에는 `/캠스터디신청` self-service 경로를 안내한다
 
 ```mermaid
 sequenceDiagram
     participant A as 관리자
     participant D as Discord
     participant B as Bot
-    participant DB as SQLite
 
     A->>D: /admin-캠스터디등록 사용자id:USER 이름:홍길동
-
     D->>B: InteractionCreate 이벤트
-
-    B->>DB: CamStudyUsers 조회 (userid)
-    alt 이미 등록됨
-        B-->>A: "이미 등록된 사용자입니다"
-    end
-
-    B->>DB: CamStudyUsers 생성
-    B-->>A: "홍길동님을 캠스터디 참가자로 등록했습니다"
+    B-->>A: "deprecated: /apply-cam 경로를 사용해 주세요"
 ```
 
 ---
@@ -612,34 +595,26 @@ sequenceDiagram
 ### US-11: 캠스터디 탈퇴
 
 ```
-AS A 관리자
-I WANT TO 사용자를 캠스터디에서 삭제
-SO THAT 해당 사용자의 학습 시간 추적이 중단된다
+AS A 운영자
+I WANT TO legacy /delete-cam 명령이 deprecated 안내만 반환하길 원한다
+SO THAT 실제 해제 경로가 `@cam-study` 역할 제거로 일원화된다
 ```
 
 **인수 조건:**
 
-- 등록된 사용자만 삭제 가능
-- 기존 학습 기록은 유지됨
+- `/delete-cam`은 더 이상 `CamStudyUsers`를 직접 삭제하지 않는다
+- 응답에는 `@cam-study` 역할 제거가 실제 해제 경로임을 안내한다
+- 기존 학습 기록은 유지된다
 
 ```mermaid
 sequenceDiagram
     participant A as 관리자
     participant D as Discord
     participant B as Bot
-    participant DB as SQLite
 
     A->>D: /delete-cam userid:USER
-
     D->>B: InteractionCreate 이벤트
-
-    B->>DB: CamStudyUsers 조회 (userid)
-    alt 미등록 사용자
-        B-->>A: "cam-study 삭제 실패: 존재하지 않는 회원입니다"
-    end
-
-    B->>DB: CamStudyUsers 삭제
-    B-->>A: "홍길동님을 캠스터디 참가자에서 삭제했습니다"
+    B-->>A: "deprecated: @cam-study 역할을 제거해 주세요"
 ```
 
 ---

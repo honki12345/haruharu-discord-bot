@@ -485,6 +485,59 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
 
         expect(existing).not.toBeNull();
       });
+
+      it('동일 userid 중복 row 가 있어도 upsert helper 는 1건으로 정리한다', async () => {
+        await TestCamStudyUsers.bulkCreate([
+          {
+            userid: 'cam_user1',
+            username: '홍길동',
+          },
+          {
+            userid: 'cam_user1',
+            username: '김철수',
+          },
+        ]);
+
+        const { upsertCamStudyUser } = await import('../repository/camStudyRepository.js');
+        await upsertCamStudyUser({
+          userid: 'cam_user1',
+          username: '최신이름',
+        });
+
+        const rows = await TestCamStudyUsers.findAll({
+          where: { userid: 'cam_user1' },
+          order: [['id', 'ASC']],
+        });
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.username).toBe('최신이름');
+      });
+
+      it('동일 userid concurrent upsert 가 동시에 들어와도 중복 row 없이 유지된다', async () => {
+        const { upsertCamStudyUser } = await import('../repository/camStudyRepository.js');
+
+        await Promise.all([
+          upsertCamStudyUser({
+            userid: 'cam_user1',
+            username: '홍길동',
+          }),
+          upsertCamStudyUser({
+            userid: 'cam_user1',
+            username: '홍길동',
+          }),
+          upsertCamStudyUser({
+            userid: 'cam_user1',
+            username: '홍길동',
+          }),
+        ]);
+
+        const rows = await TestCamStudyUsers.findAll({
+          where: { userid: 'cam_user1' },
+        });
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.username).toBe('홍길동');
+      });
     });
 
     describe('US-11: 캠스터디 탈퇴', () => {

@@ -74,6 +74,7 @@
 
 - Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집을 담당한다.
 - `src/index.ts`, `src/deploy-commands.ts`, bot boot smoke test가 같은 로더를 재사용하도록 유지한다.
+- 역할 기반 자동 동기화를 위해 `GuildMembers` intent와 partial guild member fallback이 유지되어야 한다.
 - 새 커맨드/이벤트 파일을 추가하면 source(`.ts`)와 build output(`.js`) 양쪽에서 로더가 동작하는지 확인한다.
 
 ### `src/commands/haruharu`
@@ -88,9 +89,12 @@
 - DB 접근은 직접 Sequelize 쿼리를 쓰더라도 repository 모델을 통해서만 접근한다.
 - 사용자 self-service 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 변경해야 한다.
 - 기상시간 self-service는 `/register` 하나로 신규 등록과 수정(upsert)을 처리하되 하루 1회 제한을 지켜야 한다.
+- `/apply-wakeup`은 운영자 승인 없이 `ParticipationApplication.status=approved`와 `@wake-up` 역할 부여를 즉시 반영하고, 실제 기상시간 등록은 `/register`로 분리한다.
+- `/apply-cam`은 운영자 승인 없이 `ParticipationApplication.status=approved`, `@cam-study` 역할 부여, `CamStudyUsers` upsert를 즉시 반영한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
 - 역할 기반 운영 흐름을 추가할 때는 `#apply` 같은 신청 채널과 `#ops` 같은 운영 채널을 분리하고, 신청 응답은 가능하면 `ephemeral`로 처리한다.
+- `/approve-application`, `/reject-application`, `/register-cam`, `/delete-cam`은 등록을 끊지 말고 deprecated 안내만 반환하는 legacy 명령으로 유지한다.
 
 ### `src/events`
 
@@ -98,6 +102,7 @@
 - `ready.ts`는 부팅, 테이블 sync, 운영 daily message/thread 생성 스케줄, 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅을 담당한다.
 - `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 실패 시 상태 전이 문맥을 로그에 남긴다.
+- `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 `CamStudyUsers`와 동기화하고, 활성 세션이 있으면 삭제를 종료 시점까지 defer 한다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
 - `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#apply`/`#ops` 같은 전용 채널에 묶이는지 문서에 남긴다.
@@ -118,6 +123,7 @@
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
 - 역할 기반 온보딩/신청 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하고, 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 책임을 분리한다.
+- `CamStudyUsers` 변경은 repository helper에서 같은 `userid` 기준으로 직렬화하고, 중복 row가 있으면 한 건으로 정리한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
   - `docs/PROJECT.md`의 테이블 설명
@@ -163,6 +169,7 @@
 - 날짜/시간 계산과 상수는 가능한 한 `src/utils.ts`에 모은다.
 - daily message 질문 정책은 `src/daily-message.ts`, 운영 daily message/thread 생성 규칙은 `src/daily-attendance.ts`에 모은다.
 - 캠스터디 재기동 복구, heartbeat, 종료 이벤트 유실 보호 로직은 `src/services/camStudy.ts`에 모은다.
+- 캠스터디 역할 기반 등록/해제 동기화와 revoke defer 정책은 `src/services/camStudyRoleSync.ts`에 모은다.
 - 비즈니스 규칙은 하드코딩을 흩뿌리지 말고 상수 또는 유틸 함수로 끌어올린다.
 - 기존 파일 스타일을 존중한다. 이 저장소는 한국어 설명과 영어 식별자가 혼용된다.
 
@@ -281,7 +288,7 @@
 ## 문서 갱신 기준
 
 - 새 슬래시 커맨드 추가: `AGENTS.md`, `docs/PROJECT.md`, 필요 시 `docs/USER_STORIES.md`
-- 역할 기반 신청/승인 흐름 추가: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`
+- 역할 기반 신청/자동 활성화 흐름 추가: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`
 - 이벤트 흐름 변경: `AGENTS.md`, `docs/PROJECT.md`
 - DB 컬럼/테이블 변경: `AGENTS.md`, `docs/PROJECT.md`, 관련 테스트
 - self-service 정책 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `README.md`

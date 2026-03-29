@@ -8,6 +8,72 @@ const findCamStudyUser = (userid: string) => CamStudyUsers.findOne({ where: { us
 
 const listCamStudyUsers = () => CamStudyUsers.findAll();
 
+const camStudyUserMutationQueue = new Map<string, Promise<void>>();
+
+const runSerializedCamStudyUserMutation = async <T>(userid: string, operation: () => Promise<T>) => {
+  const previous = camStudyUserMutationQueue.get(userid) ?? Promise.resolve();
+  let releaseCurrentQueue!: () => void;
+  const current = new Promise<void>(resolve => {
+    releaseCurrentQueue = resolve;
+  });
+  const queued = previous.catch(() => undefined).then(() => current);
+
+  camStudyUserMutationQueue.set(userid, queued);
+  await previous.catch(() => undefined);
+
+  try {
+    return await operation();
+  } finally {
+    releaseCurrentQueue();
+    if (camStudyUserMutationQueue.get(userid) === queued) {
+      camStudyUserMutationQueue.delete(userid);
+    }
+  }
+};
+
+const upsertCamStudyUser = (payload: { userid: string; username: string }) =>
+  runSerializedCamStudyUserMutation(payload.userid, async () => {
+    const existingUsers = await CamStudyUsers.findAll({
+      where: { userid: payload.userid },
+      order: [['id', 'ASC']],
+    });
+
+    if (existingUsers.length === 0) {
+      return CamStudyUsers.create(payload);
+    }
+
+    const [primaryUser, ...duplicateUsers] = existingUsers;
+    await CamStudyUsers.update(
+      {
+        username: payload.username,
+      },
+      {
+        where: { id: primaryUser.id },
+      },
+    );
+
+    if (duplicateUsers.length > 0) {
+      await CamStudyUsers.destroy({
+        where: {
+          id: {
+            [Op.in]: duplicateUsers.map(user => user.id),
+          },
+        },
+      });
+    }
+
+    return CamStudyUsers.findOne({
+      where: { id: primaryUser.id },
+    });
+  });
+
+const deleteCamStudyUser = (userid: string) =>
+  runSerializedCamStudyUserMutation(userid, async () =>
+    CamStudyUsers.destroy({
+      where: { userid },
+    }),
+  );
+
 const findCamStudyActiveSession = (userid: string) => CamStudyActiveSession.findOne({ where: { userid } });
 
 const listCamStudyActiveSessions = () => CamStudyActiveSession.findAll();
@@ -166,6 +232,7 @@ export {
   createWeeklyCamStudyTimeLog,
   deleteCamStudyActiveSession,
   deleteCamStudyActiveSessionMatching,
+  deleteCamStudyUser,
   findCamStudyActiveSession,
   findCamStudyTimeLog,
   findCamStudyUser,
@@ -176,6 +243,7 @@ export {
   listCamStudyUsers,
   listWeeklyCamStudyTimeLogs,
   replaceWeeklyCamStudyTimeLogs,
+  upsertCamStudyUser,
   updateCamStudyActiveSession,
   updateCamStudyTimeLog,
   updateWeeklyCamStudyTimeLog,
