@@ -66,6 +66,7 @@ pm2_app_name="$3"
 artifact_path="$4"
 metadata_dir="${app_dir}/runtime"
 metadata_path="${metadata_dir}/production-deployment-metadata.env"
+artifact_metadata_path="${metadata_dir}/production-artifact-metadata.json"
 info_log_pattern='[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].log'
 
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
@@ -78,6 +79,19 @@ command -v node >/dev/null || { echo "node not found in remote deployment shell"
 command -v pm2 >/dev/null || { echo "pm2 not found in remote deployment shell" >&2; exit 1; }
 command -v tar >/dev/null || { echo "tar not found in remote deployment shell" >&2; exit 1; }
 
+case "${app_dir}" in
+  /*) ;;
+  *)
+    echo "PRODUCTION_APP_DIR must be an absolute path" >&2
+    exit 1
+    ;;
+esac
+
+if [[ "${app_dir}" == "/" ]]; then
+  echo "PRODUCTION_APP_DIR must not be /" >&2
+  exit 1
+fi
+
 mkdir -p "${app_dir}" "${metadata_dir}" "${app_dir}/logs"
 cd "${app_dir}"
 
@@ -87,13 +101,69 @@ if [[ -n "${previous_info_log_file}" ]]; then
   previous_info_log_size="$(wc -c < "${previous_info_log_file}")"
 fi
 
+staging_root="$(mktemp -d "${metadata_dir}/artifact-staging.XXXXXX")"
+cleanup_remote() {
+  rm -rf "${staging_root}"
+  rm -f "${artifact_path}"
+}
+trap cleanup_remote EXIT
+
+tar -xzf "${artifact_path}" -C "${staging_root}"
+
+if [[ ! -d "${staging_root}/dist" ]] || [[ ! -f "${staging_root}/package.json" ]] || [[ ! -f "${staging_root}/artifact-metadata.json" ]]; then
+  echo "Artifact validation failed: dist, package.json, or artifact-metadata.json missing" >&2
+  exit 1
+fi
+
+node - "${staging_root}/artifact-metadata.json" <<'EOF'
+const fs = require('fs');
+
+const buildMetadata = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const report = process.report?.getReport?.();
+const runtimeMetadata = {
+  nodeVersion: process.version,
+  nodeModuleVersion: process.versions.modules,
+  platform: process.platform,
+  arch: process.arch,
+  glibcVersionRuntime: report?.header?.glibcVersionRuntime ?? null,
+};
+
+const mismatches = [];
+for (const key of ['platform', 'arch', 'nodeModuleVersion']) {
+  if (buildMetadata[key] !== runtimeMetadata[key]) {
+    mismatches.push(`${key}: build=${buildMetadata[key]} runtime=${runtimeMetadata[key]}`);
+  }
+}
+
+const buildLibcFamily = buildMetadata.glibcVersionRuntime ? 'glibc' : 'other';
+const runtimeLibcFamily = runtimeMetadata.glibcVersionRuntime ? 'glibc' : 'other';
+if (buildLibcFamily !== runtimeLibcFamily) {
+  mismatches.push(`libcFamily: build=${buildLibcFamily} runtime=${runtimeLibcFamily}`);
+}
+
+if (mismatches.length > 0) {
+  console.error('Artifact runtime compatibility check failed.');
+  console.error(mismatches.join('\n'));
+  process.exit(1);
+}
+EOF
+
+cp "${staging_root}/artifact-metadata.json" "${artifact_metadata_path}"
+
 rm -rf dist node_modules package.json package-lock.json
-tar -xzf "${artifact_path}" -C "${app_dir}"
-rm -f "${artifact_path}"
+mv "${staging_root}/dist" "${app_dir}/dist"
+if [[ -e "${staging_root}/node_modules" ]]; then
+  mv "${staging_root}/node_modules" "${app_dir}/node_modules"
+fi
+mv "${staging_root}/package.json" "${app_dir}/package.json"
+if [[ -e "${staging_root}/package-lock.json" ]]; then
+  mv "${staging_root}/package-lock.json" "${app_dir}/package-lock.json"
+fi
 
 cat > "${metadata_path}" <<METADATA
 DEPLOY_GIT_SHA=${deploy_git_sha}
 DEPLOY_ARTIFACT_PATH=${artifact_path}
+DEPLOY_ARTIFACT_METADATA_PATH=${artifact_metadata_path}
 DEPLOY_STARTED_AT_EPOCH=$(date +%s)
 PREVIOUS_INFO_LOG_FILE=${previous_info_log_file}
 PREVIOUS_INFO_LOG_SIZE=${previous_info_log_size}

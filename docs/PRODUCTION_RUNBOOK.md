@@ -16,13 +16,14 @@
 ```mermaid
 flowchart TD
   A[Operator runs workflow_dispatch] --> B[verify job: lint + prettier + build + test + smoke]
-  B --> C[package production artifact]
+  B --> C[package production artifact + metadata]
   C --> D[deploy job downloads artifact]
   D --> E[scp artifact to OCI host]
-  E --> F[extract artifact in app dir]
-  F --> G[pm2 reload or start]
-  G --> H[pm2 status + ready log check]
-  H --> I[Manual /ping check if needed]
+  E --> F[validate platform, arch, Node ABI]
+  F --> G[staged extract in app dir]
+  G --> H[pm2 reload or start]
+  H --> I[pm2 status + ready log check]
+  I --> J[Manual /ping check if needed]
 ```
 
 ## GitHub 설정
@@ -64,13 +65,16 @@ flowchart TD
    - `npm run test:smoke`
 4. `verify`가 끝나면 workflow가 검증된 commit SHA를 고정하고, 같은 SHA에서 production artifact를 만든다.
    - `npm prune --omit=dev`로 production 실행에 필요한 의존성만 남긴다.
-   - `dist`, `node_modules`, `package.json`, `package-lock.json`을 tar.gz artifact로 묶어 업로드한다.
+   - `dist`, `node_modules`, `package.json`, `package-lock.json`, `artifact-metadata.json`을 tar.gz artifact로 묶어 업로드한다.
+   - `artifact-metadata.json`에는 build 시점 Node version, Node ABI, platform, arch, glibc 정보를 기록한다.
 5. `deploy` job이 시작되면 OCI 서버에 SSH 접속해서 아래를 수행한다.
    - deploy job은 verify에서 업로드한 artifact만 내려받고, 별도의 server-side build를 하지 않는다.
    - artifact를 OCI 서버로 `scp` 전송한다.
    - 비대화형 SSH 셸에서도 `nvm` 경로를 사용할 수 있도록 원격 스크립트가 `NVM_DIR`과 `nvm.sh`를 직접 로드한다.
    - `node`, `pm2`, `tar`가 현재 원격 셸에서 보이지 않으면 fail-fast로 중단한다.
-   - 기존 `dist`, `node_modules`, `package.json`, `package-lock.json`을 artifact 내용으로 교체한다.
+   - `PRODUCTION_APP_DIR`가 절대 경로인지, `/`가 아닌지 먼저 확인한 뒤에만 배포를 진행한다.
+   - 원격 Node/platform/arch/Node ABI가 `artifact-metadata.json`과 다르면 fail-fast로 중단한다.
+   - artifact는 임시 staging 디렉터리에 먼저 압축 해제하고 검증한 뒤, 기존 `dist`, `node_modules`, `package.json`, `package-lock.json`과 교체한다.
    - `config.json`, `database.sqlite`, `logs`, `runtime` 같은 서버 로컬 자산은 유지한다.
    - PM2 프로세스 reload 또는 최초 start
 6. `Verify production readiness` 단계에서 아래를 자동 확인한다.

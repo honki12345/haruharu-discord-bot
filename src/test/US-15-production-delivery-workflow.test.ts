@@ -25,18 +25,23 @@ describe('US-15 production delivery workflow', () => {
     expect(workflow).toContain('outputs:');
     expect(workflow).toContain('verified_sha');
     expect(workflow).toContain('artifact_name');
-    expect(workflow).toContain('artifact_path');
+    expect(workflow).toContain('artifact_filename');
     expect(workflow).toContain('needs.verify.outputs.verified_sha');
     expect(workflow).toContain('needs.verify.outputs.artifact_name');
-    expect(workflow).toContain('needs.verify.outputs.artifact_path');
+    expect(workflow).toContain('needs.verify.outputs.artifact_filename');
     expect(workflow).toContain('actions/upload-artifact');
     expect(workflow).toContain('actions/download-artifact');
     expect(workflow).toContain('ref: ${{ needs.verify.outputs.verified_sha }}');
     expect(workflow).toContain('tar -czf');
     expect(workflow).toContain('npm prune --omit=dev');
-    expect(workflow).toContain('needs.verify.outputs.verified_sha');
+    expect(workflow).toContain('artifact-metadata.json');
+    expect(workflow).toContain('process.platform');
+    expect(workflow).toContain('process.arch');
+    expect(workflow).toContain('process.versions.modules');
     expect(workflow).toContain('PRODUCTION_GIT_SHA');
-    expect(workflow).toContain('PRODUCTION_ARTIFACT_PATH');
+    expect(workflow).toContain(
+      'PRODUCTION_ARTIFACT_PATH: production-artifacts/${{ needs.verify.outputs.artifact_filename }}',
+    );
     expect(workflow).toContain('PRODUCTION_SSH_KNOWN_HOSTS');
   });
 
@@ -67,6 +72,13 @@ describe('US-15 production delivery workflow', () => {
     expect(script).toContain('command -v node >/dev/null');
     expect(script).toContain('command -v pm2 >/dev/null');
     expect(script).toContain('tar -xzf');
+    expect(script).toContain('artifact-metadata.json');
+    expect(script).toContain('process.versions.modules');
+    expect(script).toContain('mktemp -d');
+    expect(script).toContain('artifact-staging');
+    expect(script).toContain('mv "${staging_root}/dist" "${app_dir}/dist"');
+    expect(script).toContain('PRODUCTION_APP_DIR must be an absolute path');
+    expect(script).toContain('"${app_dir}" == "/"');
     expect(script).not.toContain('command -v npm >/dev/null');
     expect(script).not.toContain('git fetch origin --tags');
     expect(script).not.toContain('git checkout --detach');
@@ -101,6 +113,8 @@ describe('US-15 production delivery workflow', () => {
     expect(runbook).toContain('PRODUCTION_SSH_KNOWN_HOSTS');
     expect(runbook).toContain('검증된 commit SHA');
     expect(runbook).toContain('artifact');
+    expect(runbook).toContain('Node');
+    expect(runbook).toContain('platform');
     expect(runbook).toContain('branch, tag, commit SHA');
   });
 });
