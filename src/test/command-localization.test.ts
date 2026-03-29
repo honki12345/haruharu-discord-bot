@@ -56,6 +56,14 @@ const commandSpecs = [
     options: [],
   },
   {
+    modulePath: '../commands/haruharu/stop-wakeup.js',
+    baseName: 'stop-wakeup',
+    koName: '기상중단',
+    koDescription: '기상스터디 참여를 중단합니다',
+    category: 'user',
+    options: [],
+  },
+  {
     modulePath: '../commands/haruharu/apply-cam.js',
     baseName: 'apply-cam',
     koName: '캠스터디신청',

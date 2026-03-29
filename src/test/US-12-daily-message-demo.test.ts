@@ -13,6 +13,10 @@ vi.mock('../logger.js', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
 
+vi.mock('../services/challengeSelfService.js', () => ({
+  ensureWakeUpMembershipSnapshot: vi.fn(),
+}));
+
 vi.mock('node:module', async importOriginal => {
   const original = await importOriginal<typeof import('node:module')>();
   return {
@@ -728,6 +732,7 @@ describe('US-12: daily message 데모', () => {
 
     const { event } = await import('../events/messageCreate.js');
     const firstExecution = event.execute(firstMessage as never);
+    await Promise.resolve();
     await Promise.resolve();
     await event.execute(secondMessage as never);
 

@@ -55,12 +55,13 @@ haruharu-discord-bot/
 │   ├── commands/
 │   │   └── haruharu/
 │   │       ├── register.ts      # 사용자 기상 챌린지 등록/수정
+│   │       ├── stop-wakeup.ts   # 사용자 기상 챌린지 중단
 │   │       ├── apply-vacation.ts # 사용자 휴가 등록
-│   │       ├── apply-wakeup.ts  # 사용자 기상인증 참여 신청
+│   │       ├── apply-wakeup.ts  # 사용자 기상인증 즉시 활성화
 │   │       ├── apply-cam.ts     # 사용자 캠스터디 참여 신청
 │   │       ├── add-vacances.ts  # 휴가 추가
-│   │       ├── approve-application.ts # 참여 신청 승인
-│   │       ├── reject-application.ts # 참여 신청 거절
+│   │       ├── approve-application.ts # 캠스터디 참여 신청 승인
+│   │       ├── reject-application.ts # 캠스터디 참여 신청 거절
 │   │       ├── delete.ts        # 챌린저 삭제
 │   │       ├── register-cam.ts  # 캠스터디 등록
 │   │       ├── delete-cam.ts    # 캠스터디 삭제
@@ -92,6 +93,7 @@ haruharu-discord-bot/
 │       ├── CamStudyTimeLog.ts   # 일간 학습 로그 모델
 │       ├── CamStudyWeeklyTimeLog.ts # 주간 학습 로그 모델
 │       ├── ParticipationApplication.ts # 역할 기반 신청 상태 모델
+│       ├── WakeUpMembership.ts   # 기상 챌린지 상시 참여 상태 모델
 │       ├── challengeRepository.ts   # 기상 챌린지 조회/갱신 헬퍼
 │       └── camStudyRepository.ts    # 캠스터디 조회/갱신 헬퍼
 │
@@ -133,21 +135,22 @@ haruharu-discord-bot/
 
 #### 기상 챌린지 커맨드
 
-| 내부 key          | 한국어 표시명(ko)   | 권한   | 설명                                 |
-| ----------------- | ------------------- | ------ | ------------------------------------ |
-| `/register`       | `/기상등록`         | 사용자 | 자신의 현재 월 기상 챌린지 등록/수정 |
-| `/apply-vacation` | `/휴가신청`         | 사용자 | 자신의 특정 날짜 휴가 등록           |
-| `/add-vacances`   | `/admin-휴가추가`   | 관리자 | 휴가일수 추가                        |
-| `/delete`         | `/admin-챌린저삭제` | 관리자 | 챌린저 삭제                          |
+| 내부 key          | 한국어 표시명(ko)   | 권한   | 설명                                       |
+| ----------------- | ------------------- | ------ | ------------------------------------------ |
+| `/register`       | `/기상등록`         | 사용자 | 기상 참여 시작/재시작과 기본 기상시간 설정 |
+| `/stop-wakeup`    | `/기상중단`         | 사용자 | 기상 챌린지 상시 참여 중단                 |
+| `/apply-vacation` | `/휴가신청`         | 사용자 | 자신의 특정 날짜 휴가 등록                 |
+| `/add-vacances`   | `/admin-휴가추가`   | 관리자 | 휴가일수 추가                              |
+| `/delete`         | `/admin-챌린저삭제` | 관리자 | 챌린저 삭제                                |
 
 #### 역할 기반 참여 신청 커맨드
 
-| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                     |
-| ---------------------- | ----------------- | ------ | ------------------------ |
-| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 참여 신청       |
-| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 신청       |
-| `/approve-application` | `/admin-신청승인` | 관리자 | 역할 기반 참여 신청 승인 |
-| `/reject-application`  | `/admin-신청거절` | 관리자 | 역할 기반 참여 신청 거절 |
+| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                      |
+| ---------------------- | ----------------- | ------ | ------------------------- |
+| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 참여 즉시 활성화 |
+| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 신청        |
+| `/approve-application` | `/admin-신청승인` | 관리자 | 캠스터디 참여 신청 승인   |
+| `/reject-application`  | `/admin-신청거절` | 관리자 | 캠스터디 참여 신청 거절   |
 
 #### 캠스터디 커맨드
 
@@ -173,6 +176,17 @@ haruharu-discord-bot/
 | ------------- | ----------------- | ---- | -------------------------- |
 | waketime      | 기상시간          | O    | 기상시간 (HHmm, 0500~0900) |
 
+비고:
+
+- `WakeUpMembership`를 생성 또는 재활성화하고, 현재 월 `Users` 스냅샷이 없으면 자동 생성한다.
+- 같은 날 두 번째 변경은 `WaketimeChangeLog`로 거부한다.
+- 이전에 `/기상인증신청`으로 즉시 활성화된 사용자도 이 명령으로 기본 기상시간을 설정한다.
+
+#### `/stop-wakeup` (`/기상중단`)
+
+- 별도 파라미터 없음
+- 현재 월 기록은 유지하고, 이후 월 `Users` 자동 생성만 중단한다.
+
 #### `/apply-vacation` (`/휴가신청`)
 
 | 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                      |
@@ -183,6 +197,8 @@ haruharu-discord-bot/
 
 - 별도 파라미터 없음
 - `#apply` 채널에서만 실행 가능
+- 운영자 승인 없이 즉시 `WakeUpMembership.status = active`로 전환한다.
+- 기존 기본 기상시간이 있으면 현재 월 `Users` 스냅샷도 함께 보장한다.
 
 #### `/apply-cam` (`/캠스터디신청`)
 
@@ -202,14 +218,14 @@ haruharu-discord-bot/
 | 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
 | ------------- | ----------------- | ---- | ----------------- |
 | userid        | 사용자id          | O    | Discord 사용자 ID |
-| program       | 프로그램          | O    | 대상 프로그램     |
+| program       | 프로그램          | O    | `cam-study`       |
 
 #### `/reject-application` (`/admin-신청거절`)
 
 | 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
 | ------------- | ----------------- | ---- | ----------------- |
 | userid        | 사용자id          | O    | Discord 사용자 ID |
-| program       | 프로그램          | O    | 대상 프로그램     |
+| program       | 프로그램          | O    | `cam-study`       |
 | reason        | 사유              | O    | 거절 사유         |
 
 #### `/delete`, `/delete-cam` (`/admin-챌린저삭제`, `/admin-캠스터디삭제`)
@@ -231,10 +247,10 @@ haruharu-discord-bot/
 
 #### ready.ts
 
-| 항목   | 내용                                                                                                                                                                                                                 |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                 |
-| 기능   | DB 테이블 동기화(`Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
+| 항목   | 내용                                                                                                                                                                                                                                     |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                                     |
+| 기능   | DB 테이블 동기화(`WakeUpMembership`, `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
 
 **스케줄러:**
 
@@ -261,10 +277,10 @@ haruharu-discord-bot/
 
 ### GitHub Actions
 
-| Workflow            | 트리거                                      | 역할                                                                                    |
-| ------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `CI`                | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test |
-| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                               |
+| Workflow            | 트리거                                      | 역할                                                                                                                                                                             |
+| ------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CI`                | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test                                                                                          |
+| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                                                                                                                        |
 | `Deploy Production` | `workflow_dispatch`                         | verify 후 production artifact와 runtime metadata를 만들고 OCI 서버에서 realpath, platform, arch, Node ABI, glibc 호환성 및 staged bundle 검증 뒤 반영한 뒤 PM2/ready 로그를 확인 |
 
 ### Production 배포 흐름
@@ -354,19 +370,19 @@ flowchart TD
 
 #### challengeSelfService.ts
 
-| 항목   | 내용                                                                                                             |
-| ------ | ---------------------------------------------------------------------------------------------------------------- |
-| 역할   | 사용자 직접 `/register` upsert 와 휴가 등록 정책 처리                                                            |
-| 담당   | 사용자 기준 등록/수정, 기상시간 범위 검증, register 하루 1회 변경 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
-| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/apply-vacation.ts`                                   |
+| 항목   | 내용                                                                                                                                                               |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 역할   | 사용자 직접 기상 참여 활성화/중단, 기본 기상시간 설정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                         |
+| 담당   | `WakeUpMembership` 생성/재활성화/중단, 기상시간 범위 검증, register 하루 1회 변경 제한, 현재 월 `Users` 스냅샷 생성, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증      |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`, `src/services/participationApplication.ts` |
 
 #### reporting.ts
 
-| 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                                                                                                                                                                                                                                                                                                                           |
-| 담당   | `Users`/`TimeLog`/`AttendanceLog`/`ParticipationApplication` 등 모델 sync, `AttendanceLog` 단일 원본 기반 기상 챌린지 출석표 생성, 휴가일 결석 제외 처리, 무댓글 사용자 결석 확정, 오늘 상태와 월 누적 `latecount` / `absencecount` / 잔여휴가를 함께 표시하는 결과표 생성, Discord 2000자 제한 초과 시 결과표 분할 전송, 월말 생존 명단 생성, 캠스터디 일일 리포트 생성, 해당 주차 일간 로그 재계산 기반 주간 집계, 스케줄 중복 실행 방지 |
-| 호출처 | `src/events/ready.ts`                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 일일/주간 리포트 생성과 스케줄링                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 담당   | `WakeUpMembership`/`Users`/`TimeLog`/`AttendanceLog`/`ParticipationApplication` 등 모델 sync, 활성 기상 membership의 현재 월 `Users` 스냅샷 보장, `AttendanceLog` 단일 원본 기반 기상 챌린지 출석표 생성, 휴가일 결석 제외 처리, 무댓글 사용자 결석 확정, 오늘 상태와 월 누적 `latecount` / `absencecount` / 잔여휴가를 함께 표시하는 결과표 생성, Discord 2000자 제한 초과 시 결과표 분할 전송, 월말 생존 명단 생성, 캠스터디 일일 리포트 생성, 해당 주차 일간 로그 재계산 기반 주간 집계, 스케줄 중복 실행 방지 |
+| 호출처 | `src/events/ready.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 비고:
 
@@ -379,10 +395,27 @@ flowchart TD
 
 #### Repository helper 모듈
 
-| 파일                     | 역할                                                                                                         |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `challengeRepository.ts` | `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
-| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼     |
+| 파일                     | 역할                                                                                                                             |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `challengeRepository.ts` | `WakeUpMembership`, `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
+| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼                         |
+
+#### WakeUpMembership (기상 챌린지 상시 참여 상태)
+
+| 컬럼      | 타입    | 설명                             |
+| --------- | ------- | -------------------------------- |
+| id        | INTEGER | PK, Auto Increment               |
+| userid    | STRING  | Discord 사용자 ID                |
+| username  | STRING  | 표시 이름                        |
+| waketime  | STRING  | 기본 기상시간 (HHmm, nullable)   |
+| status    | STRING  | `active` / `stopped`             |
+| stoppedat | STRING  | 중단 시각 ISO 문자열 또는 `null` |
+
+비고:
+
+- `(userid)` 조합은 UNIQUE이며 기상 챌린지 참여 상태를 사용자당 1건으로 유지한다.
+- `/apply-wakeup`은 이 테이블을 즉시 `active`로 만들고, `/register`는 기본 기상시간을 채운다.
+- 일일 리포트와 휴가 self-service는 활성 membership의 현재 월 `Users` 스냅샷을 필요 시 자동 생성한다.
 
 #### Users (기상 챌린지 참가자)
 
@@ -428,6 +461,8 @@ flowchart TD
 
 비고:
 
+- `Users`는 상시 membership 자체가 아니라 월별 집계 스냅샷이다.
+- 활성 `WakeUpMembership`과 유효한 `waketime`이 있을 때 현재 월 레코드가 자동 생성될 수 있다.
 - `(userid, yearmonthday)` 조합은 UNIQUE이며 같은 날짜 중복 등록을 막는다.
 - `Users.vacances` 총량과 별도로, 실제 사용한 휴가 날짜를 기록한다.
 - 잔여 휴가 수는 `vacances - VacationLog 월별 사용 건수`로 해석한다.
@@ -535,7 +570,8 @@ flowchart TD
 비고:
 
 - `(userid, program)` 조합은 UNIQUE이며 사용자별 프로그램 신청 상태를 1건으로 유지한다.
-- 이 테이블은 역할 기반 접근 제어용이며, 실제 기능 사용 등록 정보(`Users`, `CamStudyUsers`)와는 분리된다.
+- `wake-up`은 운영자 승인 없이 즉시 `approved`로 반영되고, `cam-study`만 `pending -> approved/rejected` 운영 흐름을 사용한다.
+- 이 테이블은 역할 기반 접근 제어용 상태를 남기며, 실제 기상 참여 상태는 `WakeUpMembership`, 실제 월별 집계는 `Users`, 캠스터디 등록 정보는 `CamStudyUsers`에서 관리한다.
 
 ---
 
@@ -610,10 +646,13 @@ flowchart TD
 ## 운영 메모
 
 - 사용자 직접 변경 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 수정한다.
-- `/register`는 사용자가 자신의 월별 기상시간을 신규 등록하거나 수정하는 단일 명령이다.
+- `/register`는 사용자가 기상 참여를 시작/재시작하고 기본 기상시간을 설정하는 단일 명령이다.
 - `/register`는 Discord 한국어 locale에서 `/기상등록`으로 표시된다.
 - `/register`는 같은 날 두 번째 변경을 거부한다.
-- `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산한다.
+- `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산하고 현재 월 `Users` 스냅샷을 보장한다.
+- `/apply-wakeup`은 Discord 한국어 locale에서 `/기상인증신청`으로 표시되며 운영자 승인 없이 즉시 활성화된다.
+- `/stop-wakeup`은 Discord 한국어 locale에서 `/기상중단`으로 표시되며 미래 월 자동 참여만 중단한다.
+- `/approve-application`, `/reject-application`은 현재 `cam-study` 프로그램에만 사용한다.
 - `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 날짜 단위(`yyyymmdd`)로 동작한다.
 - 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.
 - 데모 전용 커맨드는 Discord 한국어 locale에서 `admin-demo-...` 접두어로 표시된다.

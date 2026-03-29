@@ -4,6 +4,7 @@ import { AttendanceLog } from './AttendanceLog.js';
 import { TimeLog } from './TimeLog.js';
 import { Users } from './Users.js';
 import { VacationLog } from './VacationLog.js';
+import { WakeUpMembership } from './WakeUpMembership.js';
 import { WaketimeChangeLog } from './WaketimeChangeLog.js';
 
 const findChallengeUser = (userid: string, yearmonth: string) => Users.findOne({ where: { userid, yearmonth } });
@@ -50,6 +51,23 @@ const findWaketimeChangeLog = (userid: string, yearmonthday: string) =>
 const createWaketimeChangeLog = (payload: { userid: string; yearmonthday: string; waketime: string }) =>
   WaketimeChangeLog.create(payload);
 
+const findWakeUpMembership = (userid: string) => WakeUpMembership.findOne({ where: { userid } });
+
+const listActiveWakeUpMemberships = () => WakeUpMembership.findAll({ where: { status: 'active' } });
+
+const createWakeUpMembership = (payload: {
+  userid: string;
+  username: string;
+  waketime: string | null;
+  status: 'active' | 'stopped';
+  stoppedat?: string | null;
+}) => WakeUpMembership.create(payload);
+
+const updateWakeUpMembership = (
+  userid: string,
+  values: Partial<Pick<WakeUpMembership, 'status' | 'stoppedat' | 'username' | 'waketime'>>,
+) => WakeUpMembership.update(values, { where: { userid } });
+
 const listMonthlySurvivors = (yearmonth: string) =>
   Users.findAll({
     where: {
@@ -60,16 +78,20 @@ const listMonthlySurvivors = (yearmonth: string) =>
 export {
   createChallengeLog,
   createVacationLog,
+  createWakeUpMembership,
   createWaketimeChangeLog,
   listChallengeAttendanceLogs,
   findChallengeUser,
   findVacationLog,
+  findWakeUpMembership,
   findWaketimeChangeLog,
   listChallengeUsers,
+  listActiveWakeUpMemberships,
   listMonthlySurvivors,
   listUserChallengeLogs,
   listVacationLogs,
   listMonthlyVacationLogs,
   countUserVacationLogs,
   updateChallengeUser,
+  updateWakeUpMembership,
 };

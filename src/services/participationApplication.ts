@@ -2,6 +2,13 @@ import { ChatInputCommandInteraction } from 'discord.js';
 import { applyChannelId, camStudyRoleId, opsChannelId, wakeUpRoleId } from '../config.js';
 import { logger } from '../logger.js';
 import { ParticipationApplication } from '../repository/ParticipationApplication.js';
+import {
+  createWakeUpMembership,
+  findWakeUpMembership,
+  updateWakeUpMembership,
+} from '../repository/challengeRepository.js';
+import { ensureWakeUpMembershipSnapshot } from './challengeSelfService.js';
+import { getYearMonth, getYearMonthDate } from '../utils.js';
 
 export type ParticipationProgram = 'wake-up' | 'cam-study';
 
@@ -70,7 +77,93 @@ const buildApprovedReply = (label: string) => ({
   ephemeral: true,
 });
 
-const submitParticipationApplication = async (
+const buildWakeUpActivatedReply = (hasWakeTime: boolean) => ({
+  content: hasWakeTime
+    ? '기상인증 참여가 활성화되었어요. 현재 월 참여 상태도 함께 반영했어요.'
+    : '기상인증 참여가 활성화되었어요. `/기상등록`으로 기상시간을 설정해 주세요.',
+  ephemeral: true,
+});
+
+const activateWakeUpParticipation = async (interaction: ChatInputCommandInteraction) => {
+  const userid = interaction.user.id;
+  const username = interaction.user.globalName ?? interaction.user.username ?? 'unknown';
+  const existingApplication = await ParticipationApplication.findOne({
+    where: { userid, program: 'wake-up' },
+  });
+  const existingMembership = await findWakeUpMembership(userid);
+
+  if (existingApplication?.status === 'approved' && existingMembership?.status === 'active') {
+    if (existingMembership.waketime) {
+      const { year, month } = getYearMonthDate();
+      await ensureWakeUpMembershipSnapshot(userid, getYearMonth(year, month));
+    }
+
+    return buildWakeUpActivatedReply(Boolean(existingMembership.waketime));
+  }
+
+  if (!existingApplication) {
+    try {
+      await ParticipationApplication.create({
+        userid,
+        username,
+        program: 'wake-up',
+        status: 'approved',
+        reason: null,
+      });
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
+      await ParticipationApplication.update(
+        {
+          username,
+          status: 'approved',
+          reason: null,
+        },
+        {
+          where: { userid, program: 'wake-up' },
+        },
+      );
+    }
+  } else {
+    await ParticipationApplication.update(
+      {
+        username,
+        status: 'approved',
+        reason: null,
+      },
+      {
+        where: { userid, program: 'wake-up' },
+      },
+    );
+  }
+
+  if (!existingMembership) {
+    await createWakeUpMembership({
+      userid,
+      username,
+      waketime: null,
+      status: 'active',
+      stoppedat: null,
+    });
+  } else {
+    await updateWakeUpMembership(userid, {
+      username,
+      status: 'active',
+      stoppedat: null,
+    });
+  }
+
+  const membership = await findWakeUpMembership(userid);
+  if (membership?.waketime) {
+    const { year, month } = getYearMonthDate();
+    await ensureWakeUpMembershipSnapshot(userid, getYearMonth(year, month));
+  }
+
+  return buildWakeUpActivatedReply(Boolean(membership?.waketime));
+};
+
+const submitPendingParticipationApplication = async (
   interaction: ChatInputCommandInteraction,
   program: ParticipationProgram,
 ) => {
@@ -146,11 +239,26 @@ const submitParticipationApplication = async (
   };
 };
 
+const submitParticipationApplication = async (
+  interaction: ChatInputCommandInteraction,
+  program: ParticipationProgram,
+) => {
+  if (program === 'wake-up') {
+    return activateWakeUpParticipation(interaction);
+  }
+
+  return submitPendingParticipationApplication(interaction, program);
+};
+
 const approveParticipationApplication = async (
   interaction: ChatInputCommandInteraction,
   userid: string,
   program: ParticipationProgram,
 ) => {
+  if (program === 'wake-up') {
+    return '기상인증은 운영자 승인 없이 즉시 활성화됩니다.';
+  }
+
   const application = await ParticipationApplication.findOne({
     where: { userid, program },
   });
@@ -233,6 +341,10 @@ const rejectParticipationApplication = async (
   program: ParticipationProgram,
   reason: string,
 ) => {
+  if (program === 'wake-up') {
+    return '기상인증은 운영자 거절 흐름을 사용하지 않습니다.';
+  }
+
   const application = await ParticipationApplication.findOne({
     where: { userid, program },
   });

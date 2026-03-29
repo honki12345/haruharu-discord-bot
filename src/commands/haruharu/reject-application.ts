@@ -27,7 +27,7 @@ export const command = {
         .setNameLocalizations({ ko: '프로그램' })
         .setDescriptionLocalizations({ ko: '대상 프로그램을 선택합니다' })
         .setRequired(true)
-        .addChoices({ name: '기상인증', value: 'wake-up' }, { name: '캠스터디', value: 'cam-study' }),
+        .addChoices({ name: '캠스터디', value: 'cam-study' }),
     )
     .addStringOption(option =>
       option

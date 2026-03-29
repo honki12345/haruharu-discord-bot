@@ -180,6 +180,12 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
       expect(command?.description).toBe('apply for wake-up program');
     });
 
+    it('stop-wakeup 커맨드가 등록되어 있어야 한다', () => {
+      const command = commands.find(cmd => cmd.name === 'stop-wakeup');
+      expect(command).toBeDefined();
+      expect(command?.description).toBe('stop wake-up program participation');
+    });
+
     it('apply-cam 커맨드가 등록되어 있어야 한다', () => {
       const command = commands.find(cmd => cmd.name === 'apply-cam');
       expect(command).toBeDefined();

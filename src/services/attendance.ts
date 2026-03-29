@@ -3,6 +3,7 @@ import { logger } from '../logger.js';
 import { createChallengeLog, findChallengeUser, listUserChallengeLogs } from '../repository/challengeRepository.js';
 import { ABSENCE_RANGE_TIME, LATE_RANGE_TIME } from '../utils/constants.js';
 import { getYearMonth, getYearMonthDate, getYearMonthDay } from '../utils/date.js';
+import { ensureWakeUpMembershipSnapshot } from './challengeSelfService.js';
 
 type AttendanceAction = 'check-in' | 'check-out';
 
@@ -109,6 +110,7 @@ const executeAttendance = async ({
   const yearmonthday = getYearMonthDay(year, month, date);
 
   logger.info(`${action} input value: userid: ${userId}, yearmonth: ${yearmonth}`);
+  await ensureWakeUpMembershipSnapshot(userId, yearmonth);
   const user = await findChallengeUser(userId, yearmonth);
 
   if (!user) {

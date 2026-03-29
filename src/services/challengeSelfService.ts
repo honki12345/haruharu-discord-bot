@@ -1,10 +1,14 @@
 import {
   countUserVacationLogs,
+  createWakeUpMembership,
   createVacationLog,
   createWaketimeChangeLog,
   findChallengeUser,
   findVacationLog,
+  findWakeUpMembership,
   findWaketimeChangeLog,
+  listActiveWakeUpMemberships,
+  updateWakeUpMembership,
 } from '../repository/challengeRepository.js';
 import { isValidWakeTime } from '../attendance.js';
 import { DEFAULT_VACANCES_COUNT, getYearMonth, getYearMonthDate } from '../utils.js';
@@ -36,6 +40,67 @@ const isValidChallengeWakeTime = (waketime: string) => {
   return time >= 500 && time <= 900;
 };
 
+const createChallengeUserSnapshot = async ({
+  userId,
+  username,
+  waketime,
+  yearmonth,
+}: {
+  userId: string;
+  username: string;
+  waketime: string;
+  yearmonth: string;
+}) =>
+  Users.create({
+    userid: userId,
+    username,
+    yearmonth,
+    waketime,
+    latecount: 0,
+    absencecount: 0,
+    vacances: DEFAULT_VACANCES_COUNT,
+  });
+
+const ensureWakeUpMembershipSnapshot = async (userId: string, yearmonth: string) => {
+  const membership = await findWakeUpMembership(userId);
+  if (!membership || membership.status !== 'active' || !membership.waketime) {
+    return null;
+  }
+
+  const existingUser = await findChallengeUser(userId, yearmonth);
+  if (existingUser) {
+    return existingUser;
+  }
+
+  return createChallengeUserSnapshot({
+    userId,
+    username: membership.username,
+    waketime: membership.waketime,
+    yearmonth,
+  });
+};
+
+const ensureWakeUpMembershipSnapshotForDate = async (userId: string, yearmonthday: string) =>
+  ensureWakeUpMembershipSnapshot(userId, yearmonthday.slice(0, 6));
+
+const ensureActiveWakeUpMembershipSnapshots = async (yearmonth: string) => {
+  const memberships = await listActiveWakeUpMemberships();
+
+  for (const membership of memberships) {
+    const existingUser = await findChallengeUser(membership.userid, yearmonth);
+    if (existingUser || !membership.waketime) {
+      continue;
+    }
+
+    await createChallengeUserSnapshot({
+      userId: membership.userid,
+      username: membership.username,
+      waketime: membership.waketime,
+      yearmonth,
+    });
+  }
+};
+
 const executeRegister = async ({
   userId,
   username,
@@ -52,6 +117,7 @@ const executeRegister = async ({
   const { year, month, date } = getYearMonthDate();
   const yearmonth = getYearMonth(year, month);
   const yearmonthday = `${yearmonth}${date}`;
+  const membership = await findWakeUpMembership(userId);
   const user = await findChallengeUser(userId, yearmonth);
 
   const existingChange = await findWaketimeChangeLog(userId, yearmonthday);
@@ -59,15 +125,29 @@ const executeRegister = async ({
     return { reply: 'register는 하루에 한 번만 변경할 수 있습니다' };
   }
 
-  if (!user) {
-    await Users.create({
+  if (!membership) {
+    await createWakeUpMembership({
       userid: userId,
       username,
-      yearmonth,
       waketime,
-      latecount: 0,
-      absencecount: 0,
-      vacances: DEFAULT_VACANCES_COUNT,
+      status: 'active',
+      stoppedat: null,
+    });
+  } else {
+    await updateWakeUpMembership(userId, {
+      username,
+      waketime,
+      status: 'active',
+      stoppedat: null,
+    });
+  }
+
+  if (!user) {
+    await createChallengeUserSnapshot({
+      userId,
+      username,
+      waketime,
+      yearmonth,
     });
     await createWaketimeChangeLog({ userid: userId, yearmonthday, waketime });
     return { reply: `${username}님 기상시간을 등록했습니다. 기준월: ${yearmonth}, 기상시간: ${waketime}` };
@@ -79,8 +159,10 @@ const executeRegister = async ({
   return { reply: `${username}님 기상시간을 수정했습니다. 기준월: ${yearmonth}, 기상시간: ${waketime}` };
 };
 
-const findRegisteredUserForDate = async (userId: string, yearmonthday: string) =>
-  findChallengeUser(userId, yearmonthday.slice(0, 6));
+const findRegisteredUserForDate = async (userId: string, yearmonthday: string) => {
+  await ensureWakeUpMembershipSnapshotForDate(userId, yearmonthday);
+  return findChallengeUser(userId, yearmonthday.slice(0, 6));
+};
 
 const executeApplyVacation = async ({ userId, yearmonthday }: { userId: string; yearmonthday: string }) => {
   if (!isCanonicalYearMonthDay(yearmonthday)) {
@@ -111,4 +193,27 @@ const executeApplyVacation = async ({ userId, yearmonthday }: { userId: string; 
   return { reply: `${user.username}님 ${yearmonthday} 휴가를 등록했습니다` };
 };
 
-export { executeApplyVacation, executeRegister };
+const executeStopWakeUp = async ({ userId }: { userId: string }) => {
+  const membership = await findWakeUpMembership(userId);
+  if (!membership || membership.status !== 'active') {
+    return { reply: '현재 진행 중인 기상스터디 참여가 없습니다' };
+  }
+
+  await updateWakeUpMembership(userId, {
+    status: 'stopped',
+    stoppedat: new Date().toISOString(),
+  });
+
+  return {
+    reply: '기상스터디 참여를 중단했습니다. 현재 월 기록은 유지되고 다음 달부터 자동 등록되지 않습니다',
+  };
+};
+
+export {
+  ensureActiveWakeUpMembershipSnapshots,
+  ensureWakeUpMembershipSnapshot,
+  ensureWakeUpMembershipSnapshotForDate,
+  executeApplyVacation,
+  executeRegister,
+  executeStopWakeUp,
+};
