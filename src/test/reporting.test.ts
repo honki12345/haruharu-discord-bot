@@ -13,6 +13,7 @@ import {
   TestVacationLog,
   TestWaketimeChangeLog,
   clearAllTables,
+  expectMonthlyStatus,
   testSequelize,
 } from './test-setup.js';
 
@@ -26,21 +27,6 @@ describe('reporting service', () => {
   afterEach(() => {
     vi.useRealTimers();
   });
-
-  const expectMonthlyStatus = (
-    attendanceMessage: string | null,
-    expectation: {
-      username: string;
-      todayStatus: '출석' | '지각' | '결석' | '휴가';
-      latecount: number;
-      absencecount: number;
-      remainingVacances: number;
-    },
-  ) => {
-    expect(attendanceMessage).toContain(
-      `${expectation.username}: ${expectation.todayStatus} (월 누적 지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
-    );
-  };
 
   it('AttendanceLog.status=attended 사용자는 출석으로 출력되고 카운트가 증가하지 않는다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));

@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { Sequelize, DataTypes, Model, CreationOptional, InferAttributes, InferCreationAttributes } from 'sequelize';
 
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
@@ -27,6 +27,20 @@ const isValidYearMonthDay = (value: string) => {
   const parsed = new Date(Date.UTC(year, month - 1, date));
 
   return parsed.getUTCFullYear() === year && parsed.getUTCMonth() + 1 === month && parsed.getUTCDate() === date;
+};
+
+export type MonthlyStatusExpectation = {
+  username: string;
+  todayStatus: '출석' | '지각' | '결석' | '휴가';
+  latecount: number;
+  absencecount: number;
+  remainingVacances: number;
+};
+
+export const expectMonthlyStatus = (attendanceMessage: string | null, expectation: MonthlyStatusExpectation) => {
+  expect(attendanceMessage).toContain(
+    `${expectation.username}: ${expectation.todayStatus} (월 누적 지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
+  );
 };
 
 // ============ 인메모리 DB 설정 ============

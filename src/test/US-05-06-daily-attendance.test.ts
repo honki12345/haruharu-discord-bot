@@ -6,7 +6,7 @@
  * 시스템은 월말에 absencecount <= vacances 기준 챌린지 완주자 명단을 발송한다.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { testSequelize, TestAttendanceLog, TestUsers, clearAllTables } from './test-setup.js';
+import { testSequelize, TestAttendanceLog, TestUsers, clearAllTables, expectMonthlyStatus } from './test-setup.js';
 import { buildChallengeReport } from '../services/reporting.js';
 
 // 파일 레벨에서 한 번만 설정
@@ -27,21 +27,6 @@ beforeEach(async () => {
 afterEach(() => {
   vi.useRealTimers();
 });
-
-const expectMonthlyStatus = (
-  attendanceMessage: string | null,
-  expectation: {
-    username: string;
-    todayStatus: '출석' | '지각' | '결석' | '휴가';
-    latecount: number;
-    absencecount: number;
-    remainingVacances: number;
-  },
-) => {
-  expect(attendanceMessage).toContain(
-    `${expectation.username}: ${expectation.todayStatus} (월 누적 지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
-  );
-};
 
 describe('US-05: 일일 출석 리포트', () => {
   describe('TC-DR01: 출석자 분류', () => {
