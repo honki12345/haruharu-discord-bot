@@ -73,7 +73,7 @@
 - DB 접근은 직접 Sequelize 쿼리를 쓰더라도 repository 모델을 통해서만 접근한다.
 - 사용자 self-service 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 변경해야 한다.
 - 기상시간 self-service는 `/register` 하나로 신규 등록과 수정(upsert)을 처리하되 하루 1회 제한을 지켜야 한다.
-- 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용/취소만 담당해야 한다.
+- 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
 
 ### `src/events`

@@ -40,9 +40,6 @@ const countUserVacationLogs = (userid: string, yearmonth: string) =>
 const createVacationLog = (payload: { userid: string; username: string; yearmonthday: string }) =>
   VacationLog.create(payload);
 
-const deleteVacationLog = (userid: string, yearmonthday: string) =>
-  VacationLog.destroy({ where: { userid, yearmonthday } });
-
 const findWaketimeChangeLog = (userid: string, yearmonthday: string) =>
   WaketimeChangeLog.findOne({ where: { userid, yearmonthday } });
 
@@ -60,7 +57,6 @@ export {
   createChallengeLog,
   createVacationLog,
   createWaketimeChangeLog,
-  deleteVacationLog,
   findChallengeUser,
   findVacationLog,
   findWaketimeChangeLog,

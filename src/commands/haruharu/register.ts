@@ -6,14 +6,12 @@ export const command = {
   data: new SlashCommandBuilder()
     .setName('register')
     .setDescription('register or update your challenge waketime')
-    .addStringOption(option => option.setName('yearmonth').setDescription('set year-month yyyymm').setRequired(true))
     .addStringOption(option => option.setName('waketime').setDescription('set waketime HHmm').setRequired(true)),
   async execute(interaction: ChatInputCommandInteraction) {
-    const yearmonth = interaction.options.getString('yearmonth')!;
     const waketime = interaction.options.getString('waketime')!;
     const userId = interaction.user.id;
     const username = interaction.user.globalName ?? 'unknown';
-    logger.info(`register 명령행에 입력한 값: userid: ${userId}, yearmonth: ${yearmonth}, waketime: ${waketime}`);
+    logger.info(`register 명령행에 입력한 값: userid: ${userId}, waketime: ${waketime}`);
 
     const { executeRegister } = await import('../../services/challengeSelfService.js');
 
@@ -21,7 +19,6 @@ export const command = {
       const result = await executeRegister({
         userId,
         username,
-        yearmonth,
         waketime,
       });
       await interaction.reply(result.reply);

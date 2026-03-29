@@ -42,7 +42,6 @@ haruharu-discord-bot/
 │   │       ├── check-in.ts      # 체크인
 │   │       ├── check-out.ts     # 체크아웃
 │   │       ├── apply-vacation.ts # 사용자 휴가 등록
-│   │       ├── cancel-vacation.ts # 사용자 휴가 취소
 │   │       ├── add-vacances.ts  # 휴가 추가
 │   │       ├── delete.ts        # 챌린저 삭제
 │   │       ├── register-cam.ts  # 캠스터디 등록
@@ -103,15 +102,14 @@ haruharu-discord-bot/
 
 #### 기상 챌린지 커맨드
 
-| 커맨드             | 권한   | 설명                         |
-| ------------------ | ------ | ---------------------------- |
-| `/register`        | 사용자 | 자신의 기상 챌린지 등록/수정 |
-| `/check-in`        | 사용자 | 기상 체크인 (인증샷 필수)    |
-| `/check-out`       | 사용자 | 기상 체크아웃 (인증샷 필수)  |
-| `/apply-vacation`  | 사용자 | 자신의 특정 날짜 휴가 등록   |
-| `/cancel-vacation` | 사용자 | 자신의 특정 날짜 휴가 취소   |
-| `/add-vacances`    | 관리자 | 휴가일수 추가                |
-| `/delete`          | 관리자 | 챌린저 삭제                  |
+| 커맨드            | 권한   | 설명                                 |
+| ----------------- | ------ | ------------------------------------ |
+| `/register`       | 사용자 | 자신의 현재 월 기상 챌린지 등록/수정 |
+| `/check-in`       | 사용자 | 기상 체크인 (인증샷 필수)            |
+| `/check-out`      | 사용자 | 기상 체크아웃 (인증샷 필수)          |
+| `/apply-vacation` | 사용자 | 자신의 특정 날짜 휴가 등록           |
+| `/add-vacances`   | 관리자 | 휴가일수 추가                        |
+| `/delete`         | 관리자 | 챌린저 삭제                          |
 
 #### 캠스터디 커맨드
 
@@ -133,10 +131,9 @@ haruharu-discord-bot/
 
 #### `/register`
 
-| 파라미터  | 필수 | 설명                       |
-| --------- | ---- | -------------------------- |
-| yearmonth | O    | 년월 (yyyymm)              |
-| waketime  | O    | 기상시간 (HHmm, 0500~0900) |
+| 파라미터 | 필수 | 설명                       |
+| -------- | ---- | -------------------------- |
+| waketime | O    | 기상시간 (HHmm, 0500~0900) |
 
 #### `/check-in`, `/check-out`
 
@@ -144,7 +141,7 @@ haruharu-discord-bot/
 | -------- | ---- | ------------------------------- |
 | image    | O    | 타임스탬프가 포함된 인증 이미지 |
 
-#### `/apply-vacation`, `/cancel-vacation`
+#### `/apply-vacation`
 
 | 파라미터 | 필수 | 설명                      |
 | -------- | ---- | ------------------------- |
@@ -248,11 +245,11 @@ haruharu-discord-bot/
 
 #### challengeSelfService.ts
 
-| 항목   | 내용                                                                                                                       |
-| ------ | -------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 사용자 직접 `/register` upsert 와 휴가 등록/취소 정책 처리                                                                 |
-| 담당   | 사용자 기준 등록/수정, 기상시간 범위 검증, register 하루 1회 변경 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증           |
-| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/apply-vacation.ts`, `src/commands/haruharu/cancel-vacation.ts` |
+| 항목   | 내용                                                                                                             |
+| ------ | ---------------------------------------------------------------------------------------------------------------- |
+| 역할   | 사용자 직접 `/register` upsert 와 휴가 등록 정책 처리                                                            |
+| 담당   | 사용자 기준 등록/수정, 기상시간 범위 검증, register 하루 1회 변경 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/apply-vacation.ts`                                   |
 
 #### reporting.ts
 
@@ -455,7 +452,8 @@ haruharu-discord-bot/
 - 사용자 직접 변경 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 수정한다.
 - `/register`는 사용자가 자신의 월별 기상시간을 신규 등록하거나 수정하는 단일 명령이다.
 - `/register`는 같은 날 두 번째 변경을 거부한다.
-- `/apply-vacation`과 `/cancel-vacation`은 날짜 단위(`yyyymmdd`)로 동작한다.
+- `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산한다.
+- `/apply-vacation`은 날짜 단위(`yyyymmdd`)로 동작한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 
 ### package.json 스크립트

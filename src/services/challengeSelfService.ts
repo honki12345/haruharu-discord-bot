@@ -2,13 +2,12 @@ import {
   countUserVacationLogs,
   createVacationLog,
   createWaketimeChangeLog,
-  deleteVacationLog,
   findChallengeUser,
   findVacationLog,
   findWaketimeChangeLog,
 } from '../repository/challengeRepository.js';
 import { isValidWakeTime } from '../attendance.js';
-import { DEFAULT_VACANCES_COUNT, getYearMonthDate } from '../utils.js';
+import { DEFAULT_VACANCES_COUNT, getYearMonth, getYearMonthDate } from '../utils.js';
 import { Users } from '../repository/Users.js';
 
 const YEAR_MONTH_DAY_PATTERN = /^\d{8}$/;
@@ -40,23 +39,18 @@ const isValidChallengeWakeTime = (waketime: string) => {
 const executeRegister = async ({
   userId,
   username,
-  yearmonth,
   waketime,
 }: {
   userId: string;
   username: string;
-  yearmonth: string;
   waketime: string;
 }) => {
   if (!isValidChallengeWakeTime(waketime)) {
     return { reply: 'no valid waketime' };
   }
 
-  if (!/^\d{6}$/.test(yearmonth)) {
-    return { reply: 'no valid yearmonth' };
-  }
-
-  const { date } = getYearMonthDate();
+  const { year, month, date } = getYearMonthDate();
+  const yearmonth = getYearMonth(year, month);
   const yearmonthday = `${yearmonth}${date}`;
   const user = await findChallengeUser(userId, yearmonth);
 
@@ -117,18 +111,4 @@ const executeApplyVacation = async ({ userId, yearmonthday }: { userId: string; 
   return { reply: `${user.username}님 ${yearmonthday} 휴가를 등록했습니다` };
 };
 
-const executeCancelVacation = async ({ userId, yearmonthday }: { userId: string; yearmonthday: string }) => {
-  if (!isCanonicalYearMonthDay(yearmonthday)) {
-    return { reply: '휴가 날짜를 yyyymmdd 형식으로 입력해주세요' };
-  }
-
-  const existingVacation = await findVacationLog(userId, yearmonthday);
-  if (!existingVacation) {
-    return { reply: '등록된 휴가가 없습니다' };
-  }
-
-  await deleteVacationLog(userId, yearmonthday);
-  return { reply: `${yearmonthday} 휴가를 취소했습니다` };
-};
-
-export { executeApplyVacation, executeCancelVacation, executeRegister };
+export { executeApplyVacation, executeRegister };

@@ -35,7 +35,6 @@ describe('US-01: /register 커맨드', () => {
       userId: 'new-user-123',
       globalName: '홍길동',
       options: {
-        yearmonth: '202512',
         waketime: '0700',
       },
     });
@@ -45,6 +44,7 @@ describe('US-01: /register 커맨드', () => {
 
     const user = await TestUsers.findOne({ where: { userid: 'new-user-123' } });
     expect(user).not.toBeNull();
+    expect(user?.yearmonth).toBe('202512');
     expect(user?.username).toBe('홍길동');
     expect(user?.waketime).toBe('0700');
     expect(user?.vacances).toBe(5);
@@ -66,7 +66,6 @@ describe('US-01: /register 커맨드', () => {
       userId: 'existing-user',
       globalName: '홍길동',
       options: {
-        yearmonth: '202512',
         waketime: '0800',
       },
     });
@@ -100,7 +99,6 @@ describe('US-01: /register 커맨드', () => {
       userId: 'existing-user',
       globalName: '홍길동',
       options: {
-        yearmonth: '202512',
         waketime: '0800',
       },
     });

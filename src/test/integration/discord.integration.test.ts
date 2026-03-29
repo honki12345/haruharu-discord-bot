@@ -130,7 +130,6 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
       const command = commands.find(cmd => cmd.name === 'register');
       expect(command).toBeDefined();
       expect(command?.description).toBe('register or update your challenge waketime');
-      expect(command?.options.find(opt => opt.name === 'yearmonth')).toBeDefined();
       expect(command?.options.find(opt => opt.name === 'waketime')).toBeDefined();
     });
 
@@ -162,6 +161,13 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
       expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
       expect(command?.options.find(opt => opt.name === 'yearmonth')).toBeDefined();
       expect(command?.options.find(opt => opt.name === 'count')).toBeDefined();
+    });
+
+    it('apply-vacation 커맨드가 등록되어 있어야 한다', () => {
+      const command = commands.find(cmd => cmd.name === 'apply-vacation');
+      expect(command).toBeDefined();
+      expect(command?.description).toBe('apply your vacation for a specific date');
+      expect(command?.options.find(opt => opt.name === 'date')).toBeDefined();
     });
 
     it('register-cam 커맨드가 등록되어 있어야 한다', () => {
