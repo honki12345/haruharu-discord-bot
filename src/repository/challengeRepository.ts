@@ -10,8 +10,6 @@ const findChallengeUser = (userid: string, yearmonth: string) => Users.findOne({
 
 const listChallengeUsers = (yearmonth: string) => Users.findAll({ where: { yearmonth } });
 
-const listChallengeLogs = (yearmonthday: string) => TimeLog.findAll({ where: { yearmonthday } });
-
 const listChallengeAttendanceLogs = (yearmonthday: string) => AttendanceLog.findAll({ where: { yearmonthday } });
 
 const listUserChallengeLogs = (userid: string, yearmonthday: string) =>
@@ -36,6 +34,9 @@ const findVacationLog = (userid: string, yearmonthday: string) =>
   VacationLog.findOne({ where: { userid, yearmonthday } });
 
 const listVacationLogs = (yearmonthday: string) => VacationLog.findAll({ where: { yearmonthday } });
+
+const listMonthlyVacationLogs = (yearmonth: string) =>
+  VacationLog.findAll({ where: { yearmonthday: { [Op.like]: `${yearmonth}%` } } });
 
 const countUserVacationLogs = (userid: string, yearmonth: string) =>
   VacationLog.count({ where: { userid, yearmonthday: { [Op.like]: `${yearmonth}%` } } });
@@ -64,11 +65,11 @@ export {
   findChallengeUser,
   findVacationLog,
   findWaketimeChangeLog,
-  listChallengeLogs,
   listChallengeUsers,
   listMonthlySurvivors,
   listUserChallengeLogs,
   listVacationLogs,
+  listMonthlyVacationLogs,
   countUserVacationLogs,
   updateChallengeUser,
 };

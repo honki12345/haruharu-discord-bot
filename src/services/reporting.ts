@@ -6,10 +6,10 @@ import {
   replaceWeeklyCamStudyTimeLogs,
 } from '../repository/camStudyRepository.js';
 import {
-  listChallengeLogs,
   listChallengeAttendanceLogs,
   listChallengeUsers,
   listMonthlySurvivors,
+  listMonthlyVacationLogs,
   listVacationLogs,
   updateChallengeUser,
 } from '../repository/challengeRepository.js';
@@ -35,6 +35,8 @@ import {
   isLastDayOfMonth,
   padTwoDigits,
 } from '../utils.js';
+
+const DISCORD_MESSAGE_LIMIT = 2000;
 
 const syncModels = async () => {
   await Users.sync();
@@ -62,6 +64,70 @@ const buildMonthlyHallOfFameMessage = async (year: number, month: string, date: 
   return message;
 };
 
+const formatChallengeStatusLabel = (status: 'attended' | 'late' | 'absent' | 'vacation') => {
+  if (status === 'vacation') {
+    return '휴가';
+  }
+
+  if (status === 'late') {
+    return '지각';
+  }
+
+  if (status === 'absent') {
+    return '결석';
+  }
+
+  return '출석';
+};
+
+const calculateRemainingVacances = (vacances: number, usedVacationCount: number) =>
+  Math.max(vacances - usedVacationCount, 0);
+
+const buildChallengeReportRow = (payload: {
+  username: string;
+  status: 'attended' | 'late' | 'absent' | 'vacation';
+  latecount: number;
+  absencecount: number;
+  remainingVacances: number;
+}) =>
+  `- ${payload.username}: ${formatChallengeStatusLabel(payload.status)} (월 누적 지각 ${payload.latecount}회, 결석 ${payload.absencecount}회, 잔여휴가 ${payload.remainingVacances}일)\n`;
+
+const splitDiscordMessage = (message: string) => {
+  if (message.length <= DISCORD_MESSAGE_LIMIT) {
+    return [message];
+  }
+
+  const chunks: string[] = [];
+  const lines = message.match(/[^\n]*\n|[^\n]+/g) ?? [];
+  let currentChunk = '';
+
+  const flushChunk = () => {
+    if (currentChunk) {
+      chunks.push(currentChunk);
+      currentChunk = '';
+    }
+  };
+
+  for (const line of lines) {
+    if (line.length > DISCORD_MESSAGE_LIMIT) {
+      flushChunk();
+      for (let index = 0; index < line.length; index += DISCORD_MESSAGE_LIMIT) {
+        chunks.push(line.slice(index, index + DISCORD_MESSAGE_LIMIT));
+      }
+      continue;
+    }
+
+    if (currentChunk.length + line.length > DISCORD_MESSAGE_LIMIT) {
+      flushChunk();
+    }
+
+    currentChunk += line;
+  }
+
+  flushChunk();
+  return chunks;
+};
+
 const buildChallengeReport = async () => {
   logger.info('print challenge start');
   const { year, month, date, day } = getYearMonthDate();
@@ -77,18 +143,17 @@ const buildChallengeReport = async () => {
   const users = await listChallengeUsers(yearmonth);
   const userMap = new Map(users.map(user => [user.userid, user]));
   const attendanceLogs = await listChallengeAttendanceLogs(yearmonthday);
-  const timeLogs = await listChallengeLogs(yearmonthday);
-  const vacationLogs = await listVacationLogs(yearmonthday);
+  const dailyVacationLogs = await listVacationLogs(yearmonthday);
+  const monthlyVacationLogs = await listMonthlyVacationLogs(yearmonth);
   const attendanceLogsByUserId = new Map(attendanceLogs.map(attendanceLog => [attendanceLog.userid, attendanceLog]));
-  const vacationUserIds = new Set(vacationLogs.map(vacationLog => vacationLog.userid));
-  const timeLogsByUserId = users.reduce<Record<string, TimeLog[]>>((accumulator, user) => {
-    accumulator[user.userid] = [];
-    return accumulator;
-  }, {});
-
-  timeLogs.forEach(timeLog => {
-    timeLogsByUserId[timeLog.userid]?.push(timeLog);
-  });
+  const vacationUserIds = new Set(dailyVacationLogs.map(vacationLog => vacationLog.userid));
+  const monthlyVacationCountsByUserId = monthlyVacationLogs.reduce<Record<string, number>>(
+    (accumulator, vacationLog) => {
+      accumulator[vacationLog.userid] = (accumulator[vacationLog.userid] ?? 0) + 1;
+      return accumulator;
+    },
+    {},
+  );
   logger.info(`user id 로 그룹핑한 attendanceLog 인스턴스들 요약: `, {
     totalUsers: attendanceLogsByUserId.size,
     attendanceSummary: Array.from(attendanceLogsByUserId.values()).map(log => ({
@@ -96,7 +161,6 @@ const buildChallengeReport = async () => {
       status: log.status,
     })),
   });
-  logger.info(`user id 로 그룹핑한 timeLog fallback 인스턴스들: `, { timeLogsByUserId });
 
   let attendanceMessage = `### ${yearmonthday} 출석표\n`;
   let attendees = '';
@@ -111,40 +175,57 @@ const buildChallengeReport = async () => {
     }
 
     if (vacationUserIds.has(userid)) {
-      vacationers += `- ${user.username}: 휴가\n`;
+      vacationers += buildChallengeReportRow({
+        username: user.username,
+        status: 'vacation',
+        latecount: user.latecount ?? 0,
+        absencecount: user.absencecount ?? 0,
+        remainingVacances: calculateRemainingVacances(user.vacances ?? 0, monthlyVacationCountsByUserId[userid] ?? 0),
+      });
       continue;
     }
 
     const attendanceLog = attendanceLogsByUserId.get(userid);
-    const fallbackTimeLogs = timeLogsByUserId[userid] ?? [];
-
-    if (!attendanceLog && fallbackTimeLogs.length === 2) {
-      if (fallbackTimeLogs.every(timeLog => timeLog.isintime)) {
-        attendees += `- ${user.username}: 출석\n`;
-        continue;
-      }
-
-      const nextLateCount = (user.latecount ?? 0) + 1;
-      await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
-      latecomers += `- ${user.username}: 지각 (${nextLateCount})\n`;
-      continue;
-    }
+    const currentLateCount = user.latecount ?? 0;
+    const currentAbsenceCount = user.absencecount ?? 0;
+    const remainingVacances = calculateRemainingVacances(
+      user.vacances ?? 0,
+      monthlyVacationCountsByUserId[userid] ?? 0,
+    );
 
     if (!attendanceLog || attendanceLog.status === 'absent') {
-      const nextAbsenceCount = (user.absencecount ?? 0) + 1;
+      const nextAbsenceCount = currentAbsenceCount + 1;
       await updateChallengeUser(userid, yearmonth, { absencecount: nextAbsenceCount });
-      absentees += `- ${user.username}: 결석 (${nextAbsenceCount}/${user.vacances})\n`;
+      absentees += buildChallengeReportRow({
+        username: user.username,
+        status: 'absent',
+        latecount: currentLateCount,
+        absencecount: nextAbsenceCount,
+        remainingVacances,
+      });
       continue;
     }
 
     if (attendanceLog.status === 'late') {
-      const nextLateCount = (user.latecount ?? 0) + 1;
+      const nextLateCount = currentLateCount + 1;
       await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
-      latecomers += `- ${user.username}: 지각 (${nextLateCount})\n`;
+      latecomers += buildChallengeReportRow({
+        username: user.username,
+        status: 'late',
+        latecount: nextLateCount,
+        absencecount: currentAbsenceCount,
+        remainingVacances,
+      });
       continue;
     }
 
-    attendees += `- ${user.username}: 출석\n`;
+    attendees += buildChallengeReportRow({
+      username: user.username,
+      status: 'attended',
+      latecount: currentLateCount,
+      absencecount: currentAbsenceCount,
+      remainingVacances,
+    });
   }
 
   if (attendees) attendanceMessage += attendees;
@@ -154,7 +235,11 @@ const buildChallengeReport = async () => {
 
   const hallOfFameMessage = await buildMonthlyHallOfFameMessage(year, month, date);
   logger.info(`alarm final string`, { string: attendanceMessage });
-  return { attendanceMessage, hallOfFameMessage };
+  return {
+    attendanceMessage,
+    attendanceMessages: splitDiscordMessage(attendanceMessage),
+    hallOfFameMessage,
+  };
 };
 
 const toUtcYearMonthDay = (target: Date) =>

@@ -180,7 +180,7 @@ sequenceDiagram
 
 - `/check-in`, `/check-out`는 더 이상 등록되지 않는다.
 - 공식 기상 출석 입력은 daily message에 연결된 오늘의 출석 thread 첫 댓글만 사용한다.
-- 과거 `TimeLog` 데이터는 전환 기간 집계 fallback 용도로만 유지한다.
+- 과거 `TimeLog` 데이터는 집계 원본이 아닌 레거시 기록 호환용으로만 유지한다.
 
 ---
 
@@ -232,10 +232,12 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 - `AttendanceLog` 기준 출석/지각/결석 인원 집계
 - 휴가 등록된 날짜는 `휴가`로 표시하고 결석으로 처리하지 않음
 - 댓글이 없는 사용자도 결석으로 확정
-- 전환 기간에는 `AttendanceLog`가 없을 때만 기존 `TimeLog`를 fallback 으로 사용
+- `AttendanceLog`가 없는 등록 사용자는 `TimeLog` 여부와 무관하게 결석으로 확정
 - 주말 및 공휴일 제외
 - `late` 상태는 `latecount` 증가
 - `absent` 상태 또는 무댓글 사용자는 `absencecount` 증가
+- 결과표에 사용자별 오늘 상태와 월 누적 `latecount`, `absencecount`, 잔여휴가를 함께 표시
+- 결과표가 Discord 2000자 제한을 넘기면 줄 경계를 기준으로 여러 메시지로 나눠 순서대로 전송
 
 ```mermaid
 sequenceDiagram
@@ -259,19 +261,13 @@ sequenceDiagram
 
     B->>DB: 이번 달 Users 전체 조회
     B->>DB: 당일 AttendanceLog 전체 조회
-    B->>DB: 필요 시 당일 TimeLog 전체 조회
 
     B->>B: 출석 현황 집계
 
     loop 각 사용자별
         alt 휴가 등록됨
             B->>B: 휴가자 목록에 추가
-        else AttendanceLog 없음 and TimeLog 2건 정시
-            B->>B: 출석자 목록에 추가
-        else AttendanceLog 없음 and TimeLog 2건 중 지각 존재
-            B->>DB: Users.latecount++
-            B->>B: 지각자 목록에 추가
-        else AttendanceLog 없음 and fallback 불가
+        else AttendanceLog 없음
             B->>DB: Users.absencecount++
             B->>B: 결석자 목록에 추가
         else AttendanceLog.status = late
@@ -285,8 +281,15 @@ sequenceDiagram
         end
     end
 
-    B->>C: 리포트 메시지 전송
-    Note over C: ### 20251208 출석표<br/>- 홍길동: 출석<br/>- 이영희: 지각 (3)<br/>- 박민수: 휴가<br/>- 최민지: 결석 (2/5)
+    alt 결과표가 2000자 이하
+        B->>C: 리포트 메시지 1건 전송
+    else 결과표가 2000자 초과
+        B->>B: 줄 경계 기준으로 메시지 분할
+        loop 분할된 각 메시지
+            B->>C: 리포트 메시지 순차 전송
+        end
+    end
+    Note over C: ### 20251208 출석표<br/>- 홍길동: 출석 (월 누적 지각 0회, 결석 0회, 잔여휴가 5일)<br/>- 이영희: 지각 (월 누적 지각 3회, 결석 1회, 잔여휴가 5일)<br/>- 박민수: 휴가 (월 누적 지각 0회, 결석 0회, 잔여휴가 4일)<br/>- 최민지: 결석 (월 누적 지각 0회, 결석 2회, 잔여휴가 5일)
 ```
 
 ---

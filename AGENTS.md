@@ -99,7 +99,7 @@
 
 - Sequelize 모델은 파일당 모델 하나를 유지한다.
 - 모델 클래스명과 export 이름은 PascalCase를 사용한다.
-- thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 전환 기간 집계 fallback 및 과거 레거시 데이터 호환용으로 유지한다.
+- thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 집계 원본이 아닌 과거 레거시 데이터 호환용으로만 유지한다.
 - `CamStudyWeeklyTimeLog`는 해당 주차의 `CamStudyTimeLog`를 재계산한 결과를 반영하는 용도로 유지하고, 같은 일간 로그를 누적 덧셈으로 중복 반영하지 않는다.
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
@@ -176,7 +176,9 @@
 - PR 브랜치에서 커밋을 만들고 push할 때마다 이번 변경사항에 맞게 GitHub PR 본문과 관련 이슈 본문을 함께 점검하고 필요하면 즉시 업데이트한다.
 - PR 본문에는 이번 push에 포함된 변경 요약, 테스트/검증 결과, 범위 변화가 반영되어 있어야 한다.
 - PR 본문에는 이번 push 기준 문서 영향 분석 결과도 반영되어 있어야 한다.
-- 구조, 실행 흐름, 데이터 흐름이 바뀐 PR이면 본문에 `Before` / `After` `mermaid` 다이어그램으로 변경 흐름을 요약한다.
+- 구조, 실행 흐름, 데이터 흐름이 바뀐 PR이면 본문에 단일 `mermaid` 블록 하나로 변경 흐름을 요약한다.
+- 비교 다이어그램을 쓸 때는 `subgraph`를 쓰지 않고, 최상위 박스에 `Before: ...`, `After: ...` 라벨을 직접 둔다.
+- 예시는 `Before: operator manually deploys on OCI`, `After: operator runs workflow_dispatch`처럼 박스 텍스트 자체로 상태를 구분한다.
 - 흐름 변화가 없으면 단일 `Current` 다이어그램만 두거나, 아주 작은 변경이면 `mermaid`를 생략하고 그 이유를 PR 본문에 남긴다.
 - PR 본문에는 이번 변경으로 추가되거나 수정된 테스트 명세도 포함한다.
   - 어떤 시나리오를 검증하는지

@@ -27,6 +27,21 @@ describe('reporting service', () => {
     vi.useRealTimers();
   });
 
+  const expectMonthlyStatus = (
+    attendanceMessage: string | null,
+    expectation: {
+      username: string;
+      todayStatus: '출석' | '지각' | '결석' | '휴가';
+      latecount: number;
+      absencecount: number;
+      remainingVacances: number;
+    },
+  ) => {
+    expect(attendanceMessage).toContain(
+      `${expectation.username}: ${expectation.todayStatus} (월 누적 지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
+    );
+  };
+
   it('AttendanceLog.status=attended 사용자는 출석으로 출력되고 카운트가 증가하지 않는다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
@@ -55,7 +70,13 @@ describe('reporting service', () => {
 
     expect(updatedUser?.latecount).toBe(0);
     expect(updatedUser?.absencecount).toBe(0);
-    expect(attendanceMessage).toContain('홍길동: 출석');
+    expectMonthlyStatus(attendanceMessage, {
+      username: '홍길동',
+      todayStatus: '출석',
+      latecount: 0,
+      absencecount: 0,
+      remainingVacances: 5,
+    });
   });
 
   it('AttendanceLog 요약 로그는 상태만 남기고 thread/message 식별자는 남기지 않는다', async () => {
@@ -89,7 +110,7 @@ describe('reporting service', () => {
     });
   });
 
-  it('AttendanceLog가 아직 없더라도 기존 TimeLog 2건 정시 출석은 출석으로 유지된다', async () => {
+  it('AttendanceLog가 없고 TimeLog만 있는 사용자는 fallback 없이 결석으로 집계된다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
     await TestUsers.create({
@@ -125,8 +146,14 @@ describe('reporting service', () => {
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
 
     expect(updatedUser?.latecount).toBe(0);
-    expect(updatedUser?.absencecount).toBe(0);
-    expect(attendanceMessage).toContain('홍길동: 출석');
+    expect(updatedUser?.absencecount).toBe(1);
+    expectMonthlyStatus(attendanceMessage, {
+      username: '홍길동',
+      todayStatus: '결석',
+      latecount: 0,
+      absencecount: 1,
+      remainingVacances: 5,
+    });
   });
 
   it('AttendanceLog.status=late 사용자는 지각으로 출력되고 latecount가 1 증가한다', async () => {
@@ -156,11 +183,17 @@ describe('reporting service', () => {
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
 
     expect(updatedUser?.latecount).toBe(1);
-    expect(attendanceMessage).toContain('지각 (1)');
+    expectMonthlyStatus(attendanceMessage, {
+      username: '홍길동',
+      todayStatus: '지각',
+      latecount: 1,
+      absencecount: 0,
+      remainingVacances: 5,
+    });
     expect(attendanceMessage).not.toContain('NaN');
   });
 
-  it('AttendanceLog가 아직 없더라도 기존 TimeLog 지각 기록은 latecount로 반영된다', async () => {
+  it('AttendanceLog가 없고 TimeLog가 지각 기록이어도 fallback 없이 결석으로 집계된다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
     await TestUsers.create({
@@ -195,9 +228,15 @@ describe('reporting service', () => {
     const { attendanceMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
 
-    expect(updatedUser?.latecount).toBe(1);
-    expect(updatedUser?.absencecount).toBe(0);
-    expect(attendanceMessage).toContain('홍길동: 지각 (1)');
+    expect(updatedUser?.latecount).toBe(0);
+    expect(updatedUser?.absencecount).toBe(1);
+    expectMonthlyStatus(attendanceMessage, {
+      username: '홍길동',
+      todayStatus: '결석',
+      latecount: 0,
+      absencecount: 1,
+      remainingVacances: 5,
+    });
   });
 
   it('AttendanceLog.status=absent 사용자는 결석으로 출력되고 absencecount가 1 증가한다', async () => {
@@ -227,7 +266,13 @@ describe('reporting service', () => {
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
 
     expect(updatedUser?.absencecount).toBe(1);
-    expect(attendanceMessage).toContain('결석 (1/5)');
+    expectMonthlyStatus(attendanceMessage, {
+      username: '홍길동',
+      todayStatus: '결석',
+      latecount: 0,
+      absencecount: 1,
+      remainingVacances: 5,
+    });
     expect(attendanceMessage).not.toContain('NaN');
   });
 
@@ -248,7 +293,13 @@ describe('reporting service', () => {
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
 
     expect(updatedUser?.absencecount).toBe(1);
-    expect(attendanceMessage).toContain('홍길동: 결석 (1/5)');
+    expectMonthlyStatus(attendanceMessage, {
+      username: '홍길동',
+      todayStatus: '결석',
+      latecount: 0,
+      absencecount: 1,
+      remainingVacances: 5,
+    });
   });
 
   it('월말 생존명단은 당일 AttendanceLog 기반 결석 집계 반영 후 생성한다', async () => {
@@ -268,7 +319,13 @@ describe('reporting service', () => {
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202612' } });
 
     expect(updatedUser?.absencecount).toBe(1);
-    expect(attendanceMessage).toContain('결석 (1/0)');
+    expectMonthlyStatus(attendanceMessage, {
+      username: '홍길동',
+      todayStatus: '결석',
+      latecount: 0,
+      absencecount: 1,
+      remainingVacances: 0,
+    });
     expect(hallOfFameMessage).not.toContain('홍길동');
   });
 
@@ -295,7 +352,49 @@ describe('reporting service', () => {
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
 
     expect(updatedUser?.absencecount).toBe(0);
-    expect(attendanceMessage).toContain('홍길동: 휴가');
+    expectMonthlyStatus(attendanceMessage, {
+      username: '홍길동',
+      todayStatus: '휴가',
+      latecount: 0,
+      absencecount: 0,
+      remainingVacances: 4,
+    });
+  });
+
+  it('결과표가 Discord 2000자 제한을 넘기면 여러 메시지로 분할한다', async () => {
+    vi.setSystemTime(new Date('2025-12-08T13:00:00'));
+
+    for (let index = 0; index < 40; index += 1) {
+      const userid = `user-${index}`;
+      const username = `출석자-${String(index).padStart(2, '0')}-이름이조금긴테스트사용자`;
+
+      await TestUsers.create({
+        userid,
+        username,
+        yearmonth: '202512',
+        waketime: '0700',
+        vacances: 5,
+        latecount: 0,
+        absencecount: 0,
+      });
+
+      await TestAttendanceLog.create({
+        userid,
+        username,
+        yearmonthday: '20251208',
+        threadid: `thread-${index}`,
+        messageid: `message-${index}`,
+        commentedat: '2025-12-07T22:00:00Z',
+        status: 'attended',
+      });
+    }
+
+    const { attendanceMessage, attendanceMessages } = await buildChallengeReport();
+
+    expect(attendanceMessages).not.toBeNull();
+    expect(attendanceMessages!.length).toBeGreaterThan(1);
+    expect(attendanceMessages!.every(message => message.length <= 2000)).toBe(true);
+    expect(attendanceMessages!.join('')).toBe(attendanceMessage);
   });
 
   it('주말에는 출석 집계를 건너뛰고 카운트를 변경하지 않는다', async () => {
