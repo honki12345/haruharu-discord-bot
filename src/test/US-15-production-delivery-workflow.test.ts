@@ -166,6 +166,7 @@ describe('US-15 production delivery workflow', () => {
 
     expect(integrationJobBlock).toContain("github.event_name == 'pull_request'");
     expect(integrationJobBlock).toContain('github.event.pull_request.head.repo.full_name == github.repository');
+    expect(integrationJobBlock).toContain("github.actor != 'dependabot[bot]'");
     expect(integrationJobBlock).toContain("github.event_name == 'push'");
     expect(integrationJobBlock).toContain("github.ref == 'refs/heads/main'");
     expect(integrationJobBlock).toContain('workflow_dispatch');
