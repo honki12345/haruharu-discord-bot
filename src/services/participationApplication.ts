@@ -228,15 +228,19 @@ const rejectParticipationApplication = async (
     return `${PROGRAM_METADATA[program].label} 대기 신청이 없어요.`;
   }
 
-  await ParticipationApplication.update(
+  const [affectedRows] = await ParticipationApplication.update(
     {
       status: 'rejected',
       reason,
     },
     {
-      where: { userid, program },
+      where: { userid, program, status: 'pending' },
     },
   );
+
+  if (affectedRows === 0) {
+    return `${PROGRAM_METADATA[program].label} 대기 신청이 없어요.`;
+  }
 
   await notifyApplicant(
     interaction,

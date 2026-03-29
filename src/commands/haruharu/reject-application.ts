@@ -23,6 +23,9 @@ export const command = {
     const userid = interaction.options.getString('userid')!;
     const program = interaction.options.getString('program') as 'wake-up' | 'cam-study';
     const reason = interaction.options.getString('reason')!;
-    await interaction.reply(await rejectParticipationApplication(interaction, userid, program, reason));
+    await interaction.reply({
+      content: await rejectParticipationApplication(interaction, userid, program, reason),
+      allowedMentions: { parse: [] },
+    });
   },
 };

@@ -295,6 +295,52 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
     expect(interaction.getLastReply()).toContain('승인');
   });
 
+  it('TC-RA11: /approve-application의 운영 응답은 신청자 이름에 멘션이 있어도 allowedMentions를 비활성화한다', async () => {
+    applications.set('test-user-id:wake-up', {
+      userid: 'test-user-id',
+      username: '@everyone',
+      program: 'wake-up',
+      status: 'pending',
+      reason: null,
+    });
+
+    const interaction = createMockInteraction({
+      channelId: 'valid-ops-channel-id',
+      options: {
+        userid: 'test-user-id',
+        program: 'wake-up',
+      },
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue({
+            roles: {
+              add: vi.fn(),
+              remove: vi.fn(),
+            },
+          }),
+        },
+      },
+      client: {
+        channels: {
+          fetch: vi.fn(),
+        },
+        users: {
+          fetch: vi.fn().mockResolvedValue({
+            send: vi.fn(),
+          }),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/approve-application.js');
+    await command.execute(interaction as never);
+
+    expect(interaction.getReplies()[0]).toMatchObject({
+      content: expect.stringContaining('@everyone'),
+      allowedMentions: { parse: [] },
+    });
+  });
+
   it('TC-RA08: /approve-application은 신청자가 서버에 없으면 역할 부여 전에 명시적으로 실패를 안내한다', async () => {
     applications.set('test-user-id:wake-up', {
       userid: 'test-user-id',
@@ -447,5 +493,42 @@ describe('US-14: 역할 기반 신청/승인 흐름', () => {
     });
     expect(notifyApplicant).toHaveBeenCalledWith(expect.stringContaining('다시 신청'));
     expect(interaction.getLastReply()).toContain('거절');
+  });
+
+  it('TC-RA12: /reject-application은 pending 조건 업데이트가 실패하면 거절 성공으로 응답하지 않는다', async () => {
+    applications.set('test-user-id:cam-study', {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'cam-study',
+      status: 'pending',
+      reason: null,
+    });
+    ParticipationApplication.update.mockResolvedValueOnce([0]);
+
+    const notifyApplicant = vi.fn();
+    const interaction = createMockInteraction({
+      channelId: 'valid-ops-channel-id',
+      options: {
+        userid: 'test-user-id',
+        program: 'cam-study',
+        reason: '운영진 확인 후 다시 신청해 주세요.',
+      },
+      client: {
+        channels: {
+          fetch: vi.fn(),
+        },
+        users: {
+          fetch: vi.fn().mockResolvedValue({
+            send: notifyApplicant,
+          }),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/reject-application.js');
+    await command.execute(interaction as never);
+
+    expect(notifyApplicant).not.toHaveBeenCalled();
+    expect(interaction.getLastReply()).toContain('대기 신청이 없어요');
   });
 });
