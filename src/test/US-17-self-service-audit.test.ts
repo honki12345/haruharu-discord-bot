@@ -104,8 +104,15 @@ describe('US-17: self-service 응답/운영 로그', () => {
     });
     expect(interaction.client.channels.fetch).toHaveBeenCalledWith('valid-test-channel-id');
     expect(auditChannel.send).toHaveBeenCalledTimes(1);
-    expect(auditChannel.send.mock.calls[0]?.[0]).toEqual(expect.stringContaining(command.data.name));
-    expect(auditChannel.send.mock.calls[0]?.[0]).toEqual(expect.stringContaining(spec.expectedReplyText));
+    expect(auditChannel.send.mock.calls[0]?.[0]).toMatchObject({
+      content: expect.stringContaining(command.data.name),
+      allowedMentions: {
+        parse: [],
+      },
+    });
+    expect(auditChannel.send.mock.calls[0]?.[0]).toMatchObject({
+      content: expect.stringContaining(spec.expectedReplyText),
+    });
   });
 
   it.each([
@@ -146,8 +153,15 @@ describe('US-17: self-service 응답/운영 로그', () => {
     });
     expect(interaction.client.channels.fetch).toHaveBeenCalledWith('valid-test-channel-id');
     expect(auditChannel.send).toHaveBeenCalledTimes(1);
-    expect(auditChannel.send.mock.calls[0]?.[0]).toEqual(expect.stringContaining('apply-cam'));
-    expect(auditChannel.send.mock.calls[0]?.[0]).toEqual(expect.stringContaining(spec.expectedReplyText));
+    expect(auditChannel.send.mock.calls[0]?.[0]).toMatchObject({
+      content: expect.stringContaining('apply-cam'),
+      allowedMentions: {
+        parse: [],
+      },
+    });
+    expect(auditChannel.send.mock.calls[0]?.[0]).toMatchObject({
+      content: expect.stringContaining(spec.expectedReplyText),
+    });
   });
 
   it('testChannelId 로그 전송에 실패해도 사용자 ephemeral 응답은 유지된다', async () => {
@@ -177,5 +191,29 @@ describe('US-17: self-service 응답/운영 로그', () => {
       ephemeral: true,
     });
     expect(loggerErrorSpy).toHaveBeenCalled();
+  });
+
+  it('testChannelId 감사 로그는 멘션 파싱을 비활성화한다', async () => {
+    vi.doMock('../services/challengeSelfService.js', () => ({
+      executeRegister: vi.fn().mockResolvedValue({ reply: '@everyone 홍길동님 기상시간을 등록했습니다' }),
+    }));
+
+    const auditChannel = createAuditChannel();
+    const interaction = createMockInteraction({
+      channelId: 'valid-start-here-channel-id',
+      globalName: '@everyone',
+      client: createAuditClient(auditChannel),
+      options: { waketime: '0800' },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    expect(auditChannel.send).toHaveBeenCalledWith({
+      content: expect.any(String),
+      allowedMentions: {
+        parse: [],
+      },
+    });
   });
 });

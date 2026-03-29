@@ -56,7 +56,12 @@ const sendSelfServiceAuditLog = async ({
       return;
     }
 
-    await channel.send(buildAuditMessage({ commandName, interaction, reply }));
+    await channel.send({
+      content: buildAuditMessage({ commandName, interaction, reply }),
+      allowedMentions: {
+        parse: [],
+      },
+    });
   } catch (error) {
     logger.error('failed to send self-service audit log', {
       commandName,
