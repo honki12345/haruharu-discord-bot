@@ -7,17 +7,17 @@ const findCamStudyUser = (userid: string) => CamStudyUsers.findOne({ where: { us
 
 const listCamStudyUsers = () => CamStudyUsers.findAll();
 
-const camStudyUserUpsertLocks = new Map<string, Promise<void>>();
+const camStudyUserMutationLocks = new Map<string, Promise<void>>();
 
-const withCamStudyUserUpsertLock = async <T>(userid: string, task: () => Promise<T>) => {
-  const previousLock = camStudyUserUpsertLocks.get(userid) ?? Promise.resolve();
+const withCamStudyUserMutationLock = async <T>(userid: string, task: () => Promise<T>) => {
+  const previousLock = camStudyUserMutationLocks.get(userid) ?? Promise.resolve();
   let releaseCurrentLock!: () => void;
   const currentLock = new Promise<void>(resolve => {
     releaseCurrentLock = resolve;
   });
   const queuedLock = previousLock.then(() => currentLock);
 
-  camStudyUserUpsertLocks.set(userid, queuedLock);
+  camStudyUserMutationLocks.set(userid, queuedLock);
   await previousLock;
 
   try {
@@ -25,8 +25,8 @@ const withCamStudyUserUpsertLock = async <T>(userid: string, task: () => Promise
   } finally {
     releaseCurrentLock();
 
-    if (camStudyUserUpsertLocks.get(userid) === queuedLock) {
-      camStudyUserUpsertLocks.delete(userid);
+    if (camStudyUserMutationLocks.get(userid) === queuedLock) {
+      camStudyUserMutationLocks.delete(userid);
     }
   }
 };
@@ -37,7 +37,7 @@ const upsertCamStudyUser = async (payload: { userid: string; username: string })
     throw new Error('CamStudyUsers sequelize instance is not initialized');
   }
 
-  return withCamStudyUserUpsertLock(payload.userid, async () =>
+  return withCamStudyUserMutationLock(payload.userid, async () =>
     sequelize.transaction(async transaction => {
       const existingUsers = await CamStudyUsers.findAll({
         where: { userid: payload.userid },
@@ -71,7 +71,8 @@ const upsertCamStudyUser = async (payload: { userid: string; username: string })
   );
 };
 
-const removeCamStudyUser = (userid: string) => CamStudyUsers.destroy({ where: { userid } });
+const removeCamStudyUser = (userid: string) =>
+  withCamStudyUserMutationLock(userid, () => CamStudyUsers.destroy({ where: { userid } }));
 
 const findCamStudyTimeLog = (userid: string, yearmonthday: string) =>
   CamStudyTimeLog.findOne({ where: { userid, yearmonthday } });

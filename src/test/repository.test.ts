@@ -11,7 +11,7 @@ import {
   TestCamStudyTimeLog,
   TestCamStudyWeeklyTimeLog,
 } from './test-setup.js';
-import { upsertCamStudyUser } from '../repository/camStudyRepository.js';
+import { removeCamStudyUser, upsertCamStudyUser } from '../repository/camStudyRepository.js';
 
 describe('Repository 모델 테스트 (인메모리 DB)', () => {
   beforeAll(async () => {
@@ -550,6 +550,55 @@ describe('Repository 모델 테스트 (인메모리 DB)', () => {
 
         expect(users).toHaveLength(1);
         createSpy.mockRestore();
+      });
+
+      it('TC-RC05: removeCamStudyUser가 늦게 끝나도 이후 upsert 결과를 지우지 않는다', async () => {
+        await TestCamStudyUsers.create({
+          userid: 'cam_user1',
+          username: '기존이름',
+        });
+
+        const originalDestroy = TestCamStudyUsers.destroy.bind(TestCamStudyUsers);
+        let releaseDestroy!: () => void;
+        const destroyGate = new Promise<void>(resolve => {
+          releaseDestroy = resolve;
+        });
+        let firstDestroyBlocked = false;
+
+        const destroySpy = vi.spyOn(TestCamStudyUsers, 'destroy').mockImplementation(async options => {
+          if (!firstDestroyBlocked) {
+            firstDestroyBlocked = true;
+            await destroyGate;
+          }
+
+          return originalDestroy(options);
+        });
+
+        const removePromise = removeCamStudyUser('cam_user1');
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let upsertCompleted = false;
+        const upsertPromise = upsertCamStudyUser({
+          userid: 'cam_user1',
+          username: '최신이름',
+        }).then(() => {
+          upsertCompleted = true;
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(upsertCompleted).toBe(false);
+
+        releaseDestroy();
+        await Promise.all([removePromise, upsertPromise]);
+
+        const users = await TestCamStudyUsers.findAll({
+          where: { userid: 'cam_user1' },
+          order: [['id', 'ASC']],
+        });
+
+        expect(users).toHaveLength(1);
+        expect(users[0]?.username).toBe('최신이름');
+        destroySpy.mockRestore();
       });
     });
 
