@@ -32,7 +32,7 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
       if (client.isReady()) {
         resolve();
       } else {
-        client.once('ready', () => resolve());
+        client.once('clientReady', () => resolve());
       }
     });
   }, 30000);

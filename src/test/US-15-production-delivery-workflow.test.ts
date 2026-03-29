@@ -160,6 +160,30 @@ describe('US-15 production delivery workflow', () => {
     expect(workflow).toContain('npm run test:smoke');
   });
 
+  it('CI workflow는 same-repo PR과 main push에서 integration test 전에 slash command를 동기화해야 한다', () => {
+    const workflow = readRepositoryFile('.github/workflows/ci.yml');
+    const integrationJobBlock = getWorkflowJobBlock(workflow, 'integration-test');
+
+    expect(integrationJobBlock).toContain("github.event_name == 'pull_request'");
+    expect(integrationJobBlock).toContain('github.event.pull_request.head.repo.full_name == github.repository');
+    expect(integrationJobBlock).toContain("github.event_name == 'push'");
+    expect(integrationJobBlock).toContain("github.ref == 'refs/heads/main'");
+    expect(integrationJobBlock).toContain('workflow_dispatch');
+    expect(integrationJobBlock).toContain('config.json');
+    expect(integrationJobBlock).toContain('npm run deploy:commands');
+    expect(integrationJobBlock).toContain('npm run test:integration');
+    expect(integrationJobBlock.indexOf('npm run deploy:commands')).toBeLessThan(
+      integrationJobBlock.indexOf('npm run test:integration'),
+    );
+  });
+
+  it('integration test는 deprecated ready 대신 clientReady 이벤트를 사용해야 한다', () => {
+    const integrationTest = readRepositoryFile('src/test/integration/discord.integration.test.ts');
+
+    expect(integrationTest).toContain("client.once('clientReady'");
+    expect(integrationTest).not.toContain("client.once('ready'");
+  });
+
   it('workflow runtime pin 검증은 다른 job에 남은 설정 때문에 false positive를 내면 안 된다', () => {
     const driftedDeployWorkflow = `jobs:
   verify:
