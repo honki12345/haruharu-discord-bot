@@ -96,39 +96,8 @@ describe('config.ts', () => {
     });
   });
 
-  it('check-in/check-out 커맨드 모듈은 런타임 채널 ID 없이도 import 된다', async () => {
-    vi.doMock('node:module', async importOriginal => {
-      const original = await importOriginal<typeof import('node:module')>();
-      return {
-        ...original,
-        createRequire: () => (path: string) => {
-          if (path.includes('config.json')) {
-            return {
-              token: 'token',
-              clientId: 'client-id',
-              guildId: 'guild-id',
-            };
-          }
-
-          return original.createRequire(import.meta.url)(path);
-        },
-      };
-    });
-
-    const checkInModule = await import('../commands/haruharu/check-in.js');
-    const checkOutModule = await import('../commands/haruharu/check-out.js');
-
-    expect(checkInModule).toHaveProperty('command');
-    expect(checkOutModule).toHaveProperty('command');
-    expect(checkInModule.command.data.toJSON()).toMatchObject({
-      name: 'check-in',
-      description: 'deprecated: use today attendance thread',
-    });
-    expect(checkOutModule.command.data.toJSON()).toMatchObject({
-      name: 'check-out',
-      description: 'deprecated: use today attendance thread',
-    });
-    expect(checkInModule.command.data.toJSON().options).toEqual([]);
-    expect(checkOutModule.command.data.toJSON().options).toEqual([]);
+  it('check-in/check-out 커맨드 모듈은 더 이상 존재하지 않는다', async () => {
+    await expect(import('../commands/haruharu/check-in.js')).rejects.toThrow();
+    await expect(import('../commands/haruharu/check-out.js')).rejects.toThrow();
   });
 });

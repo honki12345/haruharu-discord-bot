@@ -84,86 +84,11 @@ sequenceDiagram
 
 ---
 
-### US-2: 체크인
+### US-2, US-3: 레거시 check-in/check-out 제거
 
-```
-AS A 챌린저
-I WANT TO 레거시 /check-in을 눌렀을 때 현재 출석 경로를 안내받고 싶다
-SO THAT 오늘의 출석 thread로 바로 이동할 수 있다
-```
-
-**인수 조건:**
-- `/check-in`은 더 이상 공식 출석 기록 경로가 아니다
-- 호출 시 오늘의 출석 thread를 멘션으로 안내한다
-- 첨부파일 없이도 호출 가능하다
-- `TimeLog`를 새로 생성하거나 수정하지 않는다
-- 기존 출석 상태를 덮어쓰지 않는다
-
-```mermaid
-sequenceDiagram
-    participant U as 챌린저
-    participant D as Discord
-    participant B as Bot
-    participant T as 오늘 출석 Thread
-
-    U->>D: /check-in
-    D->>B: InteractionCreate 이벤트
-
-    B->>B: 채널 검증
-    alt 허용되지 않은 채널
-        B-->>U: "no valid channel for command"
-    end
-
-    B->>B: deprecated 안내 경로 진입
-    B->>T: 오늘 출석 thread 조회 또는 생성 보장
-
-    alt 오늘 thread 확보 성공
-        B-->>U: "/check-in은 더 이상 공식 출석 기록 경로가 아닙니다"
-        B-->>U: "오늘 출석은 <#thread>에서 첫 댓글로 남겨주세요"
-    else thread 조회 실패
-        B-->>U: "오늘 출석은 오늘의 출석 쓰레드에서 첫 댓글로 남겨주세요"
-    end
-```
-
----
-
-### US-3: 체크아웃
-
-```
-AS A 챌린저
-I WANT TO 레거시 /check-out을 눌렀을 때 현재 출석 경로를 안내받고 싶다
-SO THAT 더 이상 사용하지 않는 출석 흐름과 공식 thread 흐름을 혼동하지 않는다
-```
-
-**인수 조건:**
-- `/check-out`은 더 이상 공식 출석 기록 경로가 아니다
-- 호출 시 오늘의 출석 thread를 멘션으로 안내한다
-- 첨부파일 없이도 호출 가능하다
-- `TimeLog`를 새로 생성하거나 수정하지 않는다
-- 기존 출석 상태를 덮어쓰지 않는다
-
-```mermaid
-sequenceDiagram
-    participant U as 챌린저
-    participant D as Discord
-    participant B as Bot
-    participant T as 오늘 출석 Thread
-
-    U->>D: /check-out
-    D->>B: InteractionCreate 이벤트
-
-    B->>B: 채널 검증
-
-    B->>B: deprecated 안내 경로 진입
-    B->>T: 오늘 출석 thread 조회 또는 생성 보장
-
-    alt 오늘 thread 확보 성공
-        B-->>U: "/check-out은 더 이상 공식 출석 기록 경로가 아닙니다"
-        B-->>U: "오늘 출석은 <#thread>에서 첫 댓글로 남겨주세요"
-    else thread 조회 실패
-        B-->>U: "오늘 출석은 오늘의 출석 쓰레드에서 첫 댓글로 남겨주세요"
-    end
-```
+- `/check-in`, `/check-out`는 더 이상 등록되지 않는다.
+- 공식 기상 출석 입력은 daily message에 연결된 오늘의 출석 thread 첫 댓글만 사용한다.
+- 과거 `TimeLog` 데이터는 전환 기간 집계 fallback 용도로만 유지한다.
 
 ---
 
