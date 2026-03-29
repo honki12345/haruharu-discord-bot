@@ -4,7 +4,7 @@ import type { MyClient } from '../runtime.js';
 
 const buildInvalidChannelMessage = (commandName: string) => {
   if (commandName === 'apply-wakeup' || commandName === 'apply-cam') {
-    return '`#apply`에서만 사용할 수 있어요. 질문은 `#qna`를 이용해 주세요.';
+    return '`#start-here`에서만 사용할 수 있어요. 질문은 `#qna`를 이용해 주세요.';
   }
 
   return '이 명령어는 이 채널에서 사용할 수 없어요.';

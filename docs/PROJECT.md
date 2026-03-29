@@ -15,31 +15,29 @@
 
 ### 핵심 기능
 
-| 기능                 | 설명                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------ |
-| **기상 챌린지**      | 매일 정해진 시간에 기상하여 인증샷을 올리는 월간 챌린지                                    |
-| **캠스터디**         | Discord 음성 채널에서 카메라 또는 화면공유를 켜고 공부하는 시간 추적                       |
-| **역할 기반 온보딩** | `#start-here`/`#apply`/`#qna`/`#announcements` 구조와 self-service 역할 활성화로 접근 제어 |
+| 기능                 | 설명                                                                              |
+| -------------------- | --------------------------------------------------------------------------------- |
+| **기상 챌린지**      | 매일 정해진 시간에 기상하여 인증샷을 올리는 월간 챌린지                           |
+| **캠스터디**         | Discord 음성 채널에서 카메라 또는 화면공유를 켜고 공부하는 시간 추적              |
+| **역할 기반 온보딩** | `#start-here`/`#qna`/`#announcements` 구조와 self-service 역할 활성화로 접근 제어 |
 
 ### Discord 운영 채널 구조
 
-| 채널             | 역할                                     | 비고                                                 |
-| ---------------- | ---------------------------------------- | ---------------------------------------------------- |
-| `#start-here`    | 환영 및 서버 소개                        | 읽기 전용 권장, everyone 공개                        |
-| `#apply`         | 참여 방법 안내 및 self-service 명령 실행 | `/apply-cam`, 일반 메시지 금지                       |
-| `#qna`           | 질문/응답                                | everyone 공개 문의 채널                              |
-| `#announcements` | 운영 공지                                | everyone 열람, 관리자 전용 작성 권장                 |
-| `#ops`           | 운영 공지 및 관리자 처리                 | 관리자 전용                                          |
-| `#wake-up`       | 기상인증 전용 채널                       | `@wake-up` 역할 기반 접근, 신청 전에는 보이지 않음   |
-| `#cam-study`     | 캠스터디 전용 텍스트 채널                | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음 |
-| `음성: 캠스터디` | 캠스터디 전용 음성 채널                  | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음 |
+| 채널             | 역할                                 | 비고                                                 |
+| ---------------- | ------------------------------------ | ---------------------------------------------------- |
+| `#start-here`    | 환영, 서버 소개, self-service 진입점 | `/apply-cam` 실행 가능, everyone 공개                |
+| `#qna`           | 질문/응답                            | everyone 공개 문의 채널                              |
+| `#announcements` | 운영 공지                            | everyone 열람, 관리자 전용 작성 권장                 |
+| `#ops`           | 운영 공지 및 관리자 처리             | 관리자 전용                                          |
+| `#wake-up`       | 기상인증 전용 채널                   | `@wake-up` 역할 기반 접근, 신청 전에는 보이지 않음   |
+| `#cam-study`     | 캠스터디 전용 텍스트 채널            | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음 |
+| `음성: 캠스터디` | 캠스터디 전용 음성 채널              | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음 |
 
 ### 채널별 고정/반복 안내 메시지
 
 | 채널          | 메시지 유형      | 설명                                                                   | 출처                                       |
 | ------------- | ---------------- | ---------------------------------------------------------------------- | ------------------------------------------ |
-| `#start-here` | 고정 안내        | 서버 소개와 프로그램 요약 고정 안내                                    | 운영 수동 관리, `USER_STORIES`             |
-| `#apply`      | 고정 안내        | 참여 방법과 신청 명령어 고정 안내                                      | 운영 수동 관리, `USER_STORIES`             |
+| `#start-here` | 고정 안내        | 서버 소개, 참여 방법, self-service 명령어 고정 안내                    | 운영 수동 관리, `USER_STORIES`             |
 | `#wake-up`    | 반복 자동 메시지 | 매일 06:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내 | `src/daily-attendance.ts`                  |
 | `#wake-up`    | 반복 자동 메시지 | 평일 13:00 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영           | `src/services/reporting.ts`                |
 | `#ops`        | 반복 운영 메시지 | deprecated 운영 명령 안내와 기타 운영 처리 메시지                      | `src/services/participationApplication.ts` |
@@ -215,8 +213,8 @@ haruharu-discord-bot/
 #### `/apply-cam` (`/캠스터디신청`)
 
 - 별도 파라미터 없음
-- `#apply` 채널에서만 실행 가능
-- 다른 채널에서는 `#apply` 사용과 `#qna` 문의 채널을 안내하는 `ephemeral` 메시지로 종료
+- `#start-here` 채널에서만 실행 가능
+- 다른 채널에서는 `#start-here` 사용과 `#qna` 문의 채널을 안내하는 `ephemeral` 메시지로 종료
 - 이미 활성화된 사용자가 다시 실행하면 전용 채널 확인을 다시 안내
 
 #### `/add-vacances` (`/admin-휴가추가`)
@@ -357,7 +355,7 @@ flowchart TD
 
 - 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
 - stale `/apply-wakeup` interaction 이 들어오면 커맨드 미존재 오류로 끝내지 않고 `/register` migration 안내를 ephemeral 응답으로 반환한다.
-- `/apply-cam`은 `#apply` 전용 채널에서만 실행된다.
+- `/apply-cam`은 `#start-here` 전용 채널에서만 실행된다.
 - `/approve-application`, `/reject-application`은 deprecated 상태로 `#ops`에서만 남아 있고 실제 참여 상태는 바꾸지 않는다.
 - `/register-cam`, `/delete-cam`은 deprecated 상태로 `#ops`에서만 남아 있으며 역할 기반 운영 흐름만 안내한다.
 
@@ -723,7 +721,7 @@ flowchart TD
   "noticeChannelId": "운영 공지 채널 ID",
   "vacancesRegisterChannelId": "기상 self-service 채널 ID",
   "testChannelId": "테스트 채널 ID",
-  "applyChannelId": "#apply 채널 ID",
+  "startHereChannelId": "#start-here 채널 ID",
   "opsChannelId": "#ops 채널 ID",
   "wakeUpRoleId": "@wake-up 역할 ID",
   "camStudyRoleId": "@cam-study 역할 ID"
@@ -751,8 +749,8 @@ flowchart TD
 - `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 현재 월 날짜 단위(`yyyymmdd`)로 동작한다.
 - 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.
 - 데모 전용 커맨드는 Discord 한국어 locale에서 `admin-demo-...` 접두어로 표시된다.
-- stale `/apply-wakeup` interaction 은 `#apply` 계열 잘못된 채널 안내 대신 `/register` migration 응답으로 종료한다.
-- `/apply-cam`은 `#apply`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답한다.
+- stale `/apply-wakeup` interaction 은 잘못된 채널 안내 대신 `/register` migration 응답으로 종료한다.
+- `/apply-cam`은 `#start-here`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답한다.
 - `/apply-cam` 성공 시 `@cam-study` 역할과 `CamStudyUsers`가 함께 맞춰지고, 이후 역할 변경은 `guildMemberUpdate`가 계속 동기화한다.
 - `/approve-application`, `/reject-application`은 `#ops`에서 deprecated 안내만 반환한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.

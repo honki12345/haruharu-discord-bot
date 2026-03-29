@@ -101,7 +101,7 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
       send: vi.fn(),
     };
     const interaction = createMockInteraction({
-      channelId: 'valid-apply-channel-id',
+      channelId: 'valid-start-here-channel-id',
       guild: {
         members: {
           fetch: vi.fn().mockResolvedValue(applicantMember),
@@ -156,7 +156,7 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
       send: vi.fn(),
     };
     const interaction = createMockInteraction({
-      channelId: 'valid-apply-channel-id',
+      channelId: 'valid-start-here-channel-id',
       guild: {
         members: {
           fetch: vi.fn().mockResolvedValue(applicantMember),
@@ -194,7 +194,7 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
       send: vi.fn(),
     };
     const interaction = createMockInteraction({
-      channelId: 'valid-apply-channel-id',
+      channelId: 'valid-start-here-channel-id',
       guild: {
         members: {
           fetch: vi.fn().mockResolvedValue(applicantMember),
@@ -216,7 +216,7 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
 
   it('TC-RA04: /apply-cam은 서버에서 사용자를 찾지 못하면 자동 참여를 실패로 안내한다', async () => {
     const interaction = createMockInteraction({
-      channelId: 'valid-apply-channel-id',
+      channelId: 'valid-start-here-channel-id',
       guild: {
         members: {
           fetch: vi.fn().mockRejectedValue(new Error('Unknown Member')),
@@ -240,7 +240,7 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
       send: vi.fn(),
     };
     const interaction = createMockInteraction({
-      channelId: 'valid-apply-channel-id',
+      channelId: 'valid-start-here-channel-id',
       guild: {
         members: {
           fetch: vi.fn().mockResolvedValue(applicantMember),
@@ -264,7 +264,7 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
       send: vi.fn(),
     };
     const interaction = createMockInteraction({
-      channelId: 'valid-apply-channel-id',
+      channelId: 'valid-start-here-channel-id',
       guild: {
         members: {
           fetch: vi.fn().mockResolvedValue(applicantMember),
@@ -302,7 +302,7 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
       send: vi.fn(),
     };
     const interaction = createMockInteraction({
-      channelId: 'valid-apply-channel-id',
+      channelId: 'valid-start-here-channel-id',
       guild: {
         members: {
           fetch: vi.fn().mockResolvedValue(applicantMember),
@@ -340,7 +340,7 @@ describe('US-14: 역할 기반 자동 참여 흐름', () => {
       send: vi.fn(),
     };
     const interaction = createMockInteraction({
-      channelId: 'valid-apply-channel-id',
+      channelId: 'valid-start-here-channel-id',
       guild: {
         members: {
           fetch: vi.fn().mockResolvedValue(applicantMember),

@@ -13,7 +13,7 @@ export interface AppConfig {
   logChannelId?: string;
   resultChannelId?: string;
   voiceChannelId?: string;
-  applyChannelId?: string;
+  startHereChannelId?: string;
   opsChannelId?: string;
   wakeUpRoleId?: string;
   camStudyRoleId?: string;
@@ -47,7 +47,7 @@ export const testChannelId = getRequiredConfig('testChannelId');
 export const logChannelId = getRequiredConfig('logChannelId');
 export const resultChannelId = getRequiredConfig('resultChannelId');
 export const voiceChannelId = getRequiredConfig('voiceChannelId');
-export const applyChannelId = getRequiredConfig('applyChannelId');
+export const startHereChannelId = getRequiredConfig('startHereChannelId');
 export const opsChannelId = getRequiredConfig('opsChannelId');
 export const wakeUpRoleId = getRequiredConfig('wakeUpRoleId');
 export const camStudyRoleId = getRequiredConfig('camStudyRoleId');

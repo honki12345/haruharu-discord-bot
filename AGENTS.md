@@ -93,7 +93,7 @@
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - `register-cam`, `delete-cam`은 deprecated 호환용 명령으로만 유지하고, 실제 캠스터디 등록 원본은 `@cam-study` 역할과 `guildMemberUpdate` 동기화로 본다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
-- 역할 기반 운영 흐름을 추가할 때는 `#apply` 같은 신청 채널과 `#ops` 같은 운영 채널을 분리하고, 신청 응답은 가능하면 `ephemeral`로 처리한다.
+- 역할 기반 운영 흐름을 추가할 때는 `#start-here` 같은 온보딩 채널과 `#ops` 같은 운영 채널을 분리하고, 신청 응답은 가능하면 `ephemeral`로 처리한다.
 
 ### `src/events`
 
@@ -105,7 +105,7 @@
 - `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 역할 회수 뒤 종료 시점 정리까지 포함해 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
-- `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#apply`/`#ops` 같은 전용 채널에 묶이는지 문서에 남긴다.
+- `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#start-here`/`#ops` 같은 전용 채널에 묶이는지 문서에 남긴다.
 
 ### `src/daily-attendance.ts`
 
