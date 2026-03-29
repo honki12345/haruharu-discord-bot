@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import { CamStudyTimeLog } from './CamStudyTimeLog.js';
 import { CamStudyUsers } from './CamStudyUsers.js';
 import { CamStudyWeeklyTimeLog } from './CamStudyWeeklyTimeLog.js';
@@ -25,6 +26,15 @@ const updateCamStudyTimeLog = (
 
 const listCamStudyTimeLogs = (yearmonthday: string) => CamStudyTimeLog.findAll({ where: { yearmonthday } });
 
+const listCamStudyTimeLogsBetween = (startYearMonthDay: string, endYearMonthDay: string) =>
+  CamStudyTimeLog.findAll({
+    where: {
+      yearmonthday: {
+        [Op.between]: [startYearMonthDay, endYearMonthDay],
+      },
+    },
+  });
+
 const findWeeklyCamStudyTimeLog = (userid: string, weektimes: number) =>
   CamStudyWeeklyTimeLog.findOne({ where: { userid, weektimes } });
 
@@ -41,6 +51,31 @@ const updateWeeklyCamStudyTimeLog = (userid: string, weektimes: number, totalmin
 const listWeeklyCamStudyTimeLogs = (weektimes: number) =>
   CamStudyWeeklyTimeLog.findAll({ where: { weektimes }, order: [['totalminutes', 'DESC']] });
 
+const replaceWeeklyCamStudyTimeLogs = async (
+  weektimes: number,
+  payloads: Array<{
+    userid: string;
+    username: string;
+    weektimes: number;
+    totalminutes: number;
+  }>,
+) => {
+  const sequelize = CamStudyWeeklyTimeLog.sequelize;
+  if (!sequelize) {
+    throw new Error('CamStudyWeeklyTimeLog sequelize instance is not initialized');
+  }
+
+  await sequelize.transaction(async transaction => {
+    await CamStudyWeeklyTimeLog.destroy({ where: { weektimes }, transaction });
+
+    if (!payloads.length) {
+      return;
+    }
+
+    await CamStudyWeeklyTimeLog.bulkCreate(payloads, { transaction });
+  });
+};
+
 export {
   createCamStudyTimeLog,
   createWeeklyCamStudyTimeLog,
@@ -48,8 +83,10 @@ export {
   findCamStudyUser,
   findWeeklyCamStudyTimeLog,
   listCamStudyTimeLogs,
+  listCamStudyTimeLogsBetween,
   listCamStudyUsers,
   listWeeklyCamStudyTimeLogs,
+  replaceWeeklyCamStudyTimeLogs,
   updateCamStudyTimeLog,
   updateWeeklyCamStudyTimeLog,
 };

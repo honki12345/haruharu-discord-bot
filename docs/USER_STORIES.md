@@ -296,14 +296,14 @@ sequenceDiagram
 
 ```
 AS A 캠스터디 참가자
-I WANT TO 음성 채널에서 카메라를 켜면 자동으로 시간이 기록
+I WANT TO 음성 채널에서 카메라 또는 화면공유를 켜면 자동으로 시간이 기록
 SO THAT 별도 조작 없이 공부 시간이 측정된다
 ```
 
 **인수 조건:**
 
-- 카메라 ON: 학습 시작
-- 카메라 OFF 또는 채널 퇴장: 학습 종료
+- 카메라 ON 또는 화면공유 ON: 학습 시작
+- 카메라와 화면공유가 모두 OFF 이거나 채널 퇴장: 학습 종료
 - 5분 미만 세션은 무시
 - 자정을 넘기면 새 날짜로 분리 기록
 
@@ -315,8 +315,8 @@ sequenceDiagram
     participant DB as SQLite
     participant L as Log Channel
 
-    Note over U,VC: 음성 채널 입장 + 카메라 ON
-    VC->>B: voiceStateUpdate<br/>(streaming: true)
+    Note over U,VC: 음성 채널 입장 + 카메라 또는 화면공유 ON
+    VC->>B: voiceStateUpdate<br/>(selfVideo: true 또는 streaming: true)
 
     B->>DB: CamStudyUsers 조회 (userid)
     alt 미등록 사용자
@@ -334,8 +334,8 @@ sequenceDiagram
 
     Note over U,VC: 학습 중...
 
-    Note over U,VC: 카메라 OFF 또는 채널 퇴장
-    VC->>B: voiceStateUpdate<br/>(streaming: false)
+    Note over U,VC: 카메라와 화면공유가 모두 OFF 또는 채널 퇴장
+    VC->>B: voiceStateUpdate<br/>(selfVideo: false, streaming: false)
 
     B->>DB: CamStudyTimeLog 조회
     B->>B: 경과시간 = 현재시간 - timestamp
@@ -410,6 +410,7 @@ SO THAT 한 주간의 학습량을 확인할 수 있다
 - 매주 금요일 23:59에 출력
 - 월~금 학습 시간 누적
 - 주차 번호: 2024-04-06 기준으로 계산
+- 같은 날짜 기준 재실행해도 주간 누적 시간이 중복 반영되지 않는다
 
 ```mermaid
 sequenceDiagram
@@ -429,16 +430,9 @@ sequenceDiagram
     B->>B: 주차 번호 계산
     Note right of B: weektimes = (현재 - 2024-04-06) / 7일
 
-    B->>DB: CamStudyWeeklyTimeLog 조회 (weektimes)
-
-    loop 각 참가자별
-        B->>DB: 오늘 일간 시간 조회
-        alt 주간 기록 존재
-            B->>DB: totalminutes += 오늘 시간
-        else 주간 기록 없음
-            B->>DB: CamStudyWeeklyTimeLog 생성
-        end
-    end
+    B->>DB: 해당 주차 CamStudyTimeLog 조회
+    B->>B: 참가자별 주간 totalminutes 재계산
+    B->>DB: CamStudyWeeklyTimeLog 재생성 또는 덮어쓰기
 
     B->>B: 주간 totalminutes 기준 정렬
 

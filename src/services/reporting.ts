@@ -1,10 +1,9 @@
 import {
-  createWeeklyCamStudyTimeLog,
-  findWeeklyCamStudyTimeLog,
   listCamStudyTimeLogs,
+  listCamStudyTimeLogsBetween,
   listCamStudyUsers,
   listWeeklyCamStudyTimeLogs,
-  updateWeeklyCamStudyTimeLog,
+  replaceWeeklyCamStudyTimeLogs,
 } from '../repository/camStudyRepository.js';
 import {
   listChallengeLogs,
@@ -23,7 +22,7 @@ import { Users } from '../repository/Users.js';
 import { VacationLog } from '../repository/VacationLog.js';
 import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
 import { logger } from '../logger.js';
-import { ONE_DAY_MILLISECONDS, PUBLIC_HOLIDAYS_2026, SATURDAY, SUNDAY } from '../utils/constants.js';
+import { HARUHARU_TIMES, ONE_DAY_MILLISECONDS, PUBLIC_HOLIDAYS_2026, SATURDAY, SUNDAY } from '../utils/constants.js';
 import {
   calculateRemainingTimeCamStudy,
   calculateRemainingTimeChallenge,
@@ -33,6 +32,7 @@ import {
   getYearMonthDate,
   getYearMonthDay,
   isLastDayOfMonth,
+  padTwoDigits,
 } from '../utils.js';
 
 const syncModels = async () => {
@@ -155,6 +155,18 @@ const buildChallengeReport = async () => {
   return { attendanceMessage, hallOfFameMessage };
 };
 
+const toUtcYearMonthDay = (target: Date) =>
+  `${target.getUTCFullYear()}${padTwoDigits(target.getUTCMonth() + 1)}${padTwoDigits(target.getUTCDate())}`;
+
+const getWeekStartDate = (weektimes: number) =>
+  new Date(
+    Date.UTC(
+      HARUHARU_TIMES.getUTCFullYear(),
+      HARUHARU_TIMES.getUTCMonth(),
+      HARUHARU_TIMES.getUTCDate() + weektimes * 7,
+    ),
+  );
+
 const buildCamStudyReports = async () => {
   logger.info('print cam_study start');
   const { year, month, date } = getYearMonthDate();
@@ -181,22 +193,37 @@ const buildCamStudyReports = async () => {
   logger.info(`cam study final string`, { string: dailyMessage });
 
   const weektimes = calculateWeekTimes();
-  for (const timelog of camStudyTimelogs) {
-    const weekTimeLog = await findWeeklyCamStudyTimeLog(timelog.userid, weektimes);
-    const totalminutes = Number(timelog.totalminutes);
+  const weekStartDate = getWeekStartDate(weektimes);
+  const weekStartYearMonthDay = toUtcYearMonthDay(weekStartDate);
+  const weeklyTimelogs = await listCamStudyTimeLogsBetween(weekStartYearMonthDay, yearmonthday);
+  const weeklyTotals = new Map<string, { totalminutes: number; username: string }>();
 
-    if (weekTimeLog) {
-      await updateWeeklyCamStudyTimeLog(timelog.userid, weektimes, Number(weekTimeLog.totalminutes) + totalminutes);
-      continue;
-    }
+  weeklyTimelogs.forEach(timelog => {
+    const current = weeklyTotals.get(timelog.userid);
+    const nextTotalMinutes = Number(current?.totalminutes ?? 0) + Number(timelog.totalminutes);
 
-    await createWeeklyCamStudyTimeLog({
-      userid: timelog.userid,
+    weeklyTotals.set(timelog.userid, {
+      totalminutes: nextTotalMinutes,
       username: timelog.username,
-      weektimes,
-      totalminutes,
     });
-  }
+  });
+
+  const weeklyRows = camStudyUsers
+    .map(user => ({
+      userid: user.userid,
+      username: user.username,
+      weektimes,
+      totalminutes: Number(weeklyTotals.get(user.userid)?.totalminutes ?? 0),
+    }))
+    .filter(weeklyRow => weeklyRow.totalminutes > 0);
+
+  await replaceWeeklyCamStudyTimeLogs(weektimes, weeklyRows);
+  logger.info('cam study weekly totals recalculated', {
+    endYearMonthDay: yearmonthday,
+    startYearMonthDay: weekStartYearMonthDay,
+    userCount: weeklyRows.length,
+    weektimes,
+  });
 
   let weeklyMessage = `### 주간 타임리스트 (${year}${month}: ${weektimes}번째 주)\n`;
   const weeklyTimeLogs = await listWeeklyCamStudyTimeLogs(weektimes);
@@ -220,7 +247,7 @@ const scheduleDailyReports = (onChallengeReport: () => Promise<void>, onCamStudy
     try {
       await onChallengeReport();
     } catch (error) {
-      logger.error('Error while running scheduled challenge report', { error });
+      logger.error('Error while running scheduled challenge report', { error, reportType: 'challenge' });
     } finally {
       challengeReportInFlight = false;
     }
@@ -237,7 +264,7 @@ const scheduleDailyReports = (onChallengeReport: () => Promise<void>, onCamStudy
     try {
       await onCamStudyReport();
     } catch (error) {
-      logger.error('Error while running scheduled cam study report', { error });
+      logger.error('Error while running scheduled cam study report', { error, reportType: 'cam-study' });
     } finally {
       camStudyReportInFlight = false;
     }
