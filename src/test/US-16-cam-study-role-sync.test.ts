@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { testSequelize, TestCamStudyUsers } from './test-setup.js';
+import { testSequelize, TestCamStudyActiveSession, TestCamStudyUsers } from './test-setup.js';
 
 const createMockMember = (
   roleIds: string[],
@@ -40,6 +40,7 @@ describe('US-16: 캠스터디 역할 기반 자동 등록', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-29T10:00:00'));
+    await TestCamStudyActiveSession.destroy({ where: {} });
     await TestCamStudyUsers.destroy({ where: {} });
   });
 
@@ -113,5 +114,32 @@ describe('US-16: 캠스터디 역할 기반 자동 등록', () => {
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
     expect(user).not.toBeNull();
     expect(user?.username).toBe('홍길동');
+  });
+
+  it('TC-CSRS05: active session row가 남아 있으면 live voice flag가 꺼져도 revoke 삭제를 미룬다', async () => {
+    await TestCamStudyUsers.create({
+      userid: 'cam-user-123',
+      username: '홍길동',
+    });
+    await TestCamStudyActiveSession.create({
+      userid: 'cam-user-123',
+      username: '홍길동',
+      channelid: 'valid-voice-channel-id',
+      startedat: '1711674000000',
+      lastobservedat: '1711674300000',
+    });
+
+    const oldMember = createMockMember(['valid-cam-study-role-id'], {
+      voice: { channelId: 'valid-voice-channel-id', selfVideo: false, streaming: false },
+    });
+    const newMember = createMockMember([], {
+      voice: { channelId: 'valid-voice-channel-id', selfVideo: false, streaming: false },
+    });
+
+    const { event } = await import('../events/guildMemberUpdate.js');
+    await event.execute(oldMember as never, newMember as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
+    expect(user).not.toBeNull();
   });
 });
