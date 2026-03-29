@@ -96,26 +96,8 @@ describe('config.ts', () => {
     });
   });
 
-  it('check-in/check-out 커맨드 모듈은 런타임 채널 ID 없이도 import 된다', async () => {
-    vi.doMock('node:module', async importOriginal => {
-      const original = await importOriginal<typeof import('node:module')>();
-      return {
-        ...original,
-        createRequire: () => (path: string) => {
-          if (path.includes('config.json')) {
-            return {
-              token: 'token',
-              clientId: 'client-id',
-              guildId: 'guild-id',
-            };
-          }
-
-          return original.createRequire(import.meta.url)(path);
-        },
-      };
-    });
-
-    await expect(import('../commands/haruharu/check-in.js')).resolves.toHaveProperty('command');
-    await expect(import('../commands/haruharu/check-out.js')).resolves.toHaveProperty('command');
+  it('check-in/check-out 커맨드 모듈은 더 이상 존재하지 않는다', async () => {
+    await expect(import('../commands/haruharu/check-in.js')).rejects.toThrow();
+    await expect(import('../commands/haruharu/check-out.js')).rejects.toThrow();
   });
 });

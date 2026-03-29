@@ -41,184 +41,67 @@ sequenceDiagram
 
 ---
 
-### US-1: 챌린저 등록
+### US-1: 챌린저 등록/수정
 
 ```
-AS A 관리자
-I WANT TO 사용자를 기상 챌린지에 등록
-SO THAT 해당 사용자가 출석 체크를 할 수 있다
+AS A 챌린저
+I WANT TO /register 명령으로 내 기상시간을 등록하거나 수정
+SO THAT 운영자 개입 없이 출석 체크 기준 시간을 스스로 설정할 수 있다
 ```
 
 **인수 조건:**
 
-- 사용자 ID, 년월, 기상시간, 이름을 입력받는다
+- 기상시간을 입력받는다
 - 기상시간은 05:00~09:00 범위만 허용
+- Discord 사용자 ID와 이름은 interaction 사용자 정보에서 사용한다
+- 현재 시각 기준 `yearmonth`를 내부에서 계산한다
 - 기본 휴가일수는 5일
 - 이미 등록된 사용자는 정보가 업데이트된다
+- 같은 날에는 한 번만 변경할 수 있다
 
 ```mermaid
 sequenceDiagram
-    participant A as 관리자
+    participant U as 챌린저
     participant D as Discord
     participant B as Bot
     participant DB as SQLite
 
-    A->>D: /register userid:USER yearmonth:202512<br/>waketime:0700 username:홍길동
+    U->>D: /register waketime:0700
 
     D->>B: InteractionCreate 이벤트
     B->>B: 채널 검증
 
     B->>B: waketime 유효성 검사 (0500~0900)
     alt 유효하지 않은 시간
-        B-->>A: "no valid waketime"
+        B-->>U: "no valid waketime"
     end
 
-    B->>DB: Users 조회 (userid, yearmonth)
+    B->>DB: WaketimeChangeLog 조회 (userid, 오늘 날짜)
+    alt 오늘 이미 변경함
+        B-->>U: "register는 하루에 한 번만 변경할 수 있습니다"
+    end
+
+    B->>B: 현재 시각 기준 yearmonth 계산
+    B->>DB: Users 조회 (interaction.user.id, 현재 yearmonth)
 
     alt 기존 사용자 존재
         B->>DB: Users 업데이트
-        B-->>A: "update 성공: 홍길동"
+        B->>DB: WaketimeChangeLog 생성
+        B-->>U: "update 성공: 홍길동"
     else 신규 사용자
         B->>DB: Users 생성
-        B-->>A: "register 성공: 홍길동"
+        B->>DB: WaketimeChangeLog 생성
+        B-->>U: "register 성공: 홍길동"
     end
 ```
 
 ---
 
-### US-2: 체크인
+### US-2, US-3: 레거시 check-in/check-out 제거
 
-```
-AS A 챌린저
-I WANT TO 기상 후 인증샷과 함께 체크인
-SO THAT 오늘의 출석이 기록된다
-```
-
-**인수 조건:**
-
-- 등록된 기상시간 ±30분 내에만 체크인 가능
-- ±10분 내: 정시 출석
-- 10~30분 후: 지각 처리
-- 이미지 파일 첨부 필수
-- 하루에 한 번만 체크인 가능
-
-```mermaid
-sequenceDiagram
-    participant U as 챌린저
-    participant D as Discord
-    participant B as Bot
-    participant DB as SQLite
-
-    U->>D: /check-in image:인증샷.jpg
-    D->>B: InteractionCreate 이벤트
-
-    B->>B: 채널 검증
-    alt 허용되지 않은 채널
-        B-->>U: "no valid channel for command"
-    end
-
-    B->>DB: Users 조회 (userid, yearmonth)
-    alt 미등록 사용자
-        B-->>U: "not registered"
-    end
-
-    B->>DB: TimeLog 조회 (yearmonthday, userid)
-    alt 이미 체크인 완료
-        B-->>U: "you did already check-in"
-    end
-
-    B->>B: 시간 검증
-    Note right of B: 현재시간 - 기상시간 = 차이값
-
-    alt 차이값 > 30분 또는 < -30분
-        B-->>U: "Not time for check-in"
-    else 차이값 > 10분
-        B->>B: isintime = false (지각)
-    else 차이값 ≤ 10분
-        B->>B: isintime = true (정시)
-    end
-
-    B->>B: 이미지 파일 검증
-    alt 이미지가 아님
-        B-->>U: "please upload image file"
-    end
-
-    B->>DB: TimeLog 생성 (checkintime, isintime)
-
-    alt 정시 출석
-        B-->>U: "체크인 성공: 0700"
-    else 지각
-        B-->>U: "체크인 성공 (지각): 0715"
-    end
-
-    B->>D: 채널에 인증샷 전송
-```
-
----
-
-### US-3: 체크아웃
-
-```
-AS A 챌린저
-I WANT TO 기상 후 1시간 뒤 체크아웃
-SO THAT 출석이 완료된다
-```
-
-**인수 조건:**
-
-- 체크인 완료 후에만 체크아웃 가능
-- 기상시간 + 1시간 ±10분 내에만 가능
-- 이미지 파일 첨부 필수
-- 하루에 한 번만 체크아웃 가능
-
-```mermaid
-sequenceDiagram
-    participant U as 챌린저
-    participant D as Discord
-    participant B as Bot
-    participant DB as SQLite
-
-    U->>D: /check-out image:인증샷.jpg
-    D->>B: InteractionCreate 이벤트
-
-    B->>B: 채널 검증
-
-    B->>DB: Users 조회 (userid, yearmonth)
-    alt 미등록 사용자
-        B-->>U: "not registered"
-    end
-
-    B->>DB: TimeLog 조회 (yearmonthday, userid)
-    alt 체크인 기록 없음
-        B-->>U: "check-in first"
-    end
-    alt 이미 체크아웃 완료
-        B-->>U: "you did already check-out"
-    end
-
-    B->>B: 시간 검증
-    Note right of B: 체크아웃 시간 = 기상시간 + 1시간<br/>현재시간 - 체크아웃시간 = 차이값
-
-    alt |차이값| > 10분
-        B-->>U: "Not time for check-out"
-    else 차이값 > 10분
-        B->>B: isintime = false (지각)
-    else 차이값 ≤ 10분
-        B->>B: isintime = true (정시)
-    end
-
-    B->>B: 이미지 파일 검증
-
-    B->>DB: TimeLog 업데이트 (checkouttime, isintime)
-
-    alt 정시 출석
-        B-->>U: "체크아웃 성공: 0800"
-    else 지각
-        B-->>U: "체크아웃 성공 (지각): 0815"
-    end
-
-    B->>D: 채널에 인증샷 전송
-```
+- `/check-in`, `/check-out`는 더 이상 등록되지 않는다.
+- 공식 기상 출석 입력은 daily message에 연결된 오늘의 출석 thread 첫 댓글만 사용한다.
+- 과거 `TimeLog` 데이터는 전환 기간 집계 fallback 용도로만 유지한다.
 
 ---
 
@@ -232,7 +115,7 @@ SO THAT 해당 챌린저가 추가 휴식일을 가질 수 있다
 
 **인수 조건:**
 
-- 기존 휴가일수에 지정한 수만큼 추가
+- 사용자에게 지급된 총 휴가일수에 지정한 수만큼 추가
 - 등록된 사용자만 대상
 
 ```mermaid
@@ -267,10 +150,13 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 
 **인수 조건:**
 
-- 출석/지각/결석 인원 집계
+- `AttendanceLog` 기준 출석/지각/결석 인원 집계
+- 휴가 등록된 날짜는 `휴가`로 표시하고 결석으로 처리하지 않음
+- 댓글이 없는 사용자도 결석으로 확정
+- 전환 기간에는 `AttendanceLog`가 없을 때만 기존 `TimeLog`를 fallback 으로 사용
 - 주말 및 공휴일 제외
-- 결석자는 결석 횟수 증가
-- 지각자는 지각 횟수 증가
+- `late` 상태는 `latecount` 증가
+- `absent` 상태 또는 무댓글 사용자는 `absencecount` 증가
 
 ```mermaid
 sequenceDiagram
@@ -280,7 +166,7 @@ sequenceDiagram
     participant C as Check Channel
 
     Note over S: 매일 13:00 트리거
-    S->>B: printChallengeInterval()
+    S->>B: buildChallengeReport()
 
     B->>B: 요일 확인
     alt 토요일 또는 일요일
@@ -292,27 +178,36 @@ sequenceDiagram
         B->>B: 스킵 (24시간 후 재시도)
     end
 
-    B->>DB: 전일자 TimeLog 전체 조회
     B->>DB: 이번 달 Users 전체 조회
+    B->>DB: 당일 AttendanceLog 전체 조회
+    B->>DB: 필요 시 당일 TimeLog 전체 조회
 
     B->>B: 출석 현황 집계
 
     loop 각 사용자별
-        alt 체크인 & 체크아웃 완료
-            alt 둘 중 하나라도 지각
-                B->>DB: Users.latecount++
-                B->>B: 지각자 목록에 추가
-            else 모두 정시
-                B->>B: 출석자 목록에 추가
-            end
-        else 체크인 또는 체크아웃 미완료
+        alt 휴가 등록됨
+            B->>B: 휴가자 목록에 추가
+        else AttendanceLog 없음 and TimeLog 2건 정시
+            B->>B: 출석자 목록에 추가
+        else AttendanceLog 없음 and TimeLog 2건 중 지각 존재
+            B->>DB: Users.latecount++
+            B->>B: 지각자 목록에 추가
+        else AttendanceLog 없음 and fallback 불가
             B->>DB: Users.absencecount++
             B->>B: 결석자 목록에 추가
+        else AttendanceLog.status = late
+            B->>DB: Users.latecount++
+            B->>B: 지각자 목록에 추가
+        else AttendanceLog.status = absent
+            B->>DB: Users.absencecount++
+            B->>B: 결석자 목록에 추가
+        else AttendanceLog.status = attended
+            B->>B: 출석자 목록에 추가
         end
     end
 
     B->>C: 리포트 메시지 전송
-    Note over C: 📊 출석 현황 (12/06)<br/>✅ 출석: 홍길동, 김철수<br/>⏰ 지각: 이영희<br/>❌ 결석: 박민수
+    Note over C: ### 20251208 출석표<br/>- 홍길동: 출석<br/>- 이영희: 지각 (3)<br/>- 박민수: 휴가<br/>- 최민지: 결석 (2/5)
 ```
 
 ---
@@ -328,7 +223,7 @@ SO THAT 한 달간의 성과를 축하받을 수 있다
 **인수 조건:**
 
 - 매월 마지막 날 출력
-- 결석 3회 미만인 사용자만 포함 (삼진아웃 제도)
+- 결석 횟수가 해당 월 총 지급 휴가일수 이내인 사용자만 포함
 
 ```mermaid
 sequenceDiagram
@@ -348,7 +243,7 @@ sequenceDiagram
     B->>DB: 이번 달 Users 전체 조회
 
     B->>B: 완주자 필터링
-    Note right of B: absencecount < 3인 사용자만
+    Note right of B: absencecount <= vacances인 사용자만
 
     loop 완주자별
         B->>B: 명단에 추가
@@ -578,4 +473,98 @@ sequenceDiagram
 
     B->>DB: CamStudyUsers 삭제
     B-->>A: "delete-cam 성공"
+```
+
+---
+
+### US-13: 사용자 직접 기상시간 재등록
+
+```
+AS A 챌린저
+I WANT TO `/register`를 다시 실행해서 자신의 기상시간을 수정
+SO THAT 같은 명령으로 등록과 수정을 모두 처리할 수 있다
+```
+
+**인수 조건:**
+
+- 이미 등록된 사용자도 같은 `/register` 명령을 사용한다
+- 본인 데이터만 수정 가능
+- 기상시간은 05:00~09:00 범위만 허용
+- 같은 날에는 한 번만 변경 가능
+
+```mermaid
+sequenceDiagram
+    participant U as 챌린저
+    participant D as Discord
+    participant B as Bot
+    participant DB as SQLite
+
+    U->>D: /register waketime:0800
+    D->>B: InteractionCreate 이벤트
+
+    B->>DB: Users 조회 (userid, yearmonth)
+    alt 미등록 사용자
+        B-->>U: "register success"
+    end
+
+    B->>B: waketime 유효성 검사 (0500~0900)
+    alt 유효하지 않은 시간
+        B-->>U: "no valid waketime"
+    end
+
+    B->>DB: WaketimeChangeLog 조회 (userid, 오늘 날짜)
+    alt 오늘 이미 변경함
+        B-->>U: "register는 하루에 한 번만 변경할 수 있습니다"
+    end
+
+    B->>DB: WaketimeChangeLog 생성
+    B->>DB: Users.waketime 업데이트
+    B-->>U: "update success"
+```
+
+---
+
+### US-14: 사용자 직접 휴가 등록
+
+```
+AS A 챌린저
+I WANT TO 자신의 휴가를 날짜 단위로 직접 등록
+SO THAT 운영자 개입 없이 휴가 사용을 관리할 수 있다
+```
+
+**인수 조건:**
+
+- 등록된 사용자만 가능
+- 본인 데이터만 변경 가능
+- 날짜는 `yyyymmdd` 형식이어야 함
+- 같은 날짜 중복 등록 불가
+- 잔여 휴가가 있을 때만 등록 가능
+
+```mermaid
+sequenceDiagram
+    participant U as 챌린저
+    participant D as Discord
+    participant B as Bot
+    participant DB as SQLite
+
+    U->>D: /apply-vacation date:20251208
+    D->>B: InteractionCreate 이벤트
+
+    B->>DB: Users 조회 (userid, 202512)
+    alt 미등록 사용자
+        B-->>U: "등록된 사용자가 아닙니다"
+    end
+
+    B->>DB: VacationLog 조회 (userid, 20251208)
+    alt 이미 등록함
+        B-->>U: "이미 휴가를 등록한 날짜입니다"
+    end
+
+    B->>DB: VacationLog 월별 사용 건수 조회
+    alt 잔여 휴가 없음
+        B-->>U: "잔여 휴가가 없습니다"
+    end
+
+    B->>DB: VacationLog 생성
+    B-->>U: "20251208 휴가를 등록했습니다"
 ```
