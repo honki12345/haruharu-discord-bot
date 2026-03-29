@@ -1,9 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import './test-setup.js';
 import { logger } from '../logger.js';
-import { buildChallengeReport, scheduleDailyReports, syncModels } from '../services/reporting.js';
+import { buildCamStudyReports, buildChallengeReport, scheduleDailyReports, syncModels } from '../services/reporting.js';
 import { ONE_DAY_MILLISECONDS } from '../utils.js';
-import { TestAttendanceLog, TestTimeLog, TestUsers, clearAllTables, testSequelize } from './test-setup.js';
+import {
+  TestAttendanceLog,
+  TestCamStudyActiveSession,
+  TestCamStudyTimeLog,
+  TestCamStudyUsers,
+  TestTimeLog,
+  TestUsers,
+  clearAllTables,
+  testSequelize,
+} from './test-setup.js';
 
 describe('reporting service', () => {
   beforeEach(async () => {
@@ -333,11 +342,45 @@ describe('reporting service', () => {
     expect(logger.warn).toHaveBeenCalledWith('Skipping challenge report run because previous run is still in progress');
   });
 
+  it('캠스터디 리포트는 진행 중 active session 을 집계에서 제외하고 로그로 남긴다', async () => {
+    vi.setSystemTime(new Date('2025-12-07T23:59:00'));
+
+    await TestCamStudyUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+    });
+    await TestCamStudyTimeLog.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonthday: '20251207',
+      timestamp: new Date('2025-12-07T20:00:00').getTime().toString(),
+      totalminutes: 60,
+    });
+    await TestCamStudyActiveSession.create({
+      userid: 'user1',
+      username: '홍길동',
+      channelid: 'valid-voice-channel-id',
+      startedat: new Date('2025-12-07T23:00:00').getTime().toString(),
+      lastobservedat: new Date('2025-12-07T23:58:00').getTime().toString(),
+    });
+
+    const { dailyMessage } = await buildCamStudyReports();
+
+    expect(dailyMessage).toContain('홍길동님의 공부시간: 1시간 0분');
+    expect(logger.info).toHaveBeenCalledWith('Skipping active cam study sessions from report totals', {
+      activeSessionUserIds: ['user1'],
+    });
+  });
+
   it('syncModels는 AttendanceLog 모델도 함께 동기화한다', async () => {
     const attendanceLogSyncSpy = vi.spyOn(TestAttendanceLog, 'sync').mockResolvedValue(TestAttendanceLog);
+    const camStudyActiveSessionSyncSpy = vi
+      .spyOn(TestCamStudyActiveSession, 'sync')
+      .mockResolvedValue(TestCamStudyActiveSession);
 
     await syncModels();
 
     expect(attendanceLogSyncSpy).toHaveBeenCalledTimes(1);
+    expect(camStudyActiveSessionSyncSpy).toHaveBeenCalledTimes(1);
   });
 });

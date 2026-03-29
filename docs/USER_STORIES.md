@@ -11,6 +11,7 @@ SO THAT 그날의 출석 진입점이 하나로 유지된다
 ```
 
 **인수 조건:**
+
 - 운영 채널에 매일 오전 06:00 daily message와 출석 thread를 생성한다
 - 같은 날짜에는 daily message/thread를 한 번만 생성한다
 - 봇 재시작 후에도 오늘 thread를 다시 찾아 재사용할 수 있다
@@ -49,6 +50,7 @@ SO THAT 해당 사용자가 출석 체크를 할 수 있다
 ```
 
 **인수 조건:**
+
 - 사용자 ID, 년월, 기상시간, 이름을 입력받는다
 - 기상시간은 05:00~09:00 범위만 허용
 - 기본 휴가일수는 5일
@@ -101,6 +103,7 @@ SO THAT 해당 챌린저가 추가 휴식일을 가질 수 있다
 ```
 
 **인수 조건:**
+
 - 기존 휴가일수에 지정한 수만큼 추가
 - 등록된 사용자만 대상
 
@@ -135,6 +138,7 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 ```
 
 **인수 조건:**
+
 - `AttendanceLog` 기준 출석/지각/결석 인원 집계
 - 댓글이 없는 사용자도 결석으로 확정
 - 전환 기간에는 `AttendanceLog`가 없을 때만 기존 `TimeLog`를 fallback 으로 사용
@@ -203,6 +207,7 @@ SO THAT 한 달간의 성과를 축하받을 수 있다
 ```
 
 **인수 조건:**
+
 - 매월 마지막 날 출력
 - `absencecount <= vacances` 인 사용자만 포함
 
@@ -247,6 +252,7 @@ SO THAT 해당 사용자의 학습 시간이 추적된다
 ```
 
 **인수 조건:**
+
 - 사용자 ID와 이름을 입력받는다
 - 중복 등록 불가
 
@@ -281,10 +287,14 @@ SO THAT 별도 조작 없이 공부 시간이 측정된다
 ```
 
 **인수 조건:**
+
 - 카메라 ON: 학습 시작
 - 카메라 OFF 또는 채널 퇴장: 학습 종료
 - 5분 미만 세션은 무시
 - 자정을 넘기면 새 날짜로 분리 기록
+- 진행 중 세션은 `CamStudyActiveSession`에 저장한다
+- 재배포 후 봇이 다시 올라오면 저장된 active session 과 현재 voice state 를 비교해 세션을 복구하거나 종료 정산한다
+- 재배포 중 종료 이벤트를 놓치면 마지막 heartbeat(`lastobservedat`) 기준으로 손실 범위를 제한한다
 
 ```mermaid
 sequenceDiagram
@@ -303,6 +313,7 @@ sequenceDiagram
         B->>B: 종료
     end
 
+    B->>DB: CamStudyActiveSession 생성
     B->>DB: CamStudyTimeLog 조회 (userid, yearmonthday)
     alt 오늘 기록 없음
         B->>DB: CamStudyTimeLog 생성
@@ -312,27 +323,30 @@ sequenceDiagram
     B->>L: "홍길동님 study start"
 
     Note over U,VC: 학습 중...
+    B->>DB: lastobservedat heartbeat 갱신 (1분 간격)
+
+    Note over B,DB: 재배포 발생 시 active session 유지
 
     Note over U,VC: 카메라 OFF 또는 채널 퇴장
     VC->>B: voiceStateUpdate<br/>(streaming: false)
 
-    B->>DB: CamStudyTimeLog 조회
-    B->>B: 경과시간 = 현재시간 - timestamp
+    alt 종료 이벤트를 정상 수신
+        B->>DB: CamStudyActiveSession 조회
+        B->>B: 경과시간 = 종료시각 - startedat
+    else 재배포 후 복구 경로
+        B->>DB: 저장된 CamStudyActiveSession 조회
+        B->>VC: 현재 voice state 스캔
+        B->>B: live state 없으면 종료시각 = lastobservedat
+    end
 
     alt 경과시간 < 5분
         B->>DB: timestamp = 현재시간 (갱신만)
+        B->>DB: CamStudyActiveSession 삭제
         B->>B: 종료 (무시)
     end
 
-    B->>B: 자정 넘김 확인
-    alt 자정을 넘김
-        B->>B: 어제 날짜로 시간 분리 계산
-        B->>DB: 어제자 TimeLog 업데이트
-        B->>DB: 오늘자 TimeLog 생성/업데이트
-    else 같은 날
-        B->>DB: totalminutes += 경과시간
-    end
-
+    B->>DB: 종료 날짜 기준 CamStudyTimeLog 생성/업데이트
+    B->>DB: CamStudyActiveSession 삭제
     B->>L: "홍길동님 study end: 45분 입력완료<br/>총 공부시간: 120분"
 ```
 
@@ -347,8 +361,10 @@ SO THAT 나의 학습량을 다른 참가자와 비교할 수 있다
 ```
 
 **인수 조건:**
+
 - 학습 시간 기준 내림차순 정렬
 - 시간 형식: "X시간 Y분"
+- 진행 중 `CamStudyActiveSession`은 합계에 포함하지 않고 종료 정산된 `CamStudyTimeLog.totalminutes`만 사용한다
 
 ```mermaid
 sequenceDiagram
@@ -361,6 +377,8 @@ sequenceDiagram
     S->>B: printCamStudyInterval()
 
     B->>DB: 오늘자 CamStudyTimeLog 전체 조회
+    B->>DB: CamStudyActiveSession 조회
+    B->>B: active session 은 합계에서 제외하고 로그만 남김
 
     B->>B: totalminutes 기준 내림차순 정렬
 
@@ -384,9 +402,11 @@ SO THAT 한 주간의 학습량을 확인할 수 있다
 ```
 
 **인수 조건:**
+
 - 매주 금요일 23:59에 출력
 - 월~금 학습 시간 누적
 - 주차 번호: 2024-04-06 기준으로 계산
+- 진행 중 `CamStudyActiveSession`은 합계에 포함하지 않고 종료 정산된 일간/주간 누적만 사용한다
 
 ```mermaid
 sequenceDiagram
@@ -434,6 +454,7 @@ SO THAT 해당 사용자의 학습 시간 추적이 중단된다
 ```
 
 **인수 조건:**
+
 - 등록된 사용자만 삭제 가능
 - 기존 학습 기록은 유지됨
 

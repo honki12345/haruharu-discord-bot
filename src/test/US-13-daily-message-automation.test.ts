@@ -17,6 +17,7 @@ const mockBuildCamStudyReports = vi.fn().mockResolvedValue({
   dailyMessage: 'cam study daily report',
   weeklyMessage: 'cam study weekly report',
 });
+const mockSyncCamStudyActiveSessionsFromClient = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../logger.js', () => ({
   logger: mockLogger,
@@ -27,6 +28,10 @@ vi.mock('../services/reporting.js', () => ({
   buildChallengeReport: mockBuildChallengeReport,
   scheduleDailyReports: mockScheduleDailyReports,
   syncModels: mockSyncModels,
+}));
+
+vi.mock('../services/camStudy.js', () => ({
+  syncCamStudyActiveSessionsFromClient: mockSyncCamStudyActiveSessionsFromClient,
 }));
 
 vi.mock('node:module', async importOriginal => {
@@ -65,6 +70,7 @@ describe('US-13: 운영 daily message 자동화', () => {
     mockScheduleDailyReports.mockClear();
     mockBuildChallengeReport.mockClear();
     mockBuildCamStudyReports.mockClear();
+    mockSyncCamStudyActiveSessionsFromClient.mockClear();
   });
 
   afterEach(() => {
@@ -279,7 +285,9 @@ describe('US-13: 운영 daily message 자동화', () => {
 
   it('ready 이벤트는 daily message 스케줄을 등록한다', async () => {
     const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
     const { calculateRemainingTimeDailyMessage } = await import('../utils.js');
+    const { CAM_STUDY_HEARTBEAT_MILLISECONDS } = await import('../utils/constants.js');
     const { event } = await import('../events/ready.js');
 
     await event.execute({
@@ -295,10 +303,15 @@ describe('US-13: 운영 daily message 자동화', () => {
 
     expect(mockSyncModels).toHaveBeenCalledOnce();
     expect(mockScheduleDailyReports).toHaveBeenCalledOnce();
+    expect(mockSyncCamStudyActiveSessionsFromClient).toHaveBeenCalledOnce();
     const hasDailyScheduler = setTimeoutSpy.mock.calls.some(
       ([, delay]) => delay === calculateRemainingTimeDailyMessage(),
     );
+    const hasHeartbeatScheduler = setIntervalSpy.mock.calls.some(
+      ([, delay]) => delay === CAM_STUDY_HEARTBEAT_MILLISECONDS,
+    );
     expect(hasDailyScheduler).toBe(true);
+    expect(hasHeartbeatScheduler).toBe(true);
   });
 
   it('06시 이후에 부팅되면 오늘 운영 daily message 생성을 즉시 시도한다', async () => {

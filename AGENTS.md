@@ -11,6 +11,7 @@
 - 이 저장소는 Discord 슬래시 커맨드와 음성 채널 이벤트를 처리하는 단일 TypeScript 봇이다.
 - 런타임 진입점은 `src/index.ts`이고, 커맨드 등록 스크립트는 `src/deploy-commands.ts`다.
 - 데이터 저장은 SQLite + Sequelize 모델(`src/repository`)로 처리한다.
+- 캠스터디는 진행 중 세션을 `CamStudyActiveSession`으로 별도 저장하고, 재기동 시 `ready.ts`에서 복구한다.
 - 테스트는 Vitest를 사용하며 기본 테스트와 통합 테스트를 분리한다.
 
 ## 우선 참고 문서
@@ -77,7 +78,7 @@
 ### `src/events`
 
 - Discord 이벤트당 파일 하나를 유지한다.
-- `ready.ts`는 부팅, 테이블 sync, 운영 daily message/thread 생성 스케줄, 집계 스케줄 등록을 담당한다.
+- `ready.ts`는 부팅, 테이블 sync, 운영 daily message/thread 생성 스케줄, 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅을 담당한다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
@@ -93,6 +94,7 @@
 - Sequelize 모델은 파일당 모델 하나를 유지한다.
 - 모델 클래스명과 export 이름은 PascalCase를 사용한다.
 - thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 전환 기간 집계 fallback 및 과거 레거시 데이터 호환용으로 유지한다.
+- 캠스터디 진행 중 세션은 `CamStudyActiveSession`으로 저장하고, `CamStudyTimeLog`는 종료 정산된 누적 시간만 보관한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
   - `docs/PROJECT.md`의 테이블 설명
@@ -130,6 +132,7 @@
 - 로깅은 `console.log`보다 `src/logger.ts`의 `logger` 사용을 우선한다. 단, 부팅 로더 수준의 단순 진단 출력은 기존 패턴을 따른다.
 - 날짜/시간 계산과 상수는 가능한 한 `src/utils.ts`에 모은다.
 - daily message 질문 정책은 `src/daily-message.ts`, 운영 daily message/thread 생성 규칙은 `src/daily-attendance.ts`에 모은다.
+- 캠스터디 재기동 복구, heartbeat, 종료 이벤트 유실 보호 로직은 `src/services/camStudy.ts`에 모은다.
 - 비즈니스 규칙은 하드코딩을 흩뿌리지 말고 상수 또는 유틸 함수로 끌어올린다.
 - 기존 파일 스타일을 존중한다. 이 저장소는 한국어 설명과 영어 식별자가 혼용된다.
 
@@ -262,6 +265,7 @@
 - `src/repository/config.ts`
 - `src/repository/Users.ts`
 - `src/repository/AttendanceLog.ts`
+- `src/repository/CamStudyActiveSession.ts`
 - `src/commands/haruharu/register.ts`
 - `src/test/US-01-register.test.ts`
 - `vitest.config.ts`
