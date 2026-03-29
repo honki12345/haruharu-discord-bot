@@ -1,28 +1,52 @@
 import { VoiceState } from 'discord.js';
 import { voiceChannelId } from '../config.js';
+import { logger } from '../logger.js';
 import { processCamStudyStateChange } from '../services/camStudy.js';
 
 export const event = {
   name: 'voiceStateUpdate',
   async execute(oldState: VoiceState, newState: VoiceState) {
-    const voiceChannel = newState.guild.channels.cache.get(voiceChannelId);
-    const result = await processCamStudyStateChange(
-      { channelId: oldState.channelId, streaming: oldState.streaming === true, userId: oldState.id },
-      { channelId: newState.channelId, streaming: newState.streaming === true, userId: newState.id },
-      voiceChannelId,
-    );
+    try {
+      const voiceChannel = newState.guild.channels.cache.get(voiceChannelId);
+      const result = await processCamStudyStateChange(
+        {
+          channelId: oldState.channelId,
+          selfVideo: oldState.selfVideo === true,
+          streaming: oldState.streaming === true,
+          userId: oldState.id,
+        },
+        {
+          channelId: newState.channelId,
+          selfVideo: newState.selfVideo === true,
+          streaming: newState.streaming === true,
+          userId: newState.id,
+        },
+        voiceChannelId,
+      );
 
-    if (!result) {
-      return;
-    }
+      if (!result) {
+        return;
+      }
 
-    if (result.target === 'channel') {
-      await newState.channel?.send(result.message);
-      return;
-    }
+      if (result.target === 'channel') {
+        await newState.channel?.send(result.message);
+        return;
+      }
 
-    if (voiceChannel && 'send' in voiceChannel) {
-      await voiceChannel.send(result.message);
+      if (voiceChannel && 'send' in voiceChannel) {
+        await voiceChannel.send(result.message);
+      }
+    } catch (error) {
+      logger.error('cam study handler failed', {
+        error,
+        oldChannelId: oldState.channelId,
+        oldSelfVideo: oldState.selfVideo === true,
+        oldStreaming: oldState.streaming === true,
+        newChannelId: newState.channelId,
+        newSelfVideo: newState.selfVideo === true,
+        newStreaming: newState.streaming === true,
+        userId: newState.id,
+      });
     }
   },
 };
