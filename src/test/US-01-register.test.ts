@@ -110,4 +110,47 @@ describe('US-01: /register 커맨드', () => {
     expect(user?.waketime).toBe('0700');
     expect(interaction.getLastReply()).toContain('하루에 한 번만');
   });
+
+  it('TC-R04: repository 조회 결과가 plain object 여도 기존 사용자 기상시간을 수정할 수 있다', async () => {
+    await TestUsers.create({
+      userid: 'existing-user',
+      username: '홍길동',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    const existingUser = await TestUsers.findOne({
+      where: { userid: 'existing-user', yearmonth: '202512' },
+    });
+
+    const findOneSpy = vi.spyOn(TestUsers, 'findOne').mockImplementation(async options => {
+      const where = (options as { where?: { userid?: string; yearmonth?: string } } | undefined)?.where;
+      if (where?.userid === 'existing-user' && where?.yearmonth === '202512') {
+        return existingUser?.get({ plain: true }) as never;
+      }
+
+      return null as never;
+    });
+
+    const interaction = createMockInteraction({
+      userId: 'existing-user',
+      globalName: '홍길동',
+      options: {
+        waketime: '0800',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+
+    await command.execute(interaction as never);
+
+    findOneSpy.mockRestore();
+
+    const updatedUser = await TestUsers.findOne({ where: { userid: 'existing-user', yearmonth: '202512' } });
+    expect(updatedUser?.waketime).toBe('0800');
+    expect(interaction.getLastReply()).toContain('수정했습니다');
+  });
 });

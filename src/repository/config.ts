@@ -8,7 +8,6 @@ const sequelize = new Sequelize('haruharu-database', databaseUser, password, {
   // logQueryParameters: true,
   logging: false,
   storage: 'database.sqlite',
-  query: { raw: true },
 });
 
 export { sequelize, Sequelize, DataType };
