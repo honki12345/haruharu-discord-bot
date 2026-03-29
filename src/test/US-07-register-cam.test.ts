@@ -1,6 +1,6 @@
 /**
- * US-07: 캠스터디 등록
- * 사용자는 캠스터디에 참여하기 위해 /register-cam 명령어로 등록한다.
+ * US-07: 캠스터디 등록 명령 deprecated 안내
+ * 운영자는 더 이상 /register-cam으로 참가자 원본을 직접 등록하지 않는다.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { testSequelize, TestCamStudyUsers, createMockInteraction } from './test-setup.js';
@@ -24,7 +24,11 @@ describe('US-07: /register-cam 커맨드', () => {
     vi.useRealTimers();
   });
 
-  it('TC-RC01: 캠스터디 등록 성공', async () => {
+  it('TC-RC01: /register-cam은 역할 기반 등록으로 전환되었음을 안내한다', async () => {
+    const { command } = await import('../commands/haruharu/register-cam.js');
+    expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false, false]);
+    expect(command.allowedChannelIds).toEqual(['valid-ops-channel-id']);
+
     const interaction = createMockInteraction({
       options: {
         userid: 'cam-user-123',
@@ -32,16 +36,16 @@ describe('US-07: /register-cam 커맨드', () => {
       },
     });
 
-    const { command } = await import('../commands/haruharu/register-cam.js');
     await command.execute(interaction as never);
 
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
-    expect(user).not.toBeNull();
-    expect(user?.username).toBe('홍길동');
-    expect(interaction.getLastReply()).toContain('캠스터디 참가자로 등록했습니다');
+    expect(user).toBeNull();
+    expect(interaction.getLastReply()).toContain('@cam-study');
+    expect(command.data.name_localizations?.ko).toBe('admin-캠스터디등록');
+    expect(command.data.description_localizations?.ko).toContain('@cam-study');
   });
 
-  it('TC-RC02: 이미 등록된 사용자는 중복 생성하지 않고 한 번만 실패 응답한다', async () => {
+  it('TC-RC02: 기존 등록 여부와 관계없이 역할 부여 흐름으로 유도한다', async () => {
     await TestCamStudyUsers.create({
       userid: 'cam-user-123',
       username: '홍길동',
@@ -57,11 +61,8 @@ describe('US-07: /register-cam 커맨드', () => {
     const { command } = await import('../commands/haruharu/register-cam.js');
     await command.execute(interaction as never);
 
-    const replies = interaction.getReplies();
-    const userCount = await TestCamStudyUsers.count({ where: { userid: 'cam-user-123' } });
-
-    expect(userCount).toBe(1);
-    expect(replies).toHaveLength(1);
-    expect(replies[0]).toContain('이미 존재');
+    const users = await TestCamStudyUsers.findAll({ where: { userid: 'cam-user-123' } });
+    expect(users).toHaveLength(1);
+    expect(interaction.getLastReply()).toContain('deprecated');
   });
 });

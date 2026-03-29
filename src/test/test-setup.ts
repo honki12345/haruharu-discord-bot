@@ -569,6 +569,7 @@ interface MockVoiceStateOptions {
   channelId?: string | null;
   selfVideo?: boolean;
   streaming?: boolean;
+  hasCamStudyRole?: boolean;
   userId: string;
 }
 
@@ -580,6 +581,13 @@ export function createMockVoiceState(opts: MockVoiceStateOptions) {
     selfVideo: opts.selfVideo ?? false,
     streaming: opts.streaming ?? false,
     id: opts.userId,
+    member: {
+      roles: {
+        cache: {
+          has: () => opts.hasCamStudyRole ?? true,
+        },
+      },
+    },
     guild: {
       channels: {
         cache: {

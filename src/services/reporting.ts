@@ -136,16 +136,40 @@ const splitDiscordMessage = (message: string) => {
   return chunks;
 };
 
+const isChallengeBonusDay = (day: number, monthdate: string) =>
+  day === SATURDAY || day === SUNDAY || PUBLIC_HOLIDAYS_2026.includes(monthdate);
+
+const applyBonusAttendanceAdjustment = async (
+  payload: {
+    userid: string;
+    yearmonth: string;
+    latecount: number | null;
+    absencecount: number | null;
+  },
+  attendanceLogStatus: AttendanceLog['status'] | undefined,
+) => {
+  const currentLateCount = payload.latecount ?? 0;
+  const currentAbsenceCount = payload.absencecount ?? 0;
+
+  if (attendanceLogStatus !== 'attended') {
+    return;
+  }
+
+  if (currentAbsenceCount > 0) {
+    await updateChallengeUser(payload.userid, payload.yearmonth, { absencecount: currentAbsenceCount - 1 });
+    return;
+  }
+
+  if (currentLateCount > 0) {
+    await updateChallengeUser(payload.userid, payload.yearmonth, { latecount: currentLateCount - 1 });
+  }
+};
+
 const buildChallengeReport = async () => {
   logger.info('print challenge start');
   const { year, month, date, day } = getYearMonthDate();
   const monthdate = `${month}${date}`;
-
-  if (day === SATURDAY || day === SUNDAY || PUBLIC_HOLIDAYS_2026.includes(monthdate)) {
-    const hallOfFameMessage = await buildMonthlyHallOfFameMessage(year, month, date);
-    return { attendanceMessage: null, hallOfFameMessage };
-  }
-
+  const isBonusDay = isChallengeBonusDay(day, monthdate);
   const yearmonth = getYearMonth(year, month);
   const yearmonthday = getYearMonthDay(year, month, date);
   await ensureActiveWakeUpMembershipSnapshots(yearmonth);
@@ -170,6 +194,28 @@ const buildChallengeReport = async () => {
       status: log.status,
     })),
   });
+
+  if (isBonusDay) {
+    for (const userid of userMap.keys()) {
+      const user = userMap.get(userid);
+      if (!user || vacationUserIds.has(userid)) {
+        continue;
+      }
+
+      await applyBonusAttendanceAdjustment(
+        {
+          userid,
+          yearmonth,
+          latecount: user.latecount,
+          absencecount: user.absencecount,
+        },
+        attendanceLogsByUserId.get(userid)?.status,
+      );
+    }
+
+    const hallOfFameMessage = await buildMonthlyHallOfFameMessage(year, month, date);
+    return { attendanceMessage: null, hallOfFameMessage };
+  }
 
   let attendanceMessage = `### ${yearmonthday} 출석표\n`;
   let attendees = '';

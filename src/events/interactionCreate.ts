@@ -2,6 +2,14 @@ import { Events, Collection, ChatInputCommandInteraction } from 'discord.js';
 import { commandChannelIds } from '../config.js';
 import type { MyClient } from '../runtime.js';
 
+const buildInvalidChannelMessage = (commandName: string) => {
+  if (commandName === 'apply-wakeup' || commandName === 'apply-cam') {
+    return '`#apply`에서만 사용할 수 있어요. 질문은 `#qna`를 이용해 주세요.';
+  }
+
+  return '이 명령어는 이 채널에서 사용할 수 없어요.';
+};
+
 export const event = {
   name: Events.InteractionCreate,
   async execute(interaction: ChatInputCommandInteraction) {
@@ -26,7 +34,10 @@ export const event = {
     const allowedChannelIds = command.allowedChannelIds ?? Array.from(commandChannelIds);
     const isValidChannelId = firedChannelId ? allowedChannelIds.includes(firedChannelId) : false;
     if (!isValidChannelId) {
-      await interaction.reply({ content: 'no valid channel for command', ephemeral: true });
+      await interaction.reply({
+        content: buildInvalidChannelMessage(command.data.name),
+        ephemeral: true,
+      });
       return;
     }
 

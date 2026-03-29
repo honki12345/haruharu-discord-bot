@@ -41,7 +41,10 @@ describe('interactionCreate 이벤트', () => {
     const { event } = await import('../events/interactionCreate.js');
     await event.execute(interaction as never);
 
-    expect(reply).toHaveBeenCalledWith({ content: 'no valid channel for command', ephemeral: true });
+    expect(reply).toHaveBeenCalledWith({
+      content: '`#apply`에서만 사용할 수 있어요. 질문은 `#qna`를 이용해 주세요.',
+      ephemeral: true,
+    });
     expect(execute).not.toHaveBeenCalled();
   });
 

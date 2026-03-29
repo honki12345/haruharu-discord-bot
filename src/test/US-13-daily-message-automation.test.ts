@@ -129,6 +129,7 @@ describe('US-13: 운영 daily message 자동화', () => {
       }),
     );
     expect(threadSend).toHaveBeenCalledOnce();
+    expect(threadSend).toHaveBeenCalledWith(expect.stringContaining('주말/공휴일 보너스'));
     expect(result?.created).toBe(true);
   });
 

@@ -9,6 +9,7 @@ import {
   findCamStudyTimeLog,
   findCamStudyUser,
   listCamStudyActiveSessions,
+  removeCamStudyUser,
   updateCamStudyActiveSession,
   updateCamStudyTimeLog,
 } from '../repository/camStudyRepository.js';
@@ -17,6 +18,7 @@ import { getFormattedYesterday, getYearMonthDay, padTwoDigits } from '../utils/d
 
 interface VoiceStateSnapshot {
   channelId: string | null;
+  hasCamStudyRole?: boolean | null;
   selfVideo: boolean;
   streaming: boolean;
   userId: string;
@@ -370,7 +372,9 @@ const processCamStudyStateChange = async (
     shouldStart: transition.shouldStart,
     userId: newState.userId,
   });
+
   const user = await findCamStudyUser(newState.userId);
+  const shouldRemoveUserAfterEnd = oldState.hasCamStudyRole === false || newState.hasCamStudyRole === false;
 
   if (!user) {
     if (transition.userEnteredConfiguredChannel) {
@@ -387,6 +391,10 @@ const processCamStudyStateChange = async (
         return null;
       }
 
+      if (shouldRemoveUserAfterEnd) {
+        await removeCamStudyUser(user.userid);
+      }
+
       if (result.tooShort) {
         return {
           target: 'voice-channel',
@@ -400,7 +408,11 @@ const processCamStudyStateChange = async (
       };
     }
 
-    return resolveLegacyCamStudyEnd(user, oldState, newState);
+    const result = await resolveLegacyCamStudyEnd(user, oldState, newState);
+    if (shouldRemoveUserAfterEnd) {
+      await removeCamStudyUser(user.userid);
+    }
+    return result;
   }
 
   if (!transition.shouldStart) {
@@ -426,6 +438,10 @@ const processCamStudyStateChange = async (
         userId: user.userid,
       });
     }
+  }
+
+  if (newState.hasCamStudyRole === false) {
+    return null;
   }
 
   const timestampNowString = Date.now().toString();

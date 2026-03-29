@@ -8,47 +8,39 @@ export const command = {
   allowedChannelIds: [opsChannelId],
   data: new SlashCommandBuilder()
     .setName('reject-application')
-    .setDescription('reject a participation application')
+    .setDescription('deprecated: participation is activated automatically')
     .setNameLocalizations({ ko: 'admin-신청거절' })
-    .setDescriptionLocalizations({ ko: '관리자가 참여 신청을 거절합니다' })
+    .setDescriptionLocalizations({ ko: 'deprecated: 참여는 자동으로 활성화됩니다' })
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
     .addStringOption(option =>
       option
         .setName('userid')
-        .setDescription('set userid')
+        .setDescription('deprecated legacy userid')
         .setNameLocalizations({ ko: '사용자id' })
-        .setDescriptionLocalizations({ ko: '대상 Discord 사용자 ID를 입력합니다' })
-        .setRequired(true),
+        .setDescriptionLocalizations({ ko: 'deprecated 레거시 사용자 ID' })
+        .setRequired(false),
     )
     .addStringOption(option =>
       option
         .setName('program')
-        .setDescription('select program')
+        .setDescription('deprecated legacy program')
+        .setRequired(false)
         .setNameLocalizations({ ko: '프로그램' })
-        .setDescriptionLocalizations({ ko: '대상 프로그램을 선택합니다' })
-        .setRequired(true)
-        .addChoices({ name: '캠스터디', value: 'cam-study' }),
+        .setDescriptionLocalizations({ ko: 'deprecated 레거시 프로그램' })
+        .addChoices({ name: '기상인증', value: 'wake-up' }, { name: '캠스터디', value: 'cam-study' }),
     )
     .addStringOption(option =>
       option
         .setName('reason')
-        .setDescription('set rejection reason')
+        .setDescription('deprecated legacy reason')
         .setNameLocalizations({ ko: '사유' })
-        .setDescriptionLocalizations({ ko: '거절 사유를 입력합니다' })
-        .setRequired(true),
+        .setDescriptionLocalizations({ ko: 'deprecated 레거시 사유' })
+        .setRequired(false),
     ),
   async execute(interaction: ChatInputCommandInteraction) {
-    const userid = interaction.options.getString('userid')!;
-    const program = interaction.options.getString('program');
-    const reason = interaction.options.getString('reason')!;
-    if (program !== 'cam-study') {
-      await interaction.reply({
-        content: '지원하지 않는 프로그램입니다. 현재는 cam-study만 거절할 수 있어요.',
-        allowedMentions: { parse: [] },
-      });
-      return;
-    }
-
+    const userid = interaction.options.getString('userid') ?? interaction.user.id;
+    const program = (interaction.options.getString('program') as 'wake-up' | 'cam-study' | null) ?? 'wake-up';
+    const reason = interaction.options.getString('reason') ?? 'deprecated';
     await interaction.reply({
       content: await rejectParticipationApplication(interaction, userid, program, reason),
       allowedMentions: { parse: [] },

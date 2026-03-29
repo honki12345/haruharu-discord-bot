@@ -1,5 +1,5 @@
 import { VoiceState } from 'discord.js';
-import { voiceChannelId } from '../config.js';
+import { camStudyRoleId, voiceChannelId } from '../config.js';
 import { logger } from '../logger.js';
 import { processCamStudyStateChange } from '../services/camStudy.js';
 
@@ -11,12 +11,14 @@ export const event = {
       const result = await processCamStudyStateChange(
         {
           channelId: oldState.channelId,
+          hasCamStudyRole: oldState.member?.roles.cache.has(camStudyRoleId) ?? null,
           selfVideo: oldState.selfVideo === true,
           streaming: oldState.streaming === true,
           userId: oldState.id,
         },
         {
           channelId: newState.channelId,
+          hasCamStudyRole: newState.member?.roles.cache.has(camStudyRoleId) ?? null,
           selfVideo: newState.selfVideo === true,
           streaming: newState.streaming === true,
           userId: newState.id,

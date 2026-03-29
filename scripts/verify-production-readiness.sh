@@ -117,7 +117,7 @@ find_new_ready_log_entry() {
 
   grep -F "${ready_log_pattern}" "${current_info_log_file}" >/dev/null
 
-  return 1
+  return $?
 }
 
 latest_info_log_file() {
