@@ -174,10 +174,37 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
       expect(command?.options.find(opt => opt.name === 'username')).toBeDefined();
     });
 
+    it('apply-wakeup 커맨드가 등록되어 있어야 한다', () => {
+      const command = commands.find(cmd => cmd.name === 'apply-wakeup');
+      expect(command).toBeDefined();
+      expect(command?.description).toBe('apply for wake-up program');
+    });
+
+    it('apply-cam 커맨드가 등록되어 있어야 한다', () => {
+      const command = commands.find(cmd => cmd.name === 'apply-cam');
+      expect(command).toBeDefined();
+      expect(command?.description).toBe('apply for cam study program');
+    });
+
     it('delete-cam 커맨드가 등록되어 있어야 한다', () => {
       const command = commands.find(cmd => cmd.name === 'delete-cam');
       expect(command).toBeDefined();
       expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
+    });
+
+    it('approve-application 커맨드가 등록되어 있어야 한다', () => {
+      const command = commands.find(cmd => cmd.name === 'approve-application');
+      expect(command).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'program')).toBeDefined();
+    });
+
+    it('reject-application 커맨드가 등록되어 있어야 한다', () => {
+      const command = commands.find(cmd => cmd.name === 'reject-application');
+      expect(command).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'program')).toBeDefined();
+      expect(command?.options.find(opt => opt.name === 'reason')).toBeDefined();
     });
   });
 });

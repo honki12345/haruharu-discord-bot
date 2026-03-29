@@ -1,5 +1,84 @@
 # 사용자 스토리 및 시퀀스 다이어그램
 
+## 공통 온보딩 (Onboarding)
+
+### US-14: 역할 기반 온보딩 안내
+
+```
+AS A 신규 사용자
+I WANT TO #start-here 와 #apply 만 보고 서버 구조와 참여 절차를 이해하고 싶다
+SO THAT 어디서 읽고, 어디서 신청하고, 어디서 질문해야 하는지 헷갈리지 않는다
+```
+
+**인수 조건:**
+
+- `#start-here`에는 서버 소개와 프로그램 요약이 고정 안내로 제공된다
+- `#apply`에는 참여 방법과 신청 명령어가 고정 안내로 제공된다
+- `#qna`는 질문/응답 채널로 분리된다
+- `#announcements`는 운영 공지 전용 채널로 분리된다
+
+```mermaid
+sequenceDiagram
+    participant U as 신규 사용자
+    participant S as #start-here
+    participant A as #apply
+    participant Q as #qna
+
+    U->>S: 서버 소개와 프로그램 요약 확인
+    S-->>U: 참여는 #apply / 질문은 #qna 안내
+    U->>A: 고정 메시지에서 참여 방법 확인
+    alt 질문이 있음
+        U->>Q: 질문 남김
+    end
+```
+
+---
+
+### US-15: 역할 기반 참여 신청과 승인
+
+```
+AS A 서버 사용자
+I WANT TO /apply-wakeup 또는 /apply-cam 으로 직접 신청하고 운영자 승인을 받고 싶다
+SO THAT 승인된 프로그램의 전용 채널만 자동으로 열리길 원한다
+```
+
+**인수 조건:**
+
+- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행된다
+- 신청 응답은 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
+- 신청 시 운영 채널에 승인/거절용 안내가 전송된다
+- 운영자가 승인하면 해당 역할이 자동 부여된다
+- 운영자가 거절하면 거절 사유와 재신청 안내가 사용자에게 전달된다
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant A as #apply
+    participant B as Bot
+    participant DB as SQLite
+    participant O as #ops
+    participant D as Discord Role
+
+    U->>A: /apply-wakeup 또는 /apply-cam
+    A->>B: InteractionCreate 이벤트
+    B->>DB: ParticipationApplication 조회/생성
+    B-->>U: ephemeral "신청이 접수되었어요"
+    B->>O: 승인/거절 안내 전송
+
+    alt 운영자가 승인
+        O->>B: /approve-application
+        B->>DB: status = approved
+        B->>D: 역할 부여
+        B-->>U: 승인 안내
+    else 운영자가 거절
+        O->>B: /reject-application
+        B->>DB: status = rejected
+        B-->>U: 거절 사유 + 재신청 안내
+    end
+```
+
+---
+
 ## 기상 챌린지 (Morning Challenge)
 
 ### US-13: 운영 daily message 자동 생성
