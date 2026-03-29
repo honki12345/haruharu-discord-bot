@@ -9,15 +9,16 @@ import {
   findCamStudyTimeLog,
   findCamStudyUser,
   listCamStudyActiveSessions,
+  removeCamStudyUser,
   updateCamStudyActiveSession,
   updateCamStudyTimeLog,
 } from '../repository/camStudyRepository.js';
-import { finalizeDeferredCamStudyUserRemoval } from './camStudyRoleSync.js';
 import { LEAST_TIME_LIMIT } from '../utils/constants.js';
 import { getFormattedYesterday, getYearMonthDay, padTwoDigits } from '../utils/date.js';
 
 interface VoiceStateSnapshot {
   channelId: string | null;
+  hasCamStudyRole?: boolean | null;
   selfVideo: boolean;
   streaming: boolean;
   userId: string;
@@ -243,7 +244,6 @@ const closeActiveSession = async (
 
   const effectiveEndedAt = Math.max(endedAt, Number(claimedSession.lastobservedat));
   const result = await finalizeCamStudyDuration(user, Number(claimedSession.startedat), effectiveEndedAt, reason);
-  await finalizeDeferredCamStudyUserRemoval(user.userid);
   return { ...result, skipped: false };
 };
 
@@ -372,7 +372,9 @@ const processCamStudyStateChange = async (
     shouldStart: transition.shouldStart,
     userId: newState.userId,
   });
-  let user = await findCamStudyUser(newState.userId);
+
+  const user = await findCamStudyUser(newState.userId);
+  const shouldRemoveUserAfterEnd = oldState.hasCamStudyRole === false || newState.hasCamStudyRole === false;
 
   if (!user) {
     if (transition.userEnteredConfiguredChannel) {
@@ -389,6 +391,10 @@ const processCamStudyStateChange = async (
         return null;
       }
 
+      if (shouldRemoveUserAfterEnd) {
+        await removeCamStudyUser(user.userid);
+      }
+
       if (result.tooShort) {
         return {
           target: 'voice-channel',
@@ -402,7 +408,11 @@ const processCamStudyStateChange = async (
       };
     }
 
-    return resolveLegacyCamStudyEnd(user, oldState, newState);
+    const result = await resolveLegacyCamStudyEnd(user, oldState, newState);
+    if (shouldRemoveUserAfterEnd) {
+      await removeCamStudyUser(user.userid);
+    }
+    return result;
   }
 
   if (!transition.shouldStart) {
@@ -428,14 +438,10 @@ const processCamStudyStateChange = async (
         userId: user.userid,
       });
     }
+  }
 
-    user = await findCamStudyUser(user.userid);
-    if (!user) {
-      logger.info('cam study start ignored after deferred revoke removed user', {
-        userId: newState.userId,
-      });
-      return null;
-    }
+  if (newState.hasCamStudyRole === false) {
+    return null;
   }
 
   const timestampNowString = Date.now().toString();

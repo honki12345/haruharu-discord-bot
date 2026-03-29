@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       verified_sha: ${{ steps.resolve-sha.outputs.verified_sha }}
       artifact_name: ${{ steps.package-artifact.outputs.artifact_name }}
@@ -33,7 +33,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -95,7 +95,7 @@ jobs:
           if-no-files-found: error
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: verify
     environment:
       name: production

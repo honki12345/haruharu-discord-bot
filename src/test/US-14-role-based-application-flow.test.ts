@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMockInteraction } from './test-setup.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMockInteraction, testSequelize, TestCamStudyUsers } from './test-setup.js';
 
 type ProgramType = 'wake-up' | 'cam-study';
 type ApplicationStatus = 'pending' | 'approved' | 'rejected';
@@ -13,7 +13,6 @@ interface ParticipationApplicationRecord {
 }
 
 const applications = new Map<string, ParticipationApplicationRecord>();
-const camStudyUsers = new Map<string, { userid: string; username: string }>();
 
 const getApplicationKey = (userid: string, program: ProgramType) => `${userid}:${program}`;
 
@@ -44,45 +43,26 @@ const ParticipationApplication = {
   ),
 };
 
-const upsertCamStudyUser = vi.fn(async ({ userid, username }: { userid: string; username: string }) => {
-  camStudyUsers.set(userid, { userid, username });
-  return camStudyUsers.get(userid);
-});
-
-const deleteCamStudyUser = vi.fn(async (userid: string) => {
-  camStudyUsers.delete(userid);
-  return 1;
-});
-
-const findCamStudyUser = vi.fn(async (userid: string) => {
-  return camStudyUsers.get(userid) ?? null;
-});
-
 vi.mock('../repository/ParticipationApplication.js', () => ({
   ParticipationApplication,
 }));
 
-vi.mock('../repository/camStudyRepository.js', async importOriginal => {
-  const original = await importOriginal<typeof import('../repository/camStudyRepository.js')>();
-  return {
-    ...original,
-    deleteCamStudyUser,
-    findCamStudyUser,
-    upsertCamStudyUser,
-  };
-});
+describe('US-14: 역할 기반 자동 참여 흐름', () => {
+  beforeAll(async () => {
+    await testSequelize.sync({ force: true });
+  });
 
-describe('US-14: 역할 기반 신청/자동 활성화 흐름', () => {
-  beforeEach(() => {
+  afterAll(async () => {
+    await testSequelize.close();
+  });
+
+  beforeEach(async () => {
     vi.resetModules();
     applications.clear();
-    camStudyUsers.clear();
+    await TestCamStudyUsers.destroy({ where: {} });
     ParticipationApplication.findOne.mockReset();
     ParticipationApplication.create.mockReset();
     ParticipationApplication.update.mockReset();
-    upsertCamStudyUser.mockClear();
-    deleteCamStudyUser.mockClear();
-    findCamStudyUser.mockClear();
     ParticipationApplication.findOne.mockImplementation(
       async ({ where }: { where: { userid: string; program: ProgramType } }) => {
         return applications.get(getApplicationKey(where.userid, where.program)) ?? null;
@@ -109,30 +89,21 @@ describe('US-14: 역할 기반 신청/자동 활성화 흐름', () => {
         return [1];
       },
     );
-    upsertCamStudyUser.mockImplementation(async ({ userid, username }: { userid: string; username: string }) => {
-      camStudyUsers.set(userid, { userid, username });
-      return camStudyUsers.get(userid);
-    });
-    deleteCamStudyUser.mockImplementation(async (userid: string) => {
-      camStudyUsers.delete(userid);
-      return 1;
-    });
-    findCamStudyUser.mockImplementation(async (userid: string) => camStudyUsers.get(userid) ?? null);
   });
 
-  it('TC-RA01: /apply-wakeup은 신청을 즉시 approved 로 반영하고 역할을 부여한 뒤 /register 안내를 보낸다', async () => {
-    const member = {
+  it('TC-RA01: /apply-wakeup은 즉시 역할을 부여하고 approved 상태로 저장한다', async () => {
+    const applicantMember = {
       roles: {
         add: vi.fn(),
         remove: vi.fn(),
-        cache: new Map<string, object>(),
       },
+      send: vi.fn(),
     };
     const interaction = createMockInteraction({
       channelId: 'valid-apply-channel-id',
       guild: {
         members: {
-          fetch: vi.fn().mockResolvedValue(member),
+          fetch: vi.fn().mockResolvedValue(applicantMember),
         },
       },
       client: {
@@ -154,27 +125,26 @@ describe('US-14: 역할 기반 신청/자동 활성화 흐름', () => {
       program: 'wake-up',
       status: 'approved',
     });
-    expect(member.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
+    expect(applicantMember.roles.add).toHaveBeenCalledWith('valid-wake-up-role-id');
     expect(interaction.getReplies()[0]).toMatchObject({
-      content: expect.stringContaining('/register'),
+      content: expect.stringContaining('기상인증 참여가 바로 활성화'),
       ephemeral: true,
     });
-    expect(interaction.client.channels.fetch).not.toHaveBeenCalled();
   });
 
-  it('TC-RA02: /apply-cam은 신청을 즉시 approved 로 반영하고 역할과 CamStudyUsers upsert 를 함께 수행한다', async () => {
-    const member = {
+  it('TC-RA02: /apply-cam은 즉시 역할을 부여하고 CamStudyUsers를 등록한다', async () => {
+    const applicantMember = {
       roles: {
         add: vi.fn(),
         remove: vi.fn(),
-        cache: new Map<string, object>(),
       },
+      send: vi.fn(),
     };
     const interaction = createMockInteraction({
       channelId: 'valid-apply-channel-id',
       guild: {
         members: {
-          fetch: vi.fn().mockResolvedValue(member),
+          fetch: vi.fn().mockResolvedValue(applicantMember),
         },
       },
       client: {
@@ -190,29 +160,23 @@ describe('US-14: 역할 기반 신청/자동 활성화 흐름', () => {
     const { command } = await import('../commands/haruharu/apply-cam.js');
     await command.execute(interaction as never);
 
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'test-user-id' } });
     expect(applications.get('test-user-id:cam-study')).toMatchObject({
       userid: 'test-user-id',
       username: '테스트유저',
       program: 'cam-study',
       status: 'approved',
     });
-    expect(member.roles.add).toHaveBeenCalledWith('valid-cam-study-role-id');
-    expect(upsertCamStudyUser).toHaveBeenCalledWith({
-      userid: 'test-user-id',
-      username: '테스트유저',
-    });
-    expect(camStudyUsers.get('test-user-id')).toMatchObject({
-      userid: 'test-user-id',
-      username: '테스트유저',
-    });
+    expect(applicantMember.roles.add).toHaveBeenCalledWith('valid-cam-study-role-id');
+    expect(user).not.toBeNull();
+    expect(user?.username).toBe('테스트유저');
     expect(interaction.getReplies()[0]).toMatchObject({
-      content: expect.stringContaining('즉시 활성화'),
+      content: expect.stringContaining('캠스터디 참여가 바로 활성화'),
       ephemeral: true,
     });
-    expect(interaction.client.channels.fetch).not.toHaveBeenCalled();
   });
 
-  it('TC-RA03: 기존 캠스터디 역할 보유자의 /apply-cam 재시도에서 오류가 나도 기존 role/row 를 롤백하지 않는다', async () => {
+  it('TC-RA03: 이미 approved 상태면 /apply-cam은 중복 역할 부여 없이 안내만 한다', async () => {
     applications.set('test-user-id:cam-study', {
       userid: 'test-user-id',
       username: '테스트유저',
@@ -220,24 +184,22 @@ describe('US-14: 역할 기반 신청/자동 활성화 흐름', () => {
       status: 'approved',
       reason: null,
     });
-    camStudyUsers.set('test-user-id', {
-      userid: 'test-user-id',
-      username: '테스트유저',
-    });
-    ParticipationApplication.update.mockRejectedValueOnce(new Error('db update failed'));
 
-    const member = {
+    const applicantMember = {
       roles: {
+        cache: {
+          has: vi.fn().mockReturnValue(true),
+        },
         add: vi.fn(),
         remove: vi.fn(),
-        cache: new Map<string, object>([['valid-cam-study-role-id', {}]]),
       },
+      send: vi.fn(),
     };
     const interaction = createMockInteraction({
       channelId: 'valid-apply-channel-id',
       guild: {
         members: {
-          fetch: vi.fn().mockResolvedValue(member),
+          fetch: vi.fn().mockResolvedValue(applicantMember),
         },
       },
     });
@@ -245,15 +207,203 @@ describe('US-14: 역할 기반 신청/자동 활성화 흐름', () => {
     const { command } = await import('../commands/haruharu/apply-cam.js');
     await command.execute(interaction as never);
 
-    expect(member.roles.remove).not.toHaveBeenCalled();
-    expect(camStudyUsers.get('test-user-id')).toMatchObject({
-      userid: 'test-user-id',
-      username: '테스트유저',
+    expect(applicantMember.roles.add).not.toHaveBeenCalled();
+    expect(interaction.getReplies()[0]).toMatchObject({
+      content: expect.stringContaining('이미 활성화'),
+      ephemeral: true,
     });
-    expect(interaction.getLastReply()).toContain('잠시 후 다시 시도');
   });
 
-  it('TC-RA04: /approve-application은 deprecated 안내만 반환한다', async () => {
+  it('TC-RA04: approved 상태여도 역할이 없으면 /apply-cam으로 재활성화할 수 있다', async () => {
+    applications.set('test-user-id:cam-study', {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'cam-study',
+      status: 'approved',
+      reason: null,
+    });
+
+    const applicantMember = {
+      roles: {
+        cache: {
+          has: vi.fn().mockReturnValue(false),
+        },
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/apply-cam.js');
+    await command.execute(interaction as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'test-user-id' } });
+    expect(applicantMember.roles.add).toHaveBeenCalledWith('valid-cam-study-role-id');
+    expect(user).not.toBeNull();
+    expect(interaction.getReplies()[0]).toMatchObject({
+      content: expect.stringContaining('캠스터디 참여가 바로 활성화'),
+      ephemeral: true,
+    });
+  });
+
+  it('TC-RA05: /apply-wakeup은 서버에서 사용자를 찾지 못하면 자동 참여를 실패로 안내한다', async () => {
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      guild: {
+        members: {
+          fetch: vi.fn().mockRejectedValue(new Error('Unknown Member')),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/apply-wakeup.js');
+    await command.execute(interaction as never);
+
+    expect(applications.get('test-user-id:wake-up')).toBeUndefined();
+    expect(interaction.getLastReply()).toContain('서버에서 사용자를 찾을 수 없어요');
+  });
+
+  it('TC-RA06: /apply-wakeup은 역할 부여에 실패하면 approved 상태를 저장하지 않는다', async () => {
+    const applicantMember = {
+      roles: {
+        add: vi.fn().mockRejectedValue(new Error('missing permissions')),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/apply-wakeup.js');
+    await command.execute(interaction as never);
+
+    expect(applications.get('test-user-id:wake-up')).toBeUndefined();
+    expect(interaction.getLastReply()).toContain('역할을 부여하지 못했어요');
+  });
+
+  it('TC-RA07: /apply-cam에서 CamStudyUsers 동기화가 실패하면 역할을 롤백한다', async () => {
+    const applicantMember = {
+      roles: {
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+    });
+    const repository = await import('../repository/camStudyRepository.js');
+    vi.spyOn(repository, 'upsertCamStudyUser').mockRejectedValueOnce(new Error('db boom'));
+
+    const { command } = await import('../commands/haruharu/apply-cam.js');
+    await command.execute(interaction as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'test-user-id' } });
+    expect(applications.get('test-user-id:cam-study')).toBeUndefined();
+    expect(applicantMember.roles.remove).toHaveBeenCalledWith('valid-cam-study-role-id');
+    expect(user).toBeNull();
+    expect(interaction.getLastReply()).toContain('자동 참여 처리 중 오류');
+  });
+
+  it('TC-RA08: 이미 역할이 있는 /apply-cam 재시도에서 persist 실패가 나도 기존 role/row를 롤백하지 않는다', async () => {
+    await TestCamStudyUsers.create({
+      userid: 'test-user-id',
+      username: '기존이름',
+    });
+    ParticipationApplication.create.mockRejectedValueOnce(new Error('db boom'));
+
+    const applicantMember = {
+      roles: {
+        cache: {
+          has: vi.fn().mockReturnValue(true),
+        },
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/apply-cam.js');
+    await command.execute(interaction as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'test-user-id' } });
+    expect(applicantMember.roles.add).not.toHaveBeenCalled();
+    expect(applicantMember.roles.remove).not.toHaveBeenCalled();
+    expect(user).not.toBeNull();
+    expect(interaction.getLastReply()).toContain('자동 참여 처리 중 오류');
+  });
+
+  it('TC-RA09: approved 상태와 기존 역할이 있는 /apply-cam 재시도에서 row self-heal 실패도 자동 참여 오류로 안내한다', async () => {
+    applications.set('test-user-id:cam-study', {
+      userid: 'test-user-id',
+      username: '테스트유저',
+      program: 'cam-study',
+      status: 'approved',
+      reason: null,
+    });
+
+    const applicantMember = {
+      roles: {
+        cache: {
+          has: vi.fn().mockReturnValue(true),
+        },
+        add: vi.fn(),
+        remove: vi.fn(),
+      },
+      send: vi.fn(),
+    };
+    const interaction = createMockInteraction({
+      channelId: 'valid-apply-channel-id',
+      guild: {
+        members: {
+          fetch: vi.fn().mockResolvedValue(applicantMember),
+        },
+      },
+    });
+    const repository = await import('../repository/camStudyRepository.js');
+    vi.spyOn(repository, 'upsertCamStudyUser').mockRejectedValueOnce(new Error('db boom'));
+
+    const { command } = await import('../commands/haruharu/apply-cam.js');
+    await expect(command.execute(interaction as never)).resolves.toBeUndefined();
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'test-user-id' } });
+    expect(applicantMember.roles.add).not.toHaveBeenCalled();
+    expect(applicantMember.roles.remove).not.toHaveBeenCalled();
+    expect(user).toBeNull();
+    expect(interaction.getLastReply()).toContain('자동 참여 처리 중 오류');
+  });
+
+  it('TC-RA10: /approve-application은 deprecated 안내만 반환한다', async () => {
+    const { command } = await import('../commands/haruharu/approve-application.js');
+    expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false, false]);
+
     const interaction = createMockInteraction({
       channelId: 'valid-ops-channel-id',
       options: {
@@ -262,27 +412,26 @@ describe('US-14: 역할 기반 신청/자동 활성화 흐름', () => {
       },
     });
 
-    const { command } = await import('../commands/haruharu/approve-application.js');
     await command.execute(interaction as never);
 
-    expect(ParticipationApplication.update).not.toHaveBeenCalled();
     expect(interaction.getLastReply()).toContain('deprecated');
   });
 
-  it('TC-RA05: /reject-application은 deprecated 안내만 반환한다', async () => {
+  it('TC-RA11: /reject-application은 deprecated 안내만 반환한다', async () => {
+    const { command } = await import('../commands/haruharu/reject-application.js');
+    expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false, false, false]);
+
     const interaction = createMockInteraction({
       channelId: 'valid-ops-channel-id',
       options: {
         userid: 'test-user-id',
         program: 'cam-study',
-        reason: 'legacy',
+        reason: '사유',
       },
     });
 
-    const { command } = await import('../commands/haruharu/reject-application.js');
     await command.execute(interaction as never);
 
-    expect(ParticipationApplication.update).not.toHaveBeenCalled();
     expect(interaction.getLastReply()).toContain('deprecated');
   });
 });

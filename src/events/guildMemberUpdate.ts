@@ -1,18 +1,22 @@
-import { Events, GuildMember } from 'discord.js';
+import { Events, GuildMember, PartialGuildMember } from 'discord.js';
 import { logger } from '../logger.js';
-import { handleCamStudyRoleChange } from '../services/camStudyRoleSync.js';
+import { syncCamStudyMemberState, syncCamStudyRoleMembership } from '../services/camStudyRoleSync.js';
 
 export const event = {
   name: Events.GuildMemberUpdate,
-  async execute(oldMember: GuildMember, newMember: GuildMember) {
+  async execute(oldMember: GuildMember | PartialGuildMember, newMember: GuildMember) {
     try {
-      await handleCamStudyRoleChange(oldMember, newMember);
+      if (oldMember.partial) {
+        await syncCamStudyMemberState(newMember);
+        return;
+      }
+
+      await syncCamStudyRoleMembership(oldMember, newMember);
     } catch (error) {
-      logger.error('cam study role sync failed', {
+      logger.error('guildMemberUpdate cam study sync failed', {
         error,
-        newPartial: newMember.partial,
-        oldPartial: oldMember.partial,
-        userid: newMember.id,
+        newMemberId: newMember.id,
+        oldMemberId: oldMember.id,
       });
     }
   },

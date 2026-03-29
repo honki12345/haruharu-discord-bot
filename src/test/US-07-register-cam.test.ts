@@ -1,6 +1,6 @@
 /**
- * US-07: 캠스터디 등록
- * 관리자의 수동 /register-cam 은 deprecated 상태를 유지한다.
+ * US-07: 캠스터디 등록 명령 deprecated 안내
+ * 운영자는 더 이상 /register-cam으로 참가자 원본을 직접 등록하지 않는다.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { testSequelize, TestCamStudyUsers, createMockInteraction } from './test-setup.js';
@@ -24,7 +24,32 @@ describe('US-07: /register-cam 커맨드', () => {
     vi.useRealTimers();
   });
 
-  it('TC-RC01: /register-cam 은 DB를 바꾸지 않고 self-service 흐름 안내만 반환한다', async () => {
+  it('TC-RC01: /register-cam은 역할 기반 등록으로 전환되었음을 안내한다', async () => {
+    const { command } = await import('../commands/haruharu/register-cam.js');
+    expect(command.data.toJSON().options?.map(option => option.required)).toEqual([false, false]);
+
+    const interaction = createMockInteraction({
+      options: {
+        userid: 'cam-user-123',
+        username: '홍길동',
+      },
+    });
+
+    await command.execute(interaction as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
+    expect(user).toBeNull();
+    expect(interaction.getLastReply()).toContain('@cam-study');
+    expect(command.data.name_localizations?.ko).toBe('admin-캠스터디등록');
+    expect(command.data.description_localizations?.ko).toContain('@cam-study');
+  });
+
+  it('TC-RC02: 기존 등록 여부와 관계없이 역할 부여 흐름으로 유도한다', async () => {
+    await TestCamStudyUsers.create({
+      userid: 'cam-user-123',
+      username: '홍길동',
+    });
+
     const interaction = createMockInteraction({
       options: {
         userid: 'cam-user-123',
@@ -35,9 +60,8 @@ describe('US-07: /register-cam 커맨드', () => {
     const { command } = await import('../commands/haruharu/register-cam.js');
     await command.execute(interaction as never);
 
-    const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
-    expect(user).toBeNull();
-    expect(interaction.getLastReply()).toContain('/apply-cam');
+    const users = await TestCamStudyUsers.findAll({ where: { userid: 'cam-user-123' } });
+    expect(users).toHaveLength(1);
     expect(interaction.getLastReply()).toContain('deprecated');
   });
 });

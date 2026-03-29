@@ -2,6 +2,13 @@
 
 스터디 운영을 위한 디스코드봇
 
+## 참여 온보딩
+
+- `/apply-wakeup`은 `@wake-up` 역할을 즉시 부여하고 참여 상태를 활성화합니다.
+- `/apply-wakeup` 뒤에는 사용자가 `/register <waketime>`로 실제 기상시간을 등록해야 기상 챌린지 참가가 완료됩니다.
+- `/apply-cam`은 `@cam-study` 역할과 캠스터디 참가자 상태를 즉시 활성화합니다.
+- `/approve-application`, `/reject-application`은 deprecated 안내용 명령으로만 남아 있습니다.
+
 ## 캠스터디
 
 - self-service 온보딩

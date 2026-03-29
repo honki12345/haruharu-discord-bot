@@ -1,90 +1,48 @@
 import { GuildMember } from 'discord.js';
-import { camStudyRoleId } from '../config.js';
+import { camStudyRoleId, voiceChannelId } from '../config.js';
 import { logger } from '../logger.js';
-import { deleteCamStudyUser, findCamStudyActiveSession, upsertCamStudyUser } from '../repository/camStudyRepository.js';
+import { findCamStudyActiveSession, removeCamStudyUser, upsertCamStudyUser } from '../repository/camStudyRepository.js';
 
-const pendingCamStudyUserRevocations = new Set<string>();
+const hasCamStudyRole = (member: GuildMember) => member.roles.cache.has(camStudyRoleId);
+const isActiveCamStudySession = (member: GuildMember) =>
+  member.voice.channelId === voiceChannelId && (member.voice.selfVideo || member.voice.streaming);
 
-const resolveMemberSnapshot = async (member: GuildMember) => {
-  if (!member.partial || typeof member.fetch !== 'function') {
-    return member;
-  }
+const getDisplayName = (member: GuildMember) => member.user.globalName ?? member.user.username ?? member.id;
 
-  try {
-    return await member.fetch();
-  } catch (error) {
-    logger.warn('failed to fetch partial guild member for cam-study role sync', {
-      error,
-      userid: member.id,
-    });
-    return member;
-  }
-};
+const syncCamStudyMemberState = async (member: GuildMember) => {
+  const userid = member.user.id;
 
-const hasCamStudyRole = (member: GuildMember) => member.roles?.cache?.has(camStudyRoleId) === true;
-
-const getMemberUsername = (member: GuildMember) => member.displayName ?? member.user.globalName ?? member.user.username;
-
-const syncCamStudyRoleMembership = async (payload: { hasRole: boolean; userid: string; username: string }) => {
-  if (payload.hasRole) {
-    pendingCamStudyUserRevocations.delete(payload.userid);
-    await upsertCamStudyUser({
-      userid: payload.userid,
-      username: payload.username,
-    });
-    return 'upserted';
-  }
-
-  const activeSession = await findCamStudyActiveSession(payload.userid);
-  if (activeSession) {
-    pendingCamStudyUserRevocations.add(payload.userid);
-    logger.info('deferred cam-study user removal until active session closes', {
-      userid: payload.userid,
-    });
-    return 'deferred';
-  }
-
-  pendingCamStudyUserRevocations.delete(payload.userid);
-  await deleteCamStudyUser(payload.userid);
-  return 'deleted';
-};
-
-const finalizeDeferredCamStudyUserRemoval = async (userid: string) => {
-  if (!pendingCamStudyUserRevocations.has(userid)) {
-    return false;
+  if (hasCamStudyRole(member)) {
+    const username = getDisplayName(member);
+    await upsertCamStudyUser({ userid, username });
+    logger.info('cam study user synced from current role state', { userid, username, roleId: camStudyRoleId });
+    return;
   }
 
   const activeSession = await findCamStudyActiveSession(userid);
-  if (activeSession) {
-    return false;
+  if (isActiveCamStudySession(member) || activeSession) {
+    logger.info('cam study user removal deferred until active session ends', {
+      userid,
+      roleId: camStudyRoleId,
+      hasActiveSession: Boolean(activeSession),
+      isLiveInVoice: isActiveCamStudySession(member),
+    });
+    return;
   }
 
-  pendingCamStudyUserRevocations.delete(userid);
-  await deleteCamStudyUser(userid);
-  return true;
+  await removeCamStudyUser(userid);
+  logger.info('cam study user removed from current role state', { userid, roleId: camStudyRoleId });
 };
 
-const handleCamStudyRoleChange = async (oldMember: GuildMember, newMember: GuildMember) => {
-  const [resolvedOldMember, resolvedNewMember] = await Promise.all([
-    resolveMemberSnapshot(oldMember),
-    resolveMemberSnapshot(newMember),
-  ]);
-  const hadRole = hasCamStudyRole(resolvedOldMember);
-  const hasRoleNow = hasCamStudyRole(resolvedNewMember);
+const syncCamStudyRoleMembership = async (oldMember: GuildMember, newMember: GuildMember) => {
+  const hadCamStudyRole = hasCamStudyRole(oldMember);
+  const hasCamStudyRoleNow = hasCamStudyRole(newMember);
 
-  if (hadRole === hasRoleNow) {
-    return null;
+  if (hadCamStudyRole === hasCamStudyRoleNow) {
+    return;
   }
 
-  return syncCamStudyRoleMembership({
-    hasRole: hasRoleNow,
-    userid: resolvedNewMember.id,
-    username: getMemberUsername(resolvedNewMember),
-  });
+  await syncCamStudyMemberState(newMember);
 };
 
-const resetCamStudyRoleSyncState = () => {
-  pendingCamStudyUserRevocations.clear();
-};
-
-export { finalizeDeferredCamStudyUserRemoval, handleCamStudyRoleChange, resetCamStudyRoleSyncState };
+export { syncCamStudyMemberState, syncCamStudyRoleMembership };

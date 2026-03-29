@@ -14,7 +14,7 @@
 - 데이터 저장은 SQLite + Sequelize 모델(`src/repository`)로 처리한다.
 - 캠스터디는 진행 중 세션을 `CamStudyActiveSession`으로 별도 저장하고, 재기동 시 `ready.ts`에서 복구한다.
 - 테스트는 Vitest를 사용하며 기본 테스트, bot boot smoke test, 통합 테스트를 분리한다.
-- 운영 배포는 GitHub Actions `workflow_dispatch` + CI build artifact/runtime metadata + SSH + PM2 조합을 기준으로 한다.
+- 운영 배포는 GitHub Actions `workflow_dispatch` + production 호환 빌드 환경(`ubuntu-22.04`, Node.js 24)에서 만든 artifact/runtime metadata + SSH + PM2 조합을 기준으로 한다.
 
 ## 우선 참고 문서
 
@@ -74,7 +74,7 @@
 
 - Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집을 담당한다.
 - `src/index.ts`, `src/deploy-commands.ts`, bot boot smoke test가 같은 로더를 재사용하도록 유지한다.
-- 역할 기반 자동 동기화를 위해 `GuildMembers` intent와 partial guild member fallback이 유지되어야 한다.
+- 역할 기반 등록/동기화 이벤트를 추가하면 해당 Discord gateway intent(`GuildMembers` 등)가 함께 선언되었는지 확인한다.
 - 새 커맨드/이벤트 파일을 추가하면 source(`.ts`)와 build output(`.js`) 양쪽에서 로더가 동작하는지 확인한다.
 
 ### `src/commands/haruharu`
@@ -89,20 +89,18 @@
 - DB 접근은 직접 Sequelize 쿼리를 쓰더라도 repository 모델을 통해서만 접근한다.
 - 사용자 self-service 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 변경해야 한다.
 - 기상시간 self-service는 `/register` 하나로 신규 등록과 수정(upsert)을 처리하되 하루 1회 제한을 지켜야 한다.
-- `/apply-wakeup`은 운영자 승인 없이 `ParticipationApplication.status=approved`와 `@wake-up` 역할 부여를 즉시 반영하고, 실제 기상시간 등록은 `/register`로 분리한다.
-- `/apply-cam`은 운영자 승인 없이 `ParticipationApplication.status=approved`, `@cam-study` 역할 부여, `CamStudyUsers` upsert를 즉시 반영한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
+- `register-cam`, `delete-cam`은 deprecated 호환용 명령으로만 유지하고, 실제 캠스터디 등록 원본은 `@cam-study` 역할과 `guildMemberUpdate` 동기화로 본다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
 - 역할 기반 운영 흐름을 추가할 때는 `#apply` 같은 신청 채널과 `#ops` 같은 운영 채널을 분리하고, 신청 응답은 가능하면 `ephemeral`로 처리한다.
-- `/approve-application`, `/reject-application`, `/register-cam`, `/delete-cam`은 등록을 끊지 말고 deprecated 안내만 반환하는 legacy 명령으로 유지한다.
 
 ### `src/events`
 
 - Discord 이벤트당 파일 하나를 유지한다.
 - `ready.ts`는 부팅, 테이블 sync, 운영 daily message/thread 생성 스케줄, 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅을 담당한다.
-- `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 실패 시 상태 전이 문맥을 로그에 남긴다.
-- `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 `CamStudyUsers`와 동기화하고, 활성 세션이 있으면 삭제를 종료 시점까지 defer 한다.
+- `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 감지해서 `CamStudyUsers`를 자동 동기화하고, 활성 세션 중 역할 회수면 삭제를 종료 시점까지 미룬다.
+- `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 역할 회수 뒤 종료 시점 정리까지 포함해 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
 - `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#apply`/`#ops` 같은 전용 채널에 묶이는지 문서에 남긴다.
@@ -120,10 +118,11 @@
 - thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 집계 원본이 아닌 과거 레거시 데이터 호환용으로만 유지한다.
 - 캠스터디 진행 중 세션은 `CamStudyActiveSession`으로 저장하고, `CamStudyTimeLog`는 종료 정산된 누적 시간만 보관한다.
 - `CamStudyWeeklyTimeLog`는 해당 주차의 `CamStudyTimeLog`를 재계산한 결과를 반영하는 용도로 유지하고, 같은 일간 로그를 누적 덧셈으로 중복 반영하지 않는다.
+- `CamStudyUsers`는 수동 등록 원본이 아니라 `@cam-study` 역할 상태를 반영하는 캐시/인덱스로 유지하되, 활성 세션 중 역할 회수면 종료 이벤트까지 임시로 유지할 수 있다.
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
-- 역할 기반 온보딩/신청 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하고, 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 책임을 분리한다.
-- `CamStudyUsers` 변경은 repository helper에서 같은 `userid` 기준으로 직렬화하고, 중복 row가 있으면 한 건으로 정리한다.
+- 역할 기반 온보딩 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하되, 현재 정책상 `/apply-wakeup`, `/apply-cam` 실행 시 즉시 `approved` 상태로 반영한다.
+- 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 신청/활성화 상태 모델 책임은 계속 분리한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
   - `docs/PROJECT.md`의 테이블 설명
@@ -158,7 +157,7 @@
 - workflow는 역할을 분리한다.
   - `ci.yml`: lint / prettier / unit test / smoke test / integration test
   - `dependency-review.yml`: 의존성 변경 PR 리뷰
-  - `deploy-production.yml`: verify 뒤 production artifact와 runtime metadata를 만들고 서버 호환성 검증 후 반영한 뒤 readiness 확인
+  - `deploy-production.yml`: `ubuntu-22.04` + Node.js 24 verify 뒤 production artifact와 runtime metadata를 만들고 서버 호환성 검증 후 반영한 뒤 readiness 확인
 
 ## 구현 컨벤션
 
@@ -169,7 +168,6 @@
 - 날짜/시간 계산과 상수는 가능한 한 `src/utils.ts`에 모은다.
 - daily message 질문 정책은 `src/daily-message.ts`, 운영 daily message/thread 생성 규칙은 `src/daily-attendance.ts`에 모은다.
 - 캠스터디 재기동 복구, heartbeat, 종료 이벤트 유실 보호 로직은 `src/services/camStudy.ts`에 모은다.
-- 캠스터디 역할 기반 등록/해제 동기화와 revoke defer 정책은 `src/services/camStudyRoleSync.ts`에 모은다.
 - 비즈니스 규칙은 하드코딩을 흩뿌리지 말고 상수 또는 유틸 함수로 끌어올린다.
 - 기존 파일 스타일을 존중한다. 이 저장소는 한국어 설명과 영어 식별자가 혼용된다.
 

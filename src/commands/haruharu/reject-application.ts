@@ -1,44 +1,48 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { opsChannelId } from '../../config.js';
 import { PERMISSION_NUM_ADMIN } from '../../utils.js';
+import { rejectParticipationApplication } from '../../services/participationApplication.js';
 
 export const command = {
   cooldown: 5,
   allowedChannelIds: [opsChannelId],
   data: new SlashCommandBuilder()
     .setName('reject-application')
-    .setDescription('deprecated: application rejection is no longer used')
+    .setDescription('deprecated: participation is activated automatically')
     .setNameLocalizations({ ko: 'admin-신청거절' })
-    .setDescriptionLocalizations({ ko: '자동 승인 전환으로 더 이상 사용하지 않는 레거시 명령입니다' })
+    .setDescriptionLocalizations({ ko: 'deprecated: 참여는 자동으로 활성화됩니다' })
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
     .addStringOption(option =>
       option
         .setName('userid')
-        .setDescription('set userid')
+        .setDescription('deprecated legacy userid')
         .setNameLocalizations({ ko: '사용자id' })
-        .setDescriptionLocalizations({ ko: '대상 Discord 사용자 ID를 입력합니다' })
+        .setDescriptionLocalizations({ ko: 'deprecated 레거시 사용자 ID' })
         .setRequired(false),
     )
     .addStringOption(option =>
       option
         .setName('program')
-        .setDescription('select program')
-        .setNameLocalizations({ ko: '프로그램' })
-        .setDescriptionLocalizations({ ko: '대상 프로그램을 선택합니다' })
+        .setDescription('deprecated legacy program')
         .setRequired(false)
+        .setNameLocalizations({ ko: '프로그램' })
+        .setDescriptionLocalizations({ ko: 'deprecated 레거시 프로그램' })
         .addChoices({ name: '기상인증', value: 'wake-up' }, { name: '캠스터디', value: 'cam-study' }),
     )
     .addStringOption(option =>
       option
         .setName('reason')
-        .setDescription('set rejection reason')
+        .setDescription('deprecated legacy reason')
         .setNameLocalizations({ ko: '사유' })
-        .setDescriptionLocalizations({ ko: '거절 사유를 입력합니다' })
+        .setDescriptionLocalizations({ ko: 'deprecated 레거시 사유' })
         .setRequired(false),
     ),
   async execute(interaction: ChatInputCommandInteraction) {
+    const userid = interaction.options.getString('userid') ?? interaction.user.id;
+    const program = (interaction.options.getString('program') as 'wake-up' | 'cam-study' | null) ?? 'wake-up';
+    const reason = interaction.options.getString('reason') ?? 'deprecated';
     await interaction.reply({
-      content: 'deprecated: /reject-application은 더 이상 사용하지 않습니다. self-service 신청은 이제 자동 승인됩니다.',
+      content: await rejectParticipationApplication(interaction, userid, program, reason),
       allowedMentions: { parse: [] },
     });
   },

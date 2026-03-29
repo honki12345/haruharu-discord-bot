@@ -8,71 +8,72 @@ const findCamStudyUser = (userid: string) => CamStudyUsers.findOne({ where: { us
 
 const listCamStudyUsers = () => CamStudyUsers.findAll();
 
-const camStudyUserMutationQueue = new Map<string, Promise<void>>();
+const camStudyUserMutationLocks = new Map<string, Promise<void>>();
 
-const runSerializedCamStudyUserMutation = async <T>(userid: string, operation: () => Promise<T>) => {
-  const previous = camStudyUserMutationQueue.get(userid) ?? Promise.resolve();
-  let releaseCurrentQueue!: () => void;
-  const current = new Promise<void>(resolve => {
-    releaseCurrentQueue = resolve;
+const withCamStudyUserMutationLock = async <T>(userid: string, task: () => Promise<T>) => {
+  const previousLock = camStudyUserMutationLocks.get(userid) ?? Promise.resolve();
+  let releaseCurrentLock!: () => void;
+  const currentLock = new Promise<void>(resolve => {
+    releaseCurrentLock = resolve;
   });
-  const queued = previous.catch(() => undefined).then(() => current);
+  const queuedLock = previousLock.then(() => currentLock);
 
-  camStudyUserMutationQueue.set(userid, queued);
-  await previous.catch(() => undefined);
+  camStudyUserMutationLocks.set(userid, queuedLock);
+  await previousLock;
 
   try {
-    return await operation();
+    return await task();
   } finally {
-    releaseCurrentQueue();
-    if (camStudyUserMutationQueue.get(userid) === queued) {
-      camStudyUserMutationQueue.delete(userid);
+    releaseCurrentLock();
+
+    if (camStudyUserMutationLocks.get(userid) === queuedLock) {
+      camStudyUserMutationLocks.delete(userid);
     }
   }
 };
 
-const upsertCamStudyUser = (payload: { userid: string; username: string }) =>
-  runSerializedCamStudyUserMutation(payload.userid, async () => {
-    const existingUsers = await CamStudyUsers.findAll({
-      where: { userid: payload.userid },
-      order: [['id', 'ASC']],
-    });
+const upsertCamStudyUser = async (payload: { userid: string; username: string }) => {
+  const sequelize = CamStudyUsers.sequelize;
+  if (!sequelize) {
+    throw new Error('CamStudyUsers sequelize instance is not initialized');
+  }
 
-    if (existingUsers.length === 0) {
-      return CamStudyUsers.create(payload);
-    }
-
-    const [primaryUser, ...duplicateUsers] = existingUsers;
-    await CamStudyUsers.update(
-      {
-        username: payload.username,
-      },
-      {
-        where: { id: primaryUser.id },
-      },
-    );
-
-    if (duplicateUsers.length > 0) {
-      await CamStudyUsers.destroy({
-        where: {
-          id: {
-            [Op.in]: duplicateUsers.map(user => user.id),
-          },
-        },
+  return withCamStudyUserMutationLock(payload.userid, async () =>
+    sequelize.transaction(async transaction => {
+      const existingUsers = await CamStudyUsers.findAll({
+        where: { userid: payload.userid },
+        order: [['id', 'ASC']],
+        transaction,
       });
-    }
 
-    return CamStudyUsers.findOne({
-      where: { id: primaryUser.id },
-    });
-  });
+      if (!existingUsers.length) {
+        return CamStudyUsers.create(payload, { transaction });
+      }
 
-const deleteCamStudyUser = (userid: string) =>
-  runSerializedCamStudyUserMutation(userid, async () =>
-    CamStudyUsers.destroy({
-      where: { userid },
+      const [primaryUser, ...duplicateUsers] = existingUsers;
+      if (primaryUser.username !== payload.username) {
+        primaryUser.username = payload.username;
+        await primaryUser.save({ transaction });
+      }
+
+      if (duplicateUsers.length) {
+        await CamStudyUsers.destroy({
+          where: {
+            id: {
+              [Op.in]: duplicateUsers.map(user => user.id),
+            },
+          },
+          transaction,
+        });
+      }
+
+      return primaryUser;
     }),
   );
+};
+
+const removeCamStudyUser = (userid: string) =>
+  withCamStudyUserMutationLock(userid, () => CamStudyUsers.destroy({ where: { userid } }));
 
 const findCamStudyActiveSession = (userid: string) => CamStudyActiveSession.findOne({ where: { userid } });
 
@@ -232,7 +233,6 @@ export {
   createWeeklyCamStudyTimeLog,
   deleteCamStudyActiveSession,
   deleteCamStudyActiveSessionMatching,
-  deleteCamStudyUser,
   findCamStudyActiveSession,
   findCamStudyTimeLog,
   findCamStudyUser,
@@ -242,6 +242,7 @@ export {
   listCamStudyTimeLogsBetween,
   listCamStudyUsers,
   listWeeklyCamStudyTimeLogs,
+  removeCamStudyUser,
   replaceWeeklyCamStudyTimeLogs,
   upsertCamStudyUser,
   updateCamStudyActiveSession,

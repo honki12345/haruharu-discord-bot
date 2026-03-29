@@ -7,7 +7,6 @@ import {
   ClientOptions,
   Collection,
   GatewayIntentBits,
-  Partials,
   SlashCommandBuilder,
   SlashCommandOptionsOnlyBuilder,
   SlashCommandSubcommandsOnlyBuilder,
@@ -62,7 +61,6 @@ export const createClient = (options?: ClientOptions) =>
       GatewayIntentBits.GuildVoiceStates,
       GatewayIntentBits.GuildMessages,
     ],
-    partials: [Partials.GuildMember],
     ...options,
   });
 

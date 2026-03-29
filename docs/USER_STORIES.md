@@ -34,22 +34,22 @@ sequenceDiagram
 
 ---
 
-### US-15: 역할 기반 self-service 즉시 활성화
+### US-15: 역할 기반 self-service 참여 활성화
 
 ```
 AS A 서버 사용자
-I WANT TO /기상인증신청 또는 /캠스터디신청 으로 직접 신청하고 즉시 활성화되고 싶다
-SO THAT 운영자 승인 대기 없이 전용 채널 접근과 등록 상태가 바로 맞춰지길 원한다
+I WANT TO /apply-wakeup 또는 /apply-cam 으로 바로 참여를 활성화하고 싶다
+SO THAT 운영자 개입 없이 필요한 전용 채널 접근이 즉시 열리길 원한다
 ```
 
 **인수 조건:**
 
-- `/기상인증신청` (`/apply-wakeup`), `/캠스터디신청` (`/apply-cam`)은 `#apply`에서만 실행된다
-- 신청 응답은 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
-- `/기상인증신청` 실행 시 `@wake-up` 역할과 `ParticipationApplication.status=approved`가 즉시 반영된다
-- `/캠스터디신청` 실행 시 `@cam-study` 역할, `ParticipationApplication.status=approved`, `CamStudyUsers` 등록이 즉시 반영된다
-- `@cam-study` 역할이 제거되면 진행 중 세션이 없을 때는 즉시 추적 대상에서 빠지고, 진행 중 세션이 있으면 종료 시점까지 정산한 뒤 제거된다
-- deprecated `/admin-신청승인`, `/admin-신청거절`은 더 이상 상태를 변경하지 않는다
+- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행된다
+- 활성화 결과는 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
+- `/apply-wakeup` 성공 시 `@wake-up` 역할과 `ParticipationApplication.status=approved`가 즉시 반영된다
+- `/apply-cam` 성공 시 `@cam-study` 역할, `ParticipationApplication.status=approved`, `CamStudyUsers`가 즉시 반영된다
+- 캠스터디는 이후 수동 역할 부여/회수도 `guildMemberUpdate`로 감지해서 `CamStudyUsers`를 계속 동기화한다
+- `/approve-application`, `/reject-application`은 deprecated 상태로 남고 참여 상태는 더 이상 변경하지 않는다
 
 ```mermaid
 sequenceDiagram
@@ -61,12 +61,12 @@ sequenceDiagram
 
     U->>A: /기상인증신청 또는 /캠스터디신청
     A->>B: InteractionCreate 이벤트
-    B->>D: 역할 즉시 부여
-    B->>DB: ParticipationApplication.status = approved
-    alt 캠스터디 신청
+    B->>D: 역할 부여
+    B->>DB: ParticipationApplication status = approved
+    opt program = cam-study
         B->>DB: CamStudyUsers upsert
     end
-    B-->>U: ephemeral "즉시 활성화되었어요"
+    B-->>U: ephemeral "참여가 바로 활성화되었어요"
 ```
 
 ---
@@ -157,8 +157,8 @@ SO THAT 배포 전 검증과 배포 후 확인을 같은 절차로 반복할 수
 **인수 조건:**
 
 - production 배포는 `workflow_dispatch`로만 시작된다
-- verify job이 `lint`, `prettier`, `build`, `test`, `smoke test`를 통과해야 deploy가 실행된다
-- deploy는 GitHub-hosted runner에서 OCI 서버로 SSH 배포한다
+- verify job이 `ubuntu-22.04` + Node.js 24에서 `lint`, `prettier`, `build`, `test`, `smoke test`를 통과해야 deploy가 실행된다
+- deploy는 GitHub-hosted `ubuntu-22.04` runner에서 검증된 artifact를 OCI 서버로 SSH 배포한다
 - deploy 뒤에는 `pm2 status`와 `Ready! Logged in as` 로그를 확인한다
 - 실패 시 이전 안정 ref로 같은 workflow를 다시 실행해 롤백할 수 있다
 
@@ -171,13 +171,15 @@ sequenceDiagram
     participant D as Discord
 
     O->>GH: Run workflow_dispatch(ref)
-    GH->>GH: verify job (lint + prettier + build + test + smoke)
+    GH->>GH: verify job (ubuntu-22.04 + Node 24, lint + prettier + build + test + smoke)
 
     alt verify 실패
         GH-->>O: 배포 중단
     else verify 성공
-        GH->>OCI: SSH deploy
-        OCI->>OCI: git fetch / checkout / npm ci / npm run build
+        GH->>GH: package production artifact + runtime metadata
+        GH->>OCI: scp verified artifact
+        OCI->>OCI: validate realpath / platform / arch / Node ABI / glibc
+        OCI->>OCI: staged extract artifact and replace dist/node_modules
         OCI->>PM2: reload or start haruharu-bot
         GH->>OCI: pm2 status / ready log 확인
         O->>D: /admin-상태확인 수동 확인
@@ -405,28 +407,33 @@ sequenceDiagram
 
 ## 캠스터디 (Cam Study)
 
-### US-7: 캠스터디 등록
+### US-7: 캠스터디 역할 기반 등록
 
 ```
-AS A 운영자
-I WANT TO legacy /admin-캠스터디등록 명령이 deprecated 안내만 반환하길 원한다
-SO THAT 실제 등록 경로가 `/캠스터디신청` self-service + 역할 동기화로 일원화된다
+AS A 캠스터디 참여 사용자
+I WANT TO `@cam-study` 역할을 받으면 별도 관리자 명령 없이 자동으로 등록되고 싶다
+SO THAT 실제 채널 접근 권한과 학습 추적 대상이 항상 일치한다
 ```
 
 **인수 조건:**
 
-- `/admin-캠스터디등록`은 더 이상 `CamStudyUsers`를 직접 생성하지 않는다
-- 응답에는 `/캠스터디신청` self-service 경로를 안내한다
+- `@cam-study` 역할 부여 시 `CamStudyUsers`에 자동 등록된다
+- 이미 등록된 사용자면 중복 생성 대신 표시 이름을 갱신한다
+- `/register-cam`은 deprecated 상태로 남고 역할 기반 흐름을 안내만 한다
 
 ```mermaid
 sequenceDiagram
-    participant A as 관리자
-    participant D as Discord
+    participant U as 사용자
+    participant O as 운영진 또는 온보딩 흐름
+    participant D as Discord Role
     participant B as Bot
+    participant DB as SQLite
 
-    A->>D: /admin-캠스터디등록 사용자id:USER 이름:홍길동
-    D->>B: InteractionCreate 이벤트
-    B-->>A: "deprecated: /apply-cam 경로를 사용해 주세요"
+    U->>O: 캠스터디 권한 획득
+    O->>B: /apply-cam 또는 역할 부여 실행
+    B->>D: @cam-study 역할 부여
+    B->>DB: CamStudyUsers upsert
+    B-->>U: 별도 관리자 등록 없이 추적 대상 포함
 ```
 
 ---
@@ -592,29 +599,35 @@ sequenceDiagram
 
 ---
 
-### US-11: 캠스터디 탈퇴
+### US-11: 캠스터디 역할 회수 기반 탈퇴
 
 ```
-AS A 운영자
-I WANT TO legacy /delete-cam 명령이 deprecated 안내만 반환하길 원한다
-SO THAT 실제 해제 경로가 `@cam-study` 역할 제거로 일원화된다
+AS A 캠스터디 참가자
+I WANT TO `@cam-study` 역할이 회수되면 자동으로 추적 대상에서 빠지고 싶다
+SO THAT 권한이 없는 사용자의 학습 시간이 계속 기록되지 않는다
 ```
 
 **인수 조건:**
 
-- `/delete-cam`은 더 이상 `CamStudyUsers`를 직접 삭제하지 않는다
-- 응답에는 `@cam-study` 역할 제거가 실제 해제 경로임을 안내한다
+- `@cam-study` 역할이 제거되면 `CamStudyUsers`에서 자동 해제된다
+- 단, 이미 진행 중인 캠스터디 세션이 있으면 종료 이벤트까지는 임시로 유지되고 종료 직후 해제된다
 - 기존 학습 기록은 유지된다
+- `/delete-cam`은 deprecated 상태로 남고 역할 회수 흐름을 안내만 한다
 
 ```mermaid
 sequenceDiagram
-    participant A as 관리자
-    participant D as Discord
+    participant U as 참가자
+    participant O as 운영진 또는 온보딩 흐름
+    participant D as Discord Role
     participant B as Bot
+    participant DB as SQLite
 
-    A->>D: /delete-cam userid:USER
-    D->>B: InteractionCreate 이벤트
-    B-->>A: "deprecated: @cam-study 역할을 제거해 주세요"
+    U->>O: 캠스터디 역할 회수 요청 또는 운영 해제
+    O->>D: @cam-study 역할 제거
+    D->>B: guildMemberUpdate 이벤트
+    B->>DB: 활성 세션 없으면 즉시 삭제
+    B->>DB: 활성 세션이면 종료 직후 삭제
+    B-->>U: 이미 시작한 세션은 마무리하고 새 세션부터 추적 대상 제외
 ```
 
 ---

@@ -15,24 +15,24 @@
 
 ### 핵심 기능
 
-| 기능                 | 설명                                                                                              |
-| -------------------- | ------------------------------------------------------------------------------------------------- |
-| **기상 챌린지**      | 매일 정해진 시간에 기상하여 인증샷을 올리는 월간 챌린지                                           |
-| **캠스터디**         | Discord 음성 채널에서 카메라 또는 화면공유를 켜고 공부하는 시간 추적                              |
-| **역할 기반 온보딩** | `#start-here`/`#apply`/`#qna`/`#announcements` 구조와 self-service 즉시 활성화 흐름으로 접근 제어 |
+| 기능                 | 설명                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| **기상 챌린지**      | 매일 정해진 시간에 기상하여 인증샷을 올리는 월간 챌린지                                    |
+| **캠스터디**         | Discord 음성 채널에서 카메라 또는 화면공유를 켜고 공부하는 시간 추적                       |
+| **역할 기반 온보딩** | `#start-here`/`#apply`/`#qna`/`#announcements` 구조와 self-service 역할 활성화로 접근 제어 |
 
 ### Discord 운영 채널 구조
 
-| 채널             | 역할                          | 비고                        |
-| ---------------- | ----------------------------- | --------------------------- |
-| `#start-here`    | 환영 및 서버 소개             | 읽기 전용 권장              |
-| `#apply`         | 참여 방법 안내                | 운영 신청 흐름 정리용       |
-| `#qna`           | 질문/응답                     | 일반 문의 채널              |
-| `#announcements` | 운영 공지                     | 관리자 전용 작성 권장       |
-| `#ops`           | legacy 안내 확인 및 운영 처리 | 관리자 전용                 |
-| `#wake-up`       | 기상인증 전용 채널            | `@wake-up` 역할 기반 접근   |
-| `#cam-study`     | 캠스터디 전용 텍스트 채널     | `@cam-study` 역할 기반 접근 |
-| `음성: 캠스터디` | 캠스터디 전용 음성 채널       | `@cam-study` 역할 기반 접근 |
+| 채널             | 역할                                     | 비고                          |
+| ---------------- | ---------------------------------------- | ----------------------------- |
+| `#start-here`    | 환영 및 서버 소개                        | 읽기 전용 권장                |
+| `#apply`         | 참여 방법 안내 및 self-service 명령 실행 | `/apply-wakeup`, `/apply-cam` |
+| `#qna`           | 질문/응답                                | 일반 문의 채널                |
+| `#announcements` | 운영 공지                                | 관리자 전용 작성 권장         |
+| `#ops`           | 운영 공지 및 관리자 처리                 | 관리자 전용                   |
+| `#wake-up`       | 기상인증 전용 채널                       | `@wake-up` 역할 기반 접근     |
+| `#cam-study`     | 캠스터디 전용 텍스트 채널                | `@cam-study` 역할 기반 접근   |
+| `음성: 캠스터디` | 캠스터디 전용 음성 채널                  | `@cam-study` 역할 기반 접근   |
 
 ---
 
@@ -59,17 +59,17 @@ haruharu-discord-bot/
 │   │       ├── apply-wakeup.ts  # 사용자 기상인증 참여 신청
 │   │       ├── apply-cam.ts     # 사용자 캠스터디 참여 신청
 │   │       ├── add-vacances.ts  # 휴가 추가
-│   │       ├── approve-application.ts # deprecated: 자동 승인 이전 legacy 명령
-│   │       ├── reject-application.ts # deprecated: 자동 승인 이전 legacy 명령
+│   │       ├── approve-application.ts # deprecated: 자동 활성화 안내
+│   │       ├── reject-application.ts # deprecated: 자동 활성화 안내
 │   │       ├── delete.ts        # 챌린저 삭제
-│   │       ├── register-cam.ts  # deprecated: 자동 역할 동기화 이전 legacy 명령
-│   │       ├── delete-cam.ts    # deprecated: 자동 역할 동기화 이전 legacy 명령
+│   │       ├── register-cam.ts  # deprecated: 역할 기반 등록 안내
+│   │       ├── delete-cam.ts    # deprecated: 역할 회수 안내
 │   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
 │   │       └── ping.ts          # 헬스체크
 │   │
 │   ├── events/
 │   │   ├── ready.ts             # 봇 시작, DB 동기화, 리포트 스케줄러 등록
-│   │   ├── guildMemberUpdate.ts # cam-study 역할 부여/회수 동기화
+│   │   ├── guildMemberUpdate.ts # @cam-study 역할 기반 참가자 동기화
 │   │   ├── interactionCreate.ts # 슬래시 커맨드 핸들러
 │   │   ├── messageCreate.ts     # 출석 demo thread 댓글 감지
 │   │   └── camStudyHandler.ts   # 음성 채널 상태 감지 및 캠스터디 서비스 위임
@@ -78,8 +78,8 @@ haruharu-discord-bot/
 │   │   ├── attendance.ts        # 레거시 check-in/check-out 처리
 │   │   ├── challengeSelfService.ts # 사용자 기상시간/휴가 self-service 정책 처리
 │   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
-│   │   ├── camStudyRoleSync.ts  # cam-study 역할과 CamStudyUsers 동기화
-│   │   ├── participationApplication.ts # self-service 즉시 활성화 처리
+│   │   ├── camStudyRoleSync.ts  # 역할 기반 캠스터디 참가자 동기화
+│   │   ├── participationApplication.ts # self-service 활성화/역할 부여 처리
 │   │   └── reporting.ts         # 일일/주간 리포트 생성 및 스케줄링
 │   │
 │   └── repository/
@@ -144,19 +144,19 @@ haruharu-discord-bot/
 
 #### 역할 기반 참여 신청 커맨드
 
-| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                           |
-| ---------------------- | ----------------- | ------ | ------------------------------ |
-| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 역할 즉시 활성화      |
-| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 역할/등록 즉시 활성화 |
-| `/approve-application` | `/admin-신청승인` | 관리자 | deprecated legacy 안내         |
-| `/reject-application`  | `/admin-신청거절` | 관리자 | deprecated legacy 안내         |
+| 내부 key               | 한국어 표시명(ko) | 권한   | 설명                         |
+| ---------------------- | ----------------- | ------ | ---------------------------- |
+| `/apply-wakeup`        | `/기상인증신청`   | 사용자 | 기상인증 참여 즉시 활성화    |
+| `/apply-cam`           | `/캠스터디신청`   | 사용자 | 캠스터디 참여 즉시 활성화    |
+| `/approve-application` | `/admin-신청승인` | 관리자 | deprecated: 자동 활성화 안내 |
+| `/reject-application`  | `/admin-신청거절` | 관리자 | deprecated: 자동 활성화 안내 |
 
 #### 캠스터디 커맨드
 
-| 내부 key        | 한국어 표시명(ko)     | 권한   | 설명                   |
-| --------------- | --------------------- | ------ | ---------------------- |
-| `/register-cam` | `/admin-캠스터디등록` | 관리자 | deprecated legacy 안내 |
-| `/delete-cam`   | `/admin-캠스터디삭제` | 관리자 | deprecated legacy 안내 |
+| 내부 key        | 한국어 표시명(ko)     | 권한   | 설명                                    |
+| --------------- | --------------------- | ------ | --------------------------------------- |
+| `/register-cam` | `/admin-캠스터디등록` | 관리자 | deprecated: `@cam-study` 역할 부여 안내 |
+| `/delete-cam`   | `/admin-캠스터디삭제` | 관리자 | deprecated: `@cam-study` 역할 회수 안내 |
 
 #### 유틸리티 커맨드
 
@@ -185,15 +185,11 @@ haruharu-discord-bot/
 
 - 별도 파라미터 없음
 - `#apply` 채널에서만 실행 가능
-- 실행 즉시 `ParticipationApplication.status=approved`와 `@wake-up` 역할이 반영된다
-- 실제 챌린지 등록은 별도로 `/register`에서 `waketime`을 입력해야 한다
 
 #### `/apply-cam` (`/캠스터디신청`)
 
 - 별도 파라미터 없음
 - `#apply` 채널에서만 실행 가능
-- 실행 즉시 `ParticipationApplication.status=approved`, `@cam-study` 역할, `CamStudyUsers` upsert가 반영된다
-- 이미 역할이 있는 사용자가 다시 실행해도 기존 role/row를 회수하지 않고 최신 상태로 보정한다
 
 #### `/add-vacances` (`/admin-휴가추가`)
 
@@ -205,39 +201,37 @@ haruharu-discord-bot/
 
 #### `/approve-application` (`/admin-신청승인`)
 
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명          |
-| ------------- | ----------------- | ---- | ------------- |
-| userid        | 사용자id          | 선택 | legacy 호환용 |
-| program       | 프로그램          | 선택 | legacy 호환용 |
-
-- 현재는 deprecated 안내만 반환하며 신청 상태를 변경하지 않는다
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                            |
+| ------------- | ----------------- | ---- | ------------------------------- |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID     |
+| program       | 프로그램          | X    | deprecated 레거시 대상 프로그램 |
 
 #### `/reject-application` (`/admin-신청거절`)
 
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명          |
-| ------------- | ----------------- | ---- | ------------- |
-| userid        | 사용자id          | 선택 | legacy 호환용 |
-| program       | 프로그램          | 선택 | legacy 호환용 |
-| reason        | 사유              | 선택 | legacy 호환용 |
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                            |
+| ------------- | ----------------- | ---- | ------------------------------- |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID     |
+| program       | 프로그램          | X    | deprecated 레거시 대상 프로그램 |
+| reason        | 사유              | X    | deprecated 레거시 사유          |
 
-- 현재는 deprecated 안내만 반환하며 신청 상태를 변경하지 않는다
-
-#### `/delete`, `/delete-cam` (`/admin-챌린저삭제`, `/admin-캠스터디삭제`)
+#### `/delete` (`/admin-챌린저삭제`)
 
 | 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
 | ------------- | ----------------- | ---- | ----------------- |
 | userid        | 사용자id          | O    | Discord 사용자 ID |
 
-- `/delete-cam`은 deprecated 안내만 반환하며 실제 캠스터디 해제는 `@cam-study` 역할 제거로 수행한다
+#### `/delete-cam` (`/admin-캠스터디삭제`)
+
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                        |
+| ------------- | ----------------- | ---- | --------------------------- |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID |
 
 #### `/register-cam` (`/admin-캠스터디등록`)
 
-| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명              |
-| ------------- | ----------------- | ---- | ----------------- |
-| userid        | 사용자id          | O    | Discord 사용자 ID |
-| username      | 이름              | O    | 표시 이름         |
-
-- 현재는 deprecated 안내만 반환하며 실제 캠스터디 등록은 `/apply-cam` self-service 흐름을 사용한다
+| 내부 파라미터 | 한국어 표시명(ko) | 필수 | 설명                        |
+| ------------- | ----------------- | ---- | --------------------------- |
+| userid        | 사용자id          | X    | deprecated 레거시 사용자 ID |
+| username      | 이름              | X    | deprecated 레거시 표시 이름 |
 
 ---
 
@@ -267,33 +261,41 @@ haruharu-discord-bot/
 
 #### guildMemberUpdate.ts
 
-| 항목   | 내용                                                                                                                          |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| 트리거 | Discord 서버 멤버 역할 변경                                                                                                   |
-| 기능   | `@cam-study` 역할 부여 시 `CamStudyUsers` upsert, 역할 회수 시 미진행 세션은 즉시 삭제하고 진행 중 세션은 종료 시점까지 defer |
+| 항목   | 내용                                                                    |
+| ------ | ----------------------------------------------------------------------- |
+| 트리거 | 서버 멤버 역할 변경                                                     |
+| 기능   | `@cam-study` 역할 부여/회수를 감지하고 `CamStudyUsers`를 자동 등록/해제 |
+
+**구현 메모:**
+
+- `CamStudyUsers`는 역할 상태를 반영하는 캐시 인덱스이며, 역할 부여 시 upsert 한다.
+- 역할 회수 시에는 보통 즉시 삭제하되, 이미 캠스터디를 진행 중이면 종료 이벤트가 들어올 때까지 삭제를 미룬다.
+- `@cam-study` 역할 변화가 없으면 아무 작업도 하지 않는다.
+- `GuildMembers` intent가 활성화되어야 실제 운영 환경에서 역할 변경 이벤트를 수신할 수 있다.
+- `oldMember`가 partial인 경우에도 `newMember` 현재 역할 상태를 기준으로 self-heal 동기화를 수행한다.
 
 ### Runtime / Delivery
 
-| 파일                     | 역할                                                                                      |
-| ------------------------ | ----------------------------------------------------------------------------------------- |
-| `src/index.ts`           | 프로세스 진입점. `bootstrapClient()` 호출과 Discord 로그인 시작만 담당                    |
-| `src/runtime.ts`         | Discord client 생성, 커맨드/이벤트 동적 로딩, slash command payload 수집, smoke boot 지원 |
-| `src/deploy-commands.ts` | `src/runtime.ts` 로더를 재사용해 slash command JSON을 생성하고 Discord에 등록             |
+| 파일                     | 역할                                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`           | 프로세스 진입점. `bootstrapClient()` 호출과 Discord 로그인 시작만 담당                                                     |
+| `src/runtime.ts`         | Discord client 생성, `GuildMembers` 포함 intent 선언, 커맨드/이벤트 동적 로딩, slash command payload 수집, smoke boot 지원 |
+| `src/deploy-commands.ts` | `src/runtime.ts` 로더를 재사용해 slash command JSON을 생성하고 Discord에 등록                                              |
 
 ### GitHub Actions
 
-| Workflow            | 트리거                                      | 역할                                                                                                                                                                             |
-| ------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CI`                | `push`, `pull_request`, `workflow_dispatch` | lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test                                                                                          |
-| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                                                                                                                        |
-| `Deploy Production` | `workflow_dispatch`                         | verify 후 production artifact와 runtime metadata를 만들고 OCI 서버에서 realpath, platform, arch, Node ABI, glibc 호환성 및 staged bundle 검증 뒤 반영한 뒤 PM2/ready 로그를 확인 |
+| Workflow            | 트리거                                      | 역할                                                                                                                                                                                                         |
+| ------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CI`                | `push`, `pull_request`, `workflow_dispatch` | `ubuntu-22.04` + Node.js 24에서 lint, prettier, unit test, bot boot smoke test, main 수동/직접 실행 시 integration test                                                                                      |
+| `Dependency Review` | `pull_request` + package manifest 변경      | 취약점/라이선스 정책 검토                                                                                                                                                                                    |
+| `Deploy Production` | `workflow_dispatch`                         | `ubuntu-22.04` + Node.js 24 verify 후 production artifact와 runtime metadata를 만들고 OCI 서버에서 realpath, platform, arch, Node ABI, glibc 호환성 및 staged bundle 검증 뒤 반영한 뒤 PM2/ready 로그를 확인 |
 
 ### Production 배포 흐름
 
 ```mermaid
 flowchart TD
   A[workflow_dispatch] --> B[verify job]
-  B --> C[lint + prettier + build + test + smoke]
+  B --> C[ubuntu-22.04 + Node 24: lint + prettier + build + test + smoke]
   C --> D[package production artifact + metadata]
   D --> E[deploy job downloads artifact]
   E --> F[SSH deploy to OCI]
@@ -318,7 +320,9 @@ flowchart TD
 **채널 라우팅 메모:**
 
 - 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
-- self-service 신청 커맨드는 `allowedChannelIds`로 `#apply`, deprecated 운영 커맨드는 `#ops`로 제한한다.
+- `/apply-wakeup`, `/apply-cam`은 `#apply` 전용 채널에서만 실행된다.
+- `/approve-application`, `/reject-application`은 deprecated 상태로 `#ops`에서만 남아 있고 실제 참여 상태는 바꾸지 않는다.
+- `/register-cam`, `/delete-cam`은 deprecated 상태로 남아 있으며 역할 기반 운영 흐름만 안내한다.
 
 #### camStudyHandler.ts
 
@@ -326,6 +330,10 @@ flowchart TD
 | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | 트리거 | 음성 채널 상태 변경                                                                                                          |
 | 기능   | 카메라(`selfVideo`) 또는 화면공유(`streaming`) ON/OFF 감지, 상태 전이를 `src/services/camStudy.ts`에 위임하여 학습 시간 기록 |
+
+**구현 메모:**
+
+- 학습 세션이 이미 시작된 뒤 `@cam-study` 역할이 제거되어도, 기존 `CamStudyTimeLog`를 기준으로 종료 시점 분 계산은 마무리한다.
 
 #### messageCreate.ts
 
@@ -373,7 +381,14 @@ flowchart TD
 - 진행 중 세션은 `CamStudyActiveSession`에 `(userid, channelid, startedat, lastobservedat)` 형태로 저장한다.
 - 재배포 후 `ready.ts`는 저장된 active session과 현재 음성 채널 상태를 비교해 세션을 유지하거나 마지막 관측 시각 기준으로 종료 정산한다.
 - 종료 이벤트를 놓친 뒤 다음 시작 이벤트가 오면, 남아 있던 active session을 먼저 정리한 뒤 새 세션을 시작한다.
-- 역할이 회수된 사용자는 진행 중 세션 종료 정산까지는 유지하되, 종료 후 `CamStudyUsers`에서 자동 제거한다.
+
+#### camStudyRoleSync.ts
+
+| 항목   | 내용                                                                                                                                             |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 역할   | `@cam-study` 역할 상태를 `CamStudyUsers` 캐시에 반영                                                                                             |
+| 담당   | 역할 추가/제거 감지, partial member fallback 처리, 표시 이름 추출, `CamStudyUsers` upsert/remove, 활성 세션 중 제거 defer, 역할 동기화 로그 기록 |
+| 호출처 | `src/events/guildMemberUpdate.ts`                                                                                                                |
 
 #### challengeSelfService.ts
 
@@ -383,21 +398,13 @@ flowchart TD
 | 담당   | 사용자 기준 등록/수정, 기상시간 범위 검증, register 하루 1회 변경 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
 | 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/apply-vacation.ts`                                   |
 
-#### camStudyRoleSync.ts
-
-| 항목   | 내용                                                                                                                                           |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | `@cam-study` 역할 상태를 `CamStudyUsers`와 맞춘다                                                                                              |
-| 담당   | partial guild member fetch fallback, 역할 부여 시 upsert, 역할 회수 시 active session 존재 여부에 따른 즉시 삭제 또는 defer, 종료 후 자동 정리 |
-| 호출처 | `src/events/guildMemberUpdate.ts`, `src/services/camStudy.ts`                                                                                  |
-
 #### participationApplication.ts
 
-| 항목   | 내용                                                                                                                                          |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | `/apply-wakeup`, `/apply-cam`의 self-service 즉시 활성화를 처리한다                                                                           |
-| 담당   | 역할 부여, `ParticipationApplication.status=approved` 반영, `/apply-cam`의 `CamStudyUsers` upsert, 신규 활성화 실패 시 필요한 범위만 rollback |
-| 호출처 | `src/commands/haruharu/apply-wakeup.ts`, `src/commands/haruharu/apply-cam.ts`                                                                 |
+| 항목   | 내용                                                                                                                                                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | self-service 참여 활성화, 역할 부여, deprecated 운영 명령 안내                                                                                                               |
+| 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 신청 즉시 `approved` 반영, 캠스터디 자동 활성화 시 `CamStudyUsers` upsert, 실패 시 role/db rollback |
+| 호출처 | `src/commands/haruharu/apply-wakeup.ts`, `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts` |
 
 #### reporting.ts
 
@@ -418,10 +425,10 @@ flowchart TD
 
 #### Repository helper 모듈
 
-| 파일                     | 역할                                                                                                                          |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `challengeRepository.ts` | `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼                  |
-| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 및 serialized upsert 헬퍼 |
+| 파일                     | 역할                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `challengeRepository.ts` | `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog` 기반 기상 챌린지 조회/생성/집계 헬퍼 |
+| `camStudyRepository.ts`  | `CamStudyUsers`, `CamStudyActiveSession`, `CamStudyTimeLog`, `CamStudyWeeklyTimeLog` 기반 조회/갱신 헬퍼     |
 
 #### Users (기상 챌린지 참가자)
 
@@ -512,16 +519,19 @@ flowchart TD
 
 #### CamStudyUsers (캠스터디 참가자)
 
-| 컬럼     | 타입    | 설명                       |
-| -------- | ------- | -------------------------- |
-| id       | INTEGER | PK, Auto Increment         |
-| userid   | STRING  | Discord 사용자 ID (UNIQUE) |
-| username | STRING  | 표시 이름                  |
+| 컬럼     | 타입    | 설명               |
+| -------- | ------- | ------------------ |
+| id       | INTEGER | PK, Auto Increment |
+| userid   | STRING  | Discord 사용자 ID  |
+| username | STRING  | 표시 이름          |
 
 비고:
 
-- 실제 진실 원본은 `@cam-study` 역할이며, `guildMemberUpdate`와 `/apply-cam`이 이 테이블을 역할 상태에 맞게 유지한다.
-- helper는 같은 `userid`에 대한 concurrent upsert를 직렬화하고, 이미 생긴 중복 row가 있으면 한 건으로 정리한다.
+- `@cam-study` 역할 상태를 반영하는 캐시/인덱스 성격의 테이블이다.
+- 역할 부여 시 upsert 한다.
+- 역할 회수 시에는 보통 삭제하되, 활성 세션이면 종료 이벤트가 들어온 뒤 삭제한다.
+- 같은 `userid` 중복 row가 발견되면 upsert 과정에서 최신 이름 기준으로 1건으로 정리한다.
+- 과거 학습 로그(`CamStudyTimeLog`, `CamStudyWeeklyTimeLog`)는 역할 회수 후에도 유지된다.
 
 #### CamStudyActiveSession (진행 중 캠스터디 세션)
 
@@ -579,9 +589,8 @@ flowchart TD
 비고:
 
 - `(userid, program)` 조합은 UNIQUE이며 사용자별 프로그램 신청 상태를 1건으로 유지한다.
-- 이 테이블은 역할 기반 접근 제어용이며, 실제 기능 사용 등록 정보(`Users`, `CamStudyUsers`)와는 분리된다.
-- 현재 운영 정책에서는 `/apply-wakeup`, `/apply-cam` 실행 시 즉시 `approved`로 반영된다.
-- deprecated `/approve-application`, `/reject-application`은 더 이상 이 테이블을 변경하지 않는다.
+- 현재 self-service 흐름에서는 `/apply-wakeup`, `/apply-cam` 실행 시 해당 row를 즉시 `approved`로 맞춘다.
+- 이 테이블은 역할 기반 접근 제어용 상태 테이블이며, 실제 기능 사용 등록 정보(`Users`, `CamStudyUsers`)와는 분리된다.
 
 ---
 
@@ -663,6 +672,10 @@ flowchart TD
 - `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 날짜 단위(`yyyymmdd`)로 동작한다.
 - 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.
 - 데모 전용 커맨드는 Discord 한국어 locale에서 `admin-demo-...` 접두어로 표시된다.
+- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답한다.
+- `/apply-wakeup` 성공 뒤에도 실제 기상 챌린지 참가 데이터는 사용자가 `/register`로 기상시간을 넣어야 완성된다.
+- `/apply-cam` 성공 시 `@cam-study` 역할과 `CamStudyUsers`가 함께 맞춰지고, 이후 역할 변경은 `guildMemberUpdate`가 계속 동기화한다.
+- `/approve-application`, `/reject-application`은 `#ops`에서 deprecated 안내만 반환한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 
 ### package.json 스크립트
@@ -687,12 +700,12 @@ flowchart TD
 | 구분         | 기술                                                            |
 | ------------ | --------------------------------------------------------------- |
 | 언어         | TypeScript                                                      |
-| 런타임       | Node.js 20+                                                     |
+| 런타임       | Node.js 24.x                                                    |
 | Discord API  | discord.js 14                                                   |
 | 데이터베이스 | SQLite3 + Sequelize                                             |
 | 로깅         | Winston + Daily Rotate                                          |
 | 코드 품질    | ESLint + Prettier                                               |
-| 배포         | GitHub-hosted runner + SSH + PM2                                |
+| 배포         | GitHub-hosted `ubuntu-22.04` runner + SSH + PM2                 |
 | CI/CD        | GitHub Actions (`CI`, `Dependency Review`, `Deploy Production`) |
 
 ---

@@ -5,30 +5,30 @@ export const command = {
   cooldown: 5,
   data: new SlashCommandBuilder()
     .setName('register-cam')
-    .setDescription('deprecated: use /apply-cam and role sync instead')
+    .setDescription('deprecated: grant @cam-study role instead')
     .setNameLocalizations({ ko: 'admin-캠스터디등록' })
-    .setDescriptionLocalizations({ ko: '자동 역할 연동으로 더 이상 사용하지 않는 레거시 명령입니다' })
+    .setDescriptionLocalizations({ ko: 'deprecated: @cam-study 역할 부여로 등록합니다' })
     .setDefaultMemberPermissions(PERMISSION_NUM_ADMIN)
     .addStringOption(option =>
       option
         .setName('userid')
         .setDescription('set userid')
         .setNameLocalizations({ ko: '사용자id' })
-        .setDescriptionLocalizations({ ko: '대상 Discord 사용자 ID를 입력합니다' })
-        .setRequired(true),
+        .setDescriptionLocalizations({ ko: 'deprecated 레거시 사용자 ID' })
+        .setRequired(false),
     )
     .addStringOption(option =>
       option
         .setName('username')
         .setDescription('username')
         .setNameLocalizations({ ko: '이름' })
-        .setDescriptionLocalizations({ ko: '표시 이름을 입력합니다' })
-        .setRequired(true),
+        .setDescriptionLocalizations({ ko: 'deprecated 레거시 표시 이름' })
+        .setRequired(false),
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
     await interaction.reply(
-      'deprecated: /register-cam은 더 이상 사용하지 않습니다. `/apply-cam`과 역할 자동 동기화를 사용해 주세요.',
+      'register-cam is deprecated. Grant the @cam-study role instead to sync CamStudyUsers automatically.',
     );
   },
 };

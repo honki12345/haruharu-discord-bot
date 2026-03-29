@@ -3,6 +3,40 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const readRepositoryFile = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const getWorkflowJobBlock = (workflow: string, jobName: string) => {
+  const lines = workflow.split('\n');
+  const jobStartIndex = lines.findIndex(line => new RegExp(`^ {2}${escapeRegExp(jobName)}:\\s*$`).test(line));
+
+  expect(jobStartIndex).toBeGreaterThanOrEqual(0);
+
+  let jobEndIndex = lines.length;
+  for (let index = jobStartIndex + 1; index < lines.length; index += 1) {
+    if (/^ {2}[A-Za-z0-9_-]+:\s*$/.test(lines[index])) {
+      jobEndIndex = index;
+      break;
+    }
+  }
+
+  return lines.slice(jobStartIndex, jobEndIndex).join('\n');
+};
+
+const expectWorkflowJobRuntime = (
+  workflow: string,
+  jobName: string,
+  options?: {
+    nodeVersion?: string;
+  },
+) => {
+  const jobBlock = getWorkflowJobBlock(workflow, jobName);
+
+  expect(jobBlock).toContain('runs-on: ubuntu-22.04');
+
+  if (options?.nodeVersion) {
+    expect(jobBlock).toContain(`node-version: '${options.nodeVersion}'`);
+  }
+};
 
 describe('US-15 production delivery workflow', () => {
   it('production deploy workflow는 workflow_dispatch로 시작하고 verify 성공 후 deploy를 실행해야 한다', () => {
@@ -20,6 +54,8 @@ describe('US-15 production delivery workflow', () => {
   it('production deploy workflow는 verify에서 확인한 정확한 commit sha 기준 artifact를 만들고 deploy가 이를 사용해야 한다', () => {
     const workflow = readRepositoryFile('.github/workflows/deploy-production.yml');
 
+    expectWorkflowJobRuntime(workflow, 'verify', { nodeVersion: '24' });
+    expectWorkflowJobRuntime(workflow, 'deploy');
     expect(workflow).toContain('id: resolve-sha');
     expect(workflow).toContain('git rev-parse HEAD');
     expect(workflow).toContain('outputs:');
@@ -57,8 +93,44 @@ describe('US-15 production delivery workflow', () => {
   it('CI workflow는 bot boot smoke test job을 포함해야 한다', () => {
     const workflow = readRepositoryFile('.github/workflows/ci.yml');
 
+    expectWorkflowJobRuntime(workflow, 'lint-and-format', { nodeVersion: '24' });
+    expectWorkflowJobRuntime(workflow, 'test', { nodeVersion: '24' });
+    expectWorkflowJobRuntime(workflow, 'bot-smoke-test', { nodeVersion: '24' });
+    expectWorkflowJobRuntime(workflow, 'integration-test', { nodeVersion: '24' });
     expect(workflow).toMatch(/smoke/i);
     expect(workflow).toContain('npm run test:smoke');
+  });
+
+  it('workflow runtime pin 검증은 다른 job에 남은 설정 때문에 false positive를 내면 안 된다', () => {
+    const driftedDeployWorkflow = `jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+  deploy:
+    runs-on: ubuntu-22.04
+`;
+
+    expect(() => expectWorkflowJobRuntime(driftedDeployWorkflow, 'verify', { nodeVersion: '24' })).toThrow();
+
+    const driftedCiWorkflow = `jobs:
+  lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+`;
+
+    expect(() => expectWorkflowJobRuntime(driftedCiWorkflow, 'lint-and-format', { nodeVersion: '24' })).toThrow();
   });
 
   it('deploy script는 verified artifact만 서버에 반영하고 서버에서 npm ci나 build를 수행하지 않아야 한다', () => {

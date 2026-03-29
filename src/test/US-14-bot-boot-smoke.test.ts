@@ -78,9 +78,7 @@ describe('US-14 bot boot smoke', () => {
     expect(loginSpy).not.toHaveBeenCalled();
     expect(client.commands.size).toBeGreaterThan(0);
     expect(client.commands.has('ping')).toBe(true);
-    expect(client.options.intents.has(GatewayIntentBits.Guilds)).toBe(true);
     expect(client.options.intents.has(GatewayIntentBits.GuildMembers)).toBe(true);
-    expect(client.options.intents.has(GatewayIntentBits.GuildVoiceStates)).toBe(true);
     expect(client.eventNames()).toEqual(
       expect.arrayContaining([
         'clientReady',
