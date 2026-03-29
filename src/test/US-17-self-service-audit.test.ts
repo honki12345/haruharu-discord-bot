@@ -59,7 +59,9 @@ describe('US-17: self-service 응답/운영 로그', () => {
       commandModulePath: '../commands/haruharu/stop-wakeup.js' as const,
       mockModulePath: '../services/challengeSelfService.js',
       mockFactory: () => ({
-        executeStopWakeUpWithRoleSync: vi.fn().mockResolvedValue({ reply: '현재 진행 중인 기상스터디 참여가 없습니다' }),
+        executeStopWakeUpWithRoleSync: vi
+          .fn()
+          .mockResolvedValue({ reply: '현재 진행 중인 기상스터디 참여가 없습니다' }),
       }),
       interactionOptions: {},
       expectedReplyText: '현재 진행 중인 기상스터디 참여가 없습니다',
