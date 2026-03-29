@@ -160,7 +160,6 @@ describe('config.ts', () => {
               resultChannelId: 'result-channel',
               voiceChannelId: 'voice-channel',
               startHereChannelId: 'start-here-channel',
-              timeStartHereChannelId: 'time-start-here-channel',
               wakeUpRoleId: 'wake-up-role',
               camStudyRoleId: 'cam-study-role',
             };

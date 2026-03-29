@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import { startHereChannelId, timeStartHereChannelId } from '../../config.js';
+import { startHereChannelId, timeStartHereChannelId } from '../../commandChannelConfig.js';
 
 export const command = {
   cooldown: 5,
