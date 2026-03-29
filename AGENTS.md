@@ -119,7 +119,8 @@
 - `CamStudyUsers`는 수동 등록 원본이 아니라 `@cam-study` 역할 상태를 반영하는 캐시/인덱스로 유지하되, 활성 세션 중 역할 회수면 종료 이벤트까지 임시로 유지할 수 있다.
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
-- 역할 기반 온보딩/신청 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하고, 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 책임을 분리한다.
+- 역할 기반 온보딩 흐름은 `ParticipationApplication` 같은 별도 모델로 관리하되, 현재 정책상 `/apply-wakeup`, `/apply-cam` 실행 시 즉시 `approved` 상태로 반영한다.
+- 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 신청/활성화 상태 모델 책임은 계속 분리한다.
 - 스키마 변경 시 다음을 함께 점검한다.
   - 기존 테스트 영향
   - `docs/PROJECT.md`의 테이블 설명
@@ -282,7 +283,7 @@
 ## 문서 갱신 기준
 
 - 새 슬래시 커맨드 추가: `AGENTS.md`, `docs/PROJECT.md`, 필요 시 `docs/USER_STORIES.md`
-- 역할 기반 신청/승인 흐름 추가: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`
+- 역할 기반 신청/자동 활성화 흐름 추가: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`
 - 이벤트 흐름 변경: `AGENTS.md`, `docs/PROJECT.md`
 - DB 컬럼/테이블 변경: `AGENTS.md`, `docs/PROJECT.md`, 관련 테스트
 - self-service 정책 변경: `AGENTS.md`, `docs/PROJECT.md`, `docs/USER_STORIES.md`, `README.md`

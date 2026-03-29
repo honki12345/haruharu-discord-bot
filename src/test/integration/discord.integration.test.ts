@@ -196,6 +196,7 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
     it('approve-application 커맨드가 등록되어 있어야 한다', () => {
       const command = commands.find(cmd => cmd.name === 'approve-application');
       expect(command).toBeDefined();
+      expect(command?.description).toBe('deprecated: participation is activated automatically');
       expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
       expect(command?.options.find(opt => opt.name === 'program')).toBeDefined();
     });
@@ -203,6 +204,7 @@ describe.skipIf(shouldSkip)('Discord.js 통합 테스트', () => {
     it('reject-application 커맨드가 등록되어 있어야 한다', () => {
       const command = commands.find(cmd => cmd.name === 'reject-application');
       expect(command).toBeDefined();
+      expect(command?.description).toBe('deprecated: participation is activated automatically');
       expect(command?.options.find(opt => opt.name === 'userid')).toBeDefined();
       expect(command?.options.find(opt => opt.name === 'program')).toBeDefined();
       expect(command?.options.find(opt => opt.name === 'reason')).toBeDefined();

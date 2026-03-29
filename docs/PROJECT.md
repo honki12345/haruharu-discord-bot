@@ -15,24 +15,24 @@
 
 ### 핵심 기능
 
-| 기능                 | 설명                                                                               |
-| -------------------- | ---------------------------------------------------------------------------------- |
-| **기상 챌린지**      | 매일 정해진 시간에 기상하여 인증샷을 올리는 월간 챌린지                            |
-| **캠스터디**         | Discord 음성 채널에서 카메라 또는 화면공유를 켜고 공부하는 시간 추적               |
-| **역할 기반 온보딩** | `#start-here`/`#apply`/`#qna`/`#announcements` 구조와 신청/승인 흐름으로 접근 제어 |
+| 기능                 | 설명                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| **기상 챌린지**      | 매일 정해진 시간에 기상하여 인증샷을 올리는 월간 챌린지                                    |
+| **캠스터디**         | Discord 음성 채널에서 카메라 또는 화면공유를 켜고 공부하는 시간 추적                       |
+| **역할 기반 온보딩** | `#start-here`/`#apply`/`#qna`/`#announcements` 구조와 self-service 역할 활성화로 접근 제어 |
 
 ### Discord 운영 채널 구조
 
-| 채널             | 역할                             | 비고                          |
-| ---------------- | -------------------------------- | ----------------------------- |
-| `#start-here`    | 환영 및 서버 소개                | 읽기 전용 권장                |
-| `#apply`         | 참여 방법 안내 및 신청 명령 실행 | `/apply-wakeup`, `/apply-cam` |
-| `#qna`           | 질문/응답                        | 일반 문의 채널                |
-| `#announcements` | 운영 공지                        | 관리자 전용 작성 권장         |
-| `#ops`           | 신청 승인/거절 및 운영 처리      | 관리자 전용                   |
-| `#wake-up`       | 기상인증 전용 채널               | `@wake-up` 역할 기반 접근     |
-| `#cam-study`     | 캠스터디 전용 텍스트 채널        | `@cam-study` 역할 기반 접근   |
-| `음성: 캠스터디` | 캠스터디 전용 음성 채널          | `@cam-study` 역할 기반 접근   |
+| 채널             | 역할                                     | 비고                          |
+| ---------------- | ---------------------------------------- | ----------------------------- |
+| `#start-here`    | 환영 및 서버 소개                        | 읽기 전용 권장                |
+| `#apply`         | 참여 방법 안내 및 self-service 명령 실행 | `/apply-wakeup`, `/apply-cam` |
+| `#qna`           | 질문/응답                                | 일반 문의 채널                |
+| `#announcements` | 운영 공지                                | 관리자 전용 작성 권장         |
+| `#ops`           | 운영 공지 및 관리자 처리                 | 관리자 전용                   |
+| `#wake-up`       | 기상인증 전용 채널                       | `@wake-up` 역할 기반 접근     |
+| `#cam-study`     | 캠스터디 전용 텍스트 채널                | `@cam-study` 역할 기반 접근   |
+| `음성: 캠스터디` | 캠스터디 전용 음성 채널                  | `@cam-study` 역할 기반 접근   |
 
 ---
 
@@ -58,12 +58,12 @@ haruharu-discord-bot/
 │   │       ├── apply-vacation.ts # 사용자 휴가 등록
 │   │       ├── add-vacances.ts  # 휴가 추가
 │   │       ├── delete.ts        # 챌린저 삭제
-│   │       ├── apply-wakeup.ts  # 기상인증 참여 신청
-│   │       ├── apply-cam.ts     # 캠스터디 참여 신청
+│   │       ├── apply-wakeup.ts  # 기상인증 참여 즉시 활성화
+│   │       ├── apply-cam.ts     # 캠스터디 참여 즉시 활성화
 │   │       ├── register-cam.ts  # deprecated: 역할 기반 등록 안내
 │   │       ├── delete-cam.ts    # deprecated: 역할 회수 안내
-│   │       ├── approve-application.ts # 신청 승인 및 역할 부여
-│   │       ├── reject-application.ts  # 신청 거절 및 재신청 안내
+│   │       ├── approve-application.ts # deprecated: 자동 활성화 안내
+│   │       ├── reject-application.ts  # deprecated: 자동 활성화 안내
 │   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
 │   │       └── ping.ts          # 헬스체크
 │   │
@@ -79,7 +79,7 @@ haruharu-discord-bot/
 │   │   ├── challengeSelfService.ts # 사용자 기상시간/휴가 self-service 정책 처리
 │   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
 │   │   ├── camStudyRoleSync.ts  # 역할 기반 캠스터디 참가자 동기화
-│   │   ├── participationApplication.ts # 신청/승인/거절/역할 부여 처리
+│   │   ├── participationApplication.ts # self-service 활성화/역할 부여 처리
 │   │   └── reporting.ts         # 일일/주간 리포트 생성 및 스케줄링
 │   │
 │   └── repository/
@@ -143,17 +143,17 @@ haruharu-discord-bot/
 
 | 커맨드          | 권한   | 설명                                    |
 | --------------- | ------ | --------------------------------------- |
-| `/apply-cam`    | 사용자 | 캠스터디 채널 접근 신청                 |
+| `/apply-cam`    | 사용자 | 캠스터디 참여를 즉시 활성화             |
 | `/register-cam` | 관리자 | deprecated: `@cam-study` 역할 부여 안내 |
 | `/delete-cam`   | 관리자 | deprecated: `@cam-study` 역할 회수 안내 |
 
 #### 온보딩/운영 커맨드
 
-| 커맨드                 | 권한   | 설명                          |
-| ---------------------- | ------ | ----------------------------- |
-| `/apply-wakeup`        | 사용자 | 기상인증 채널 접근 신청       |
-| `/approve-application` | 관리자 | 참여 신청 승인 및 역할 부여   |
-| `/reject-application`  | 관리자 | 참여 신청 거절 및 재신청 안내 |
+| 커맨드                 | 권한   | 설명                              |
+| ---------------------- | ------ | --------------------------------- |
+| `/apply-wakeup`        | 사용자 | 기상인증 참여를 즉시 활성화       |
+| `/approve-application` | 관리자 | deprecated: 자동 활성화 정책 안내 |
+| `/reject-application`  | 관리자 | deprecated: 자동 활성화 정책 안내 |
 
 #### 유틸리티 커맨드
 
@@ -201,24 +201,24 @@ haruharu-discord-bot/
 
 #### `/apply-wakeup`, `/apply-cam`
 
-| 파라미터 | 필수 | 설명                                  |
-| -------- | ---- | ------------------------------------- |
-| 없음     | -    | 명령 실행 사용자 자신을 기준으로 신청 |
+| 파라미터 | 필수 | 설명                                         |
+| -------- | ---- | -------------------------------------------- |
+| 없음     | -    | 명령 실행 사용자 자신을 기준으로 즉시 활성화 |
 
 #### `/approve-application`
 
-| 파라미터 | 필수 | 설명                       |
-| -------- | ---- | -------------------------- |
-| userid   | O    | 승인할 Discord 사용자 ID   |
-| program  | O    | `wake-up` 또는 `cam-study` |
+| 파라미터 | 필수 | 설명                     |
+| -------- | ---- | ------------------------ |
+| userid   | X    | deprecated 호환용 입력값 |
+| program  | X    | deprecated 호환용 입력값 |
 
 #### `/reject-application`
 
-| 파라미터 | 필수 | 설명                       |
-| -------- | ---- | -------------------------- |
-| userid   | O    | 거절할 Discord 사용자 ID   |
-| program  | O    | `wake-up` 또는 `cam-study` |
-| reason   | O    | 거절 사유                  |
+| 파라미터 | 필수 | 설명                     |
+| -------- | ---- | ------------------------ |
+| userid   | X    | deprecated 호환용 입력값 |
+| program  | X    | deprecated 호환용 입력값 |
+| reason   | X    | deprecated 호환용 입력값 |
 
 ---
 
@@ -303,7 +303,7 @@ flowchart TD
 
 - 기존 운영 커맨드는 `commandChannelIds` 기준으로 채널을 검증한다.
 - `/apply-wakeup`, `/apply-cam`은 `#apply` 전용 채널에서만 실행된다.
-- `/approve-application`, `/reject-application`은 `#ops` 전용 채널에서만 실행된다.
+- `/approve-application`, `/reject-application`은 deprecated 상태로 `#ops`에서만 남아 있고 실제 참여 상태는 바꾸지 않는다.
 - `/register-cam`, `/delete-cam`은 deprecated 상태로 남아 있으며 역할 기반 운영 흐름만 안내한다.
 
 #### camStudyHandler.ts
@@ -378,8 +378,8 @@ flowchart TD
 
 | 항목   | 내용                                                                                                                                                                         |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 참여 신청 저장, 운영 알림, 승인/거절, 역할 부여 및 신청자 안내                                                                                                               |
-| 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 운영 채널 공지, 신청자 안내 메시지 처리, 캠스터디 승인 시 `CamStudyUsers` upsert                    |
+| 역할   | self-service 참여 활성화, 역할 부여, deprecated 운영 명령 안내                                                                                                               |
+| 담당   | `ParticipationApplication` 조회/갱신, `@wake-up`/`@cam-study` 역할 매핑, 신청 즉시 `approved` 반영, 캠스터디 자동 활성화 시 `CamStudyUsers` upsert, 실패 시 role/db rollback |
 | 호출처 | `src/commands/haruharu/apply-wakeup.ts`, `src/commands/haruharu/apply-cam.ts`, `src/commands/haruharu/approve-application.ts`, `src/commands/haruharu/reject-application.ts` |
 
 #### reporting.ts
@@ -543,7 +543,8 @@ flowchart TD
 비고:
 
 - `(userid, program)` 조합은 UNIQUE이며 사용자별 프로그램 신청 상태를 1건으로 유지한다.
-- 이 테이블은 역할 기반 접근 제어용이며, 실제 기능 사용 등록 정보(`Users`, `CamStudyUsers`)와는 분리된다.
+- 현재 self-service 흐름에서는 `/apply-wakeup`, `/apply-cam` 실행 시 해당 row를 즉시 `approved`로 맞춘다.
+- 이 테이블은 역할 기반 접근 제어용 상태 테이블이며, 실제 기능 사용 등록 정보(`Users`, `CamStudyUsers`)와는 분리된다.
 
 ---
 
@@ -621,8 +622,10 @@ flowchart TD
 - `/register`는 같은 날 두 번째 변경을 거부한다.
 - `/register`는 현재 시각 기준 `yearmonth`를 내부에서 계산한다.
 - `/apply-vacation`은 날짜 단위(`yyyymmdd`)로 동작한다.
-- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행되고, 신청 결과는 `ephemeral`로 응답한다.
-- `/approve-application`, `/reject-application`은 `#ops`에서만 실행되고, 승인 시 역할이 자동 부여된다.
+- `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답한다.
+- `/apply-wakeup` 성공 뒤에도 실제 기상 챌린지 참가 데이터는 사용자가 `/register`로 기상시간을 넣어야 완성된다.
+- `/apply-cam` 성공 시 `@cam-study` 역할과 `CamStudyUsers`가 함께 맞춰지고, 이후 역할 변경은 `guildMemberUpdate`가 계속 동기화한다.
+- `/approve-application`, `/reject-application`은 `#ops`에서 deprecated 안내만 반환한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 
 ### package.json 스크립트

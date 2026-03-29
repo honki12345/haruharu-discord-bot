@@ -34,22 +34,22 @@ sequenceDiagram
 
 ---
 
-### US-15: 역할 기반 참여 신청과 승인
+### US-15: 역할 기반 self-service 참여 활성화
 
 ```
 AS A 서버 사용자
-I WANT TO /apply-wakeup 또는 /apply-cam 으로 직접 신청하고 운영자 승인을 받고 싶다
-SO THAT 승인된 프로그램의 전용 채널만 자동으로 열리길 원한다
+I WANT TO /apply-wakeup 또는 /apply-cam 으로 바로 참여를 활성화하고 싶다
+SO THAT 운영자 개입 없이 필요한 전용 채널 접근이 즉시 열리길 원한다
 ```
 
 **인수 조건:**
 
 - `/apply-wakeup`, `/apply-cam`은 `#apply`에서만 실행된다
-- 신청 응답은 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
-- 신청 시 운영 채널에 승인/거절용 안내가 전송된다
-- 운영자가 승인하면 해당 역할이 자동 부여된다
-- 캠스터디 승인 또는 수동 역할 부여로 `@cam-study` 역할을 얻으면 `CamStudyUsers`가 자동 동기화된다
-- 운영자가 거절하면 거절 사유와 재신청 안내가 사용자에게 전달된다
+- 활성화 결과는 신청자 본인에게만 보이는 `ephemeral` 응답으로 처리된다
+- `/apply-wakeup` 성공 시 `@wake-up` 역할과 `ParticipationApplication.status=approved`가 즉시 반영된다
+- `/apply-cam` 성공 시 `@cam-study` 역할, `ParticipationApplication.status=approved`, `CamStudyUsers`가 즉시 반영된다
+- 캠스터디는 이후 수동 역할 부여/회수도 `guildMemberUpdate`로 감지해서 `CamStudyUsers`를 계속 동기화한다
+- `/approve-application`, `/reject-application`은 deprecated 상태로 남고 참여 상태는 더 이상 변경하지 않는다
 
 ```mermaid
 sequenceDiagram
@@ -57,28 +57,16 @@ sequenceDiagram
     participant A as #apply
     participant B as Bot
     participant DB as SQLite
-    participant O as #ops
     participant D as Discord Role
 
     U->>A: /apply-wakeup 또는 /apply-cam
     A->>B: InteractionCreate 이벤트
-    B->>DB: ParticipationApplication 조회/생성
-    B-->>U: ephemeral "신청이 접수되었어요"
-    B->>O: 승인/거절 안내 전송
-
-    alt 운영자가 승인
-        O->>B: /approve-application
-        B->>DB: status = approved
-        B->>D: 역할 부여
-        opt program = cam-study
-            B->>DB: CamStudyUsers upsert
-        end
-        B-->>U: 승인 안내
-    else 운영자가 거절
-        O->>B: /reject-application
-        B->>DB: status = rejected
-        B-->>U: 거절 사유 + 재신청 안내
+    B->>D: 역할 부여
+    B->>DB: ParticipationApplication status = approved
+    opt program = cam-study
+        B->>DB: CamStudyUsers upsert
     end
+    B-->>U: ephemeral "참여가 바로 활성화되었어요"
 ```
 
 ---
@@ -420,7 +408,7 @@ sequenceDiagram
 ### US-7: 캠스터디 역할 기반 등록
 
 ```
-AS A 캠스터디 승인 사용자
+AS A 캠스터디 참여 사용자
 I WANT TO `@cam-study` 역할을 받으면 별도 관리자 명령 없이 자동으로 등록되고 싶다
 SO THAT 실제 채널 접근 권한과 학습 추적 대상이 항상 일치한다
 ```
@@ -440,7 +428,7 @@ sequenceDiagram
     participant DB as SQLite
 
     U->>O: 캠스터디 권한 획득
-    O->>B: /approve-application 또는 역할 부여 명령 실행
+    O->>B: /apply-cam 또는 역할 부여 실행
     B->>D: @cam-study 역할 부여
     B->>DB: CamStudyUsers upsert
     B-->>U: 별도 관리자 등록 없이 추적 대상 포함
