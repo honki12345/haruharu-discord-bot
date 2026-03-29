@@ -9,6 +9,7 @@ import {
   CAM_STUDY_HEARTBEAT_MILLISECONDS,
   getYearMonthDate,
   ONE_DAY_MILLISECONDS,
+  PRINT_HOURS_DAILY_MESSAGE,
 } from '../utils.js';
 
 const ensureDailyAttendanceThreadInterval = async (client: Client) => {
@@ -35,7 +36,7 @@ export const event = {
     await syncCamStudyActiveSessions(client, 'ready');
     const { hours } = getYearMonthDate();
 
-    if (Number(hours) >= 6) {
+    if (Number(hours) >= PRINT_HOURS_DAILY_MESSAGE) {
       await ensureDailyAttendanceThreadInterval(client);
     }
 

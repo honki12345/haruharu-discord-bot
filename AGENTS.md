@@ -100,7 +100,7 @@
 ### `src/events`
 
 - Discord 이벤트당 파일 하나를 유지한다.
-- `ready.ts`는 부팅, 테이블 sync, 운영 daily message/thread 생성 스케줄, 기상 결과표 thread 댓글 전송을 포함한 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
+- `ready.ts`는 부팅, 테이블 sync, 매일 04:00 운영 daily message/thread 생성 스케줄, 기상 결과표 thread 댓글 전송을 포함한 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅을 담당한다.
 - `interactionCreate.ts`는 배포 전환 중 stale 슬래시 등록이 남을 수 있는 경우, 무응답으로 끝내지 말고 migration 안내를 우선 반환한다. 현재는 stale `/apply-wakeup` 에 대해 `/register` 안내를 반환한다.
 - `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 감지해서 `CamStudyUsers`를 자동 동기화하고, 활성 세션 중 역할 회수면 삭제를 종료 시점까지 미룬다.

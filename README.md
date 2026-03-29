@@ -47,7 +47,7 @@
   - `/register`는 신규 등록과 기존 설정 수정(upsert)을 모두 처리합니다.
 
 - daily message & thread:
-  - 매일 오전 06:00 `#wake-up` 채널에 daily message와 출석 thread가 생성됩니다.
+  - 매일 오전 04:00 `#wake-up` 채널에 daily message와 출석 thread가 생성됩니다.
   - 공식 기상 출석은 해당 날짜 출석 thread 첫 댓글 기준으로 처리됩니다.
 - 출석결과
   - 평일 오후 1시에 출석결과가 같은 날짜 출석 thread 댓글로 공지됩니다.

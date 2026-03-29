@@ -39,7 +39,7 @@
 | ------------------ | ---------------- | ------------------------------------------------------------------------------------ | ------------------------------ |
 | `#start-here`      | 고정 안내        | 서버 소개, 참여 방법, 공통 self-service 명령어 고정 안내                             | 운영 수동 관리, `USER_STORIES` |
 | `#time-start-here` | 고정 안내        | 기상 self-service 명령어와 시간 설정/휴가 사용 안내                                  | 운영 수동 관리, `USER_STORIES` |
-| `#wake-up`         | 반복 자동 메시지 | 매일 06:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내               | `src/daily-attendance.ts`      |
+| `#wake-up`         | 반복 자동 메시지 | 매일 04:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내               | `src/daily-attendance.ts`      |
 | `#wake-up`         | 반복 자동 메시지 | 평일 13:00 당일 출석 thread 댓글로 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영 | `src/services/reporting.ts`    |
 | `#test`            | 관리자 명령 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message` 실행 채널                 | `src/commands/haruharu/*.ts`   |
 
@@ -243,7 +243,7 @@ haruharu-discord-bot/
 
 **스케줄러:**
 
-- 운영 daily message/thread 생성: 매일 06:00
+- 운영 daily message/thread 생성: 매일 04:00
 - 기상 챌린지 집계/리포트: 매일 13:00
 - 캠스터디 리포트: 매일 23:59
 - 캠스터디 active session heartbeat: 1분 간격

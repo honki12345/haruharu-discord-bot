@@ -2,7 +2,7 @@
 
 ## 개요
 
-기상 챌린지는 주말(토/일) 및 공휴일에도 오전 06:00 daily message와 출석 thread를 생성합니다.
+기상 챌린지는 주말(토/일) 및 공휴일에도 오전 04:00 daily message와 출석 thread를 생성합니다.
 
 - 주말/공휴일 13:00 집계는 결과 메시지를 공지하지 않습니다.
 - 주말/공휴일 `AttendanceLog.status='attended'` 는 `absencecount`를 우선 1회 차감하고, 차감할 결석이 없으면 `latecount`를 1회 차감합니다.
