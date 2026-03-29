@@ -8,7 +8,8 @@ import {
   findWaketimeChangeLog,
 } from '../repository/challengeRepository.js';
 import { isValidWakeTime } from '../attendance.js';
-import { getYearMonth, getYearMonthDate } from '../utils.js';
+import { DEFAULT_VACANCES_COUNT, getYearMonthDate } from '../utils.js';
+import { Users } from '../repository/Users.js';
 
 const YEAR_MONTH_DAY_PATTERN = /^\d{8}$/;
 
@@ -36,29 +37,52 @@ const isValidChallengeWakeTime = (waketime: string) => {
   return time >= 500 && time <= 900;
 };
 
-const executeSetWaketime = async ({ userId, waketime }: { userId: string; waketime: string }) => {
+const executeRegister = async ({
+  userId,
+  username,
+  yearmonth,
+  waketime,
+}: {
+  userId: string;
+  username: string;
+  yearmonth: string;
+  waketime: string;
+}) => {
   if (!isValidChallengeWakeTime(waketime)) {
     return { reply: 'no valid waketime' };
   }
 
-  const { year, month, date } = getYearMonthDate();
-  const yearmonth = getYearMonth(year, month);
+  if (!/^\d{6}$/.test(yearmonth)) {
+    return { reply: 'no valid yearmonth' };
+  }
+
+  const { date } = getYearMonthDate();
   const yearmonthday = `${yearmonth}${date}`;
   const user = await findChallengeUser(userId, yearmonth);
 
-  if (!user) {
-    return { reply: '등록된 사용자가 아닙니다' };
-  }
-
   const existingChange = await findWaketimeChangeLog(userId, yearmonthday);
   if (existingChange) {
-    return { reply: '기상시간은 하루에 한 번만 변경할 수 있습니다' };
+    return { reply: 'register는 하루에 한 번만 변경할 수 있습니다' };
+  }
+
+  if (!user) {
+    await Users.create({
+      userid: userId,
+      username,
+      yearmonth,
+      waketime,
+      latecount: 0,
+      absencecount: 0,
+      vacances: DEFAULT_VACANCES_COUNT,
+    });
+    await createWaketimeChangeLog({ userid: userId, yearmonthday, waketime });
+    return { reply: `${username} register success => yearmonth: ${yearmonth}, waketime: ${waketime}` };
   }
 
   await createWaketimeChangeLog({ userid: userId, yearmonthday, waketime });
-  await user.update({ waketime });
+  await user.update({ username, waketime });
 
-  return { reply: `${user.username}님 기상시간이 ${waketime}로 변경되었습니다` };
+  return { reply: `${username} update success => yearmonth: ${yearmonth}, waketime: ${waketime}` };
 };
 
 const findRegisteredUserForDate = async (userId: string, yearmonthday: string) =>
@@ -107,4 +131,4 @@ const executeCancelVacation = async ({ userId, yearmonthday }: { userId: string;
   return { reply: `${yearmonthday} 휴가를 취소했습니다` };
 };
 
-export { executeApplyVacation, executeCancelVacation, executeSetWaketime };
+export { executeApplyVacation, executeCancelVacation, executeRegister };

@@ -2,46 +2,55 @@
 
 ## 기상 챌린지 (Morning Challenge)
 
-### US-1: 챌린저 등록
+### US-1: 챌린저 등록/수정
 
 ```
-AS A 관리자
-I WANT TO 사용자를 기상 챌린지에 등록
-SO THAT 해당 사용자가 출석 체크를 할 수 있다
+AS A 챌린저
+I WANT TO /register 명령으로 내 기상시간을 등록하거나 수정
+SO THAT 운영자 개입 없이 출석 체크 기준 시간을 스스로 설정할 수 있다
 ```
 
 **인수 조건:**
 
-- 사용자 ID, 년월, 기상시간, 이름을 입력받는다
+- 년월, 기상시간을 입력받는다
 - 기상시간은 05:00~09:00 범위만 허용
+- Discord 사용자 ID와 이름은 interaction 사용자 정보에서 사용한다
 - 기본 휴가일수는 5일
 - 이미 등록된 사용자는 정보가 업데이트된다
+- 같은 날에는 한 번만 변경할 수 있다
 
 ```mermaid
 sequenceDiagram
-    participant A as 관리자
+    participant U as 챌린저
     participant D as Discord
     participant B as Bot
     participant DB as SQLite
 
-    A->>D: /register userid:USER yearmonth:202512<br/>waketime:0700 username:홍길동
+    U->>D: /register yearmonth:202512<br/>waketime:0700
 
     D->>B: InteractionCreate 이벤트
     B->>B: 채널 검증
 
     B->>B: waketime 유효성 검사 (0500~0900)
     alt 유효하지 않은 시간
-        B-->>A: "no valid waketime"
+        B-->>U: "no valid waketime"
     end
 
-    B->>DB: Users 조회 (userid, yearmonth)
+    B->>DB: WaketimeChangeLog 조회 (userid, 오늘 날짜)
+    alt 오늘 이미 변경함
+        B-->>U: "register는 하루에 한 번만 변경할 수 있습니다"
+    end
+
+    B->>DB: Users 조회 (interaction.user.id, yearmonth)
 
     alt 기존 사용자 존재
         B->>DB: Users 업데이트
-        B-->>A: "update 성공: 홍길동"
+        B->>DB: WaketimeChangeLog 생성
+        B-->>U: "update 성공: 홍길동"
     else 신규 사용자
         B->>DB: Users 생성
-        B-->>A: "register 성공: 홍길동"
+        B->>DB: WaketimeChangeLog 생성
+        B-->>U: "register 성공: 홍길동"
     end
 ```
 
@@ -552,18 +561,18 @@ sequenceDiagram
 
 ---
 
-### US-13: 사용자 직접 기상시간 변경
+### US-13: 사용자 직접 기상시간 재등록
 
 ```
 AS A 챌린저
-I WANT TO 자신의 기상시간을 직접 변경
-SO THAT 운영자 요청 없이 이번 달 설정을 바로 수정할 수 있다
+I WANT TO `/register`를 다시 실행해서 자신의 기상시간을 수정
+SO THAT 같은 명령으로 등록과 수정을 모두 처리할 수 있다
 ```
 
 **인수 조건:**
 
-- 현재 월에 등록된 사용자만 가능
-- 본인 데이터만 변경 가능
+- 이미 등록된 사용자도 같은 `/register` 명령을 사용한다
+- 본인 데이터만 수정 가능
 - 기상시간은 05:00~09:00 범위만 허용
 - 같은 날에는 한 번만 변경 가능
 
@@ -574,12 +583,12 @@ sequenceDiagram
     participant B as Bot
     participant DB as SQLite
 
-    U->>D: /set-waketime waketime:0800
+    U->>D: /register yearmonth:202512<br/>waketime:0800
     D->>B: InteractionCreate 이벤트
 
-    B->>DB: Users 조회 (userid, 현재 yearmonth)
+    B->>DB: Users 조회 (userid, yearmonth)
     alt 미등록 사용자
-        B-->>U: "등록된 사용자가 아닙니다"
+        B-->>U: "register success"
     end
 
     B->>B: waketime 유효성 검사 (0500~0900)
@@ -589,12 +598,12 @@ sequenceDiagram
 
     B->>DB: WaketimeChangeLog 조회 (userid, 오늘 날짜)
     alt 오늘 이미 변경함
-        B-->>U: "기상시간은 하루에 한 번만 변경할 수 있습니다"
+        B-->>U: "register는 하루에 한 번만 변경할 수 있습니다"
     end
 
     B->>DB: WaketimeChangeLog 생성
     B->>DB: Users.waketime 업데이트
-    B-->>U: "기상시간이 0800로 변경되었습니다"
+    B-->>U: "update success"
 ```
 
 ---
