@@ -31,9 +31,9 @@ export const command = {
     .addStringOption(option =>
       option
         .setName('waketime')
-        .setDescription('set waketime HHmm')
+        .setDescription('set waketime HHmm or HH:mm')
         .setNameLocalizations({ ko: '기상시간' })
-        .setDescriptionLocalizations({ ko: '기상시간을 입력합니다 (HHmm)' })
+        .setDescriptionLocalizations({ ko: '기상시간을 입력합니다 (HHmm 또는 HH:mm)' })
         .setRequired(true),
     ),
   async execute(interaction: ChatInputCommandInteraction) {

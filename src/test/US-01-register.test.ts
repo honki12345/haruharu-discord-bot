@@ -79,6 +79,53 @@ describe('US-01: /register 커맨드', () => {
     expect(interaction.getLastReply()).toContain('수정했습니다');
   });
 
+  it('TC-R02A: HH:mm 형식으로 입력해도 register에 성공하고 HHmm으로 저장한다', async () => {
+    const interaction = createMockInteraction({
+      userId: 'colon-format-user',
+      globalName: '콜론유저',
+      options: {
+        waketime: '09:00',
+      },
+    });
+
+    const { command } = await import('../commands/haruharu/register.js');
+    await command.execute(interaction as never);
+
+    const user = await TestUsers.findOne({ where: { userid: 'colon-format-user', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'colon-format-user' } });
+    const changeLog = await TestWaketimeChangeLog.findOne({
+      where: { userid: 'colon-format-user', yearmonthday: '20251207' },
+    });
+
+    expect(user?.waketime).toBe('0900');
+    expect(membership?.waketime).toBe('0900');
+    expect(changeLog?.waketime).toBe('0900');
+    expect(interaction.getLastReply()).toContain('등록했습니다');
+    expect(interaction.getLastReply()).toContain('0900');
+  });
+
+  it('TC-R02B: 잘못된 HH:mm 유사 형식은 계속 거부한다', async () => {
+    for (const waketime of ['9:00', '09-00', '090', '09:0', '09:61']) {
+      const interaction = createMockInteraction({
+        userId: `invalid-format-${waketime}`,
+        globalName: '포맷실패유저',
+        options: {
+          waketime,
+        },
+      });
+
+      const { command } = await import('../commands/haruharu/register.js');
+      await command.execute(interaction as never);
+
+      const user = await TestUsers.findOne({ where: { userid: `invalid-format-${waketime}`, yearmonth: '202512' } });
+      const membership = await TestWakeUpMembership.findOne({ where: { userid: `invalid-format-${waketime}` } });
+
+      expect(user).toBeNull();
+      expect(membership).toBeNull();
+      expect(interaction.getLastReply()).toContain('HHmm 또는 HH:mm');
+    }
+  });
+
   it('TC-R03: 같은 날 두 번 register로 기상시간을 바꿀 수 없다', async () => {
     await TestUsers.create({
       userid: 'existing-user',

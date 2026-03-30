@@ -6,6 +6,7 @@
 
 - `#start-here`와 기상 self-service 안내 채널이 온보딩/self-service 진입점 역할을 맡습니다.
 - 기상 챌린지는 `/register <waketime>`로 참여를 시작하고, `/stop-wakeup`으로 이후 월 자동 참여를 중단합니다.
+- `/register <waketime>`의 `waketime`은 `HHmm` 또는 `HH:mm` 형식으로 입력할 수 있고, 내부 저장은 `HHmm` canonical 값으로 유지합니다.
 - `/apply-cam`은 `@cam-study` 역할과 캠스터디 참가자 상태를 즉시 활성화합니다.
 - 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서 실행합니다.
 - self-service 명령(`/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`) 응답은 사용자에게만 보이는 `ephemeral`로 처리하고, 같은 결과를 운영 확인용으로 `testChannelId`에도 남깁니다.
@@ -46,7 +47,7 @@
 
 - 초기화:
   - 사용자가 `/register`로 자신의 월별 기상시간을 등록합니다.
-  - 설정가능한 유효한 기상시간 범위: 0500 ~ 0900
+  - 설정가능한 유효한 기상시간 범위: `0500` ~ `0900` 또는 `05:00` ~ `09:00`
   - `/register`는 신규 등록과 기존 설정 수정(upsert)을 모두 처리합니다.
 
 - daily message & thread:
@@ -71,6 +72,7 @@
 
 - `/register <waketime>`
   - 사용자가 자신의 월별 기상시간을 직접 등록하거나 수정한다
+  - `waketime`은 `HHmm` 또는 `HH:mm` 형식으로 입력할 수 있고 내부 저장은 `HHmm`로 정규화된다
   - 같은 날에는 한 번만 변경할 수 있다
 - `/stop-wakeup`
   - 사용자가 이후 월 기상스터디 자동 참여를 중단한다

@@ -25,6 +25,8 @@ import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
 import { ChallengeUserExclusion } from '../repository/ChallengeUserExclusion.js';
 
 const YEAR_MONTH_DAY_PATTERN = /^\d{8}$/;
+const FOUR_DIGIT_WAKE_TIME_PATTERN = /^\d{4}$/;
+const COLON_WAKE_TIME_PATTERN = /^\d{2}:\d{2}$/;
 
 const isCanonicalYearMonthDay = (value: string) => {
   if (!YEAR_MONTH_DAY_PATTERN.test(value)) {
@@ -39,15 +41,21 @@ const isCanonicalYearMonthDay = (value: string) => {
   return parsed.getUTCFullYear() === year && parsed.getUTCMonth() + 1 === month && parsed.getUTCDate() === date;
 };
 
-const isValidChallengeWakeTime = (waketime: string) => {
-  if (!isValidWakeTime(waketime)) {
-    return false;
+const normalizeChallengeWakeTime = (waketime: string) => {
+  const canonicalWakeTime = FOUR_DIGIT_WAKE_TIME_PATTERN.test(waketime)
+    ? waketime
+    : COLON_WAKE_TIME_PATTERN.test(waketime)
+      ? waketime.replace(':', '')
+      : null;
+
+  if (!canonicalWakeTime || !isValidWakeTime(canonicalWakeTime)) {
+    return null;
   }
 
-  const hours = Number(waketime.slice(0, 2));
-  const minutes = Number(waketime.slice(2));
+  const hours = Number(canonicalWakeTime.slice(0, 2));
+  const minutes = Number(canonicalWakeTime.slice(2));
   const time = hours * 100 + minutes;
-  return time >= 500 && time <= 900;
+  return time >= 500 && time <= 900 ? canonicalWakeTime : null;
 };
 
 type RegisterContext = {
@@ -247,8 +255,9 @@ const prepareRegister = async ({
   yearmonth,
   yearmonthday,
 }: RegisterContext): Promise<CommandResult | RegisterContext> => {
-  if (!isValidChallengeWakeTime(waketime)) {
-    return { reply: '기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요' };
+  const normalizedWakeTime = normalizeChallengeWakeTime(waketime);
+  if (!normalizedWakeTime) {
+    return { reply: '기상시간은 05:00부터 09:00 사이 HHmm 또는 HH:mm 형식으로 입력해주세요' };
   }
 
   const membership = await findWakeUpMembership(userId);
@@ -264,7 +273,7 @@ const prepareRegister = async ({
     return { reply: 'register는 하루에 한 번만 변경할 수 있습니다' };
   }
 
-  return { userId, username, waketime, yearmonth, yearmonthday };
+  return { userId, username, waketime: normalizedWakeTime, yearmonth, yearmonthday };
 };
 
 const persistRegister = async ({
