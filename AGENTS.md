@@ -90,6 +90,7 @@
 - DB 접근은 직접 Sequelize 쿼리를 쓰더라도 repository 모델을 통해서만 접근한다.
 - 사용자 self-service 명령은 `interaction.user.id`를 기준으로 자신의 데이터만 변경해야 한다.
 - 기상시간 self-service는 `/register` 하나로 기상 참여 시작/재시작과 기상시간 등록/수정을 처리하되 하루 1회 제한을 지켜야 한다.
+- `/register` 기상시간 입력은 `HHmm` 또는 `HH:mm` 형식을 허용하되, 내부 저장/응답/후속 로직에는 `HHmm` canonical 값만 사용하도록 유지한다.
 - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`와 기상 self-service 전용 온보딩 채널에서만 실행되도록 유지한다.
 - `/register` 성공 시 `@wake-up` 역할도 함께 부여하고, 역할 부여 실패 시 DB 등록을 남기지 않도록 유지한다.
 - self-service 명령(`/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`)은 사용자에게는 `ephemeral`로 응답하고, 운영 확인용 결과는 `testChannelId`에도 남긴다.

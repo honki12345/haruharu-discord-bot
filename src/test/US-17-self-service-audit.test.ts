@@ -37,7 +37,7 @@ describe('US-17: self-service 응답/운영 로그', () => {
       mockFactory: () => ({
         executeRegisterWithRoleSync: vi
           .fn()
-          .mockResolvedValue({ reply: '기상시간은 05:00부터 09:00 사이 HHmm 형식으로 입력해주세요' }),
+          .mockResolvedValue({ reply: '기상시간은 05:00부터 09:00 사이 HHmm 또는 HH:mm 형식으로 입력해주세요' }),
       }),
       interactionOptions: { waketime: '0400' },
       expectedReplyText: '05:00부터 09:00',

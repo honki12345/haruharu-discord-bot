@@ -35,7 +35,7 @@ const commandSpecs = [
     koName: '기상등록',
     koDescription: '자신의 기상시간을 등록하거나 수정합니다',
     category: 'user',
-    options: [{ name: 'waketime', koName: '기상시간', koDescription: '기상시간을 입력합니다 (HHmm)' }],
+    options: [{ name: 'waketime', koName: '기상시간', koDescription: '기상시간을 입력합니다 (HHmm 또는 HH:mm)' }],
   },
   {
     modulePath: '../commands/haruharu/apply-vacation.js',
