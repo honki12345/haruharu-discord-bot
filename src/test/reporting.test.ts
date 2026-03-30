@@ -33,6 +33,7 @@ describe('reporting service', () => {
     attendanceMessage: string | null,
     expectation: {
       username: string;
+      waketime: string;
       todayStatus: '출석' | '지각' | '결석' | '휴가';
       latecount: number;
       absencecount: number;
@@ -40,7 +41,7 @@ describe('reporting service', () => {
     },
   ) => {
     expect(attendanceMessage).toContain(
-      `${expectation.username}: ${expectation.todayStatus} (지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
+      `${expectation.username}: ${expectation.todayStatus} (기상시간 ${expectation.waketime}, 지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
     );
   };
 
@@ -75,6 +76,7 @@ describe('reporting service', () => {
     expect(attendanceMessage).toContain('### 2025-12-08 출석표');
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
+      waketime: '07:00',
       todayStatus: '출석',
       latecount: 0,
       absencecount: 0,
@@ -152,6 +154,7 @@ describe('reporting service', () => {
     expect(updatedUser?.absencecount).toBe(1);
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
+      waketime: '07:00',
       todayStatus: '결석',
       latecount: 0,
       absencecount: 1,
@@ -188,6 +191,7 @@ describe('reporting service', () => {
     expect(updatedUser?.latecount).toBe(1);
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
+      waketime: '07:00',
       todayStatus: '지각',
       latecount: 1,
       absencecount: 0,
@@ -235,6 +239,7 @@ describe('reporting service', () => {
     expect(updatedUser?.absencecount).toBe(1);
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
+      waketime: '07:00',
       todayStatus: '결석',
       latecount: 0,
       absencecount: 1,
@@ -271,6 +276,7 @@ describe('reporting service', () => {
     expect(updatedUser?.absencecount).toBe(1);
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
+      waketime: '07:00',
       todayStatus: '결석',
       latecount: 0,
       absencecount: 1,
@@ -298,6 +304,7 @@ describe('reporting service', () => {
     expect(updatedUser?.absencecount).toBe(1);
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
+      waketime: '07:00',
       todayStatus: '결석',
       latecount: 0,
       absencecount: 1,
@@ -324,6 +331,7 @@ describe('reporting service', () => {
     expect(updatedUser?.absencecount).toBe(1);
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
+      waketime: '07:00',
       todayStatus: '결석',
       latecount: 0,
       absencecount: 1,
@@ -357,11 +365,145 @@ describe('reporting service', () => {
     expect(updatedUser?.absencecount).toBe(0);
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
+      waketime: '07:00',
       todayStatus: '휴가',
       latecount: 0,
       absencecount: 0,
       remainingVacances: 4,
     });
+  });
+
+  it('같은 상태 그룹 내부에서는 기상시간이 빠른 사용자부터 출력된다', async () => {
+    vi.setSystemTime(new Date('2025-12-08T13:00:00'));
+
+    await TestUsers.bulkCreate([
+      {
+        userid: 'attended-1',
+        username: '출석빠름',
+        yearmonth: '202512',
+        waketime: '0600',
+        vacances: 5,
+        latecount: 0,
+        absencecount: 0,
+      },
+      {
+        userid: 'attended-2',
+        username: '출석느림',
+        yearmonth: '202512',
+        waketime: '0700',
+        vacances: 5,
+        latecount: 0,
+        absencecount: 0,
+      },
+      {
+        userid: 'late-1',
+        username: '지각빠름',
+        yearmonth: '202512',
+        waketime: '0630',
+        vacances: 5,
+        latecount: 1,
+        absencecount: 0,
+      },
+      {
+        userid: 'late-2',
+        username: '지각느림',
+        yearmonth: '202512',
+        waketime: '0730',
+        vacances: 5,
+        latecount: 2,
+        absencecount: 0,
+      },
+      {
+        userid: 'absent-1',
+        username: '결석빠름',
+        yearmonth: '202512',
+        waketime: '0615',
+        vacances: 5,
+        latecount: 0,
+        absencecount: 0,
+      },
+      {
+        userid: 'absent-2',
+        username: '결석느림',
+        yearmonth: '202512',
+        waketime: '0745',
+        vacances: 5,
+        latecount: 0,
+        absencecount: 0,
+      },
+    ]);
+
+    await TestAttendanceLog.bulkCreate([
+      {
+        userid: 'attended-2',
+        username: '출석느림',
+        yearmonthday: '20251208',
+        threadid: 'thread-attended-2',
+        messageid: 'message-attended-2',
+        commentedat: '2025-12-07T22:00:00Z',
+        status: 'attended',
+      },
+      {
+        userid: 'attended-1',
+        username: '출석빠름',
+        yearmonthday: '20251208',
+        threadid: 'thread-attended-1',
+        messageid: 'message-attended-1',
+        commentedat: '2025-12-07T22:00:00Z',
+        status: 'attended',
+      },
+      {
+        userid: 'late-2',
+        username: '지각느림',
+        yearmonthday: '20251208',
+        threadid: 'thread-late-2',
+        messageid: 'message-late-2',
+        commentedat: '2025-12-07T22:20:00Z',
+        status: 'late',
+      },
+      {
+        userid: 'late-1',
+        username: '지각빠름',
+        yearmonthday: '20251208',
+        threadid: 'thread-late-1',
+        messageid: 'message-late-1',
+        commentedat: '2025-12-07T22:15:00Z',
+        status: 'late',
+      },
+      {
+        userid: 'absent-2',
+        username: '결석느림',
+        yearmonthday: '20251208',
+        threadid: 'thread-absent-2',
+        messageid: 'message-absent-2',
+        commentedat: '2025-12-07T22:40:00Z',
+        status: 'absent',
+      },
+      {
+        userid: 'absent-1',
+        username: '결석빠름',
+        yearmonthday: '20251208',
+        threadid: 'thread-absent-1',
+        messageid: 'message-absent-1',
+        commentedat: '2025-12-07T22:35:00Z',
+        status: 'absent',
+      },
+    ]);
+
+    const { attendanceMessage } = await buildChallengeReport();
+
+    expect(attendanceMessage).toContain('출석빠름: 출석 (기상시간 06:00');
+    expect(attendanceMessage).toContain('출석느림: 출석 (기상시간 07:00');
+    expect(attendanceMessage).toContain('지각빠름: 지각 (기상시간 06:30');
+    expect(attendanceMessage).toContain('지각느림: 지각 (기상시간 07:30');
+    expect(attendanceMessage).toContain('결석빠름: 결석 (기상시간 06:15');
+    expect(attendanceMessage).toContain('결석느림: 결석 (기상시간 07:45');
+
+    expect(attendanceMessage!.indexOf('출석빠름')).toBeLessThan(attendanceMessage!.indexOf('출석느림'));
+    expect(attendanceMessage!.indexOf('지각빠름')).toBeLessThan(attendanceMessage!.indexOf('지각느림'));
+    expect(attendanceMessage!.indexOf('결석빠름')).toBeLessThan(attendanceMessage!.indexOf('결석느림'));
+    expect(attendanceMessage!.indexOf('출석느림')).toBeLessThan(attendanceMessage!.indexOf('지각빠름'));
+    expect(attendanceMessage!.indexOf('지각느림')).toBeLessThan(attendanceMessage!.indexOf('결석빠름'));
   });
 
   it('결과표가 Discord 2000자 제한을 넘기면 여러 메시지로 분할한다', async () => {
