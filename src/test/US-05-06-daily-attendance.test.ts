@@ -39,7 +39,7 @@ const expectMonthlyStatus = (
   },
 ) => {
   expect(attendanceMessage).toContain(
-    `${expectation.username}: ${expectation.todayStatus} (월 누적 지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
+    `${expectation.username}: ${expectation.todayStatus} (지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
   );
 };
 
@@ -69,6 +69,7 @@ describe('US-05: 일일 출석 리포트', () => {
       const { attendanceMessage } = await buildChallengeReport();
       const updated = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
 
+      expect(attendanceMessage).toContain('### 2025-12-08 출석표');
       expectMonthlyStatus(attendanceMessage, {
         username: '홍길동',
         todayStatus: '출석',

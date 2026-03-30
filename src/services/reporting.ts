@@ -91,6 +91,9 @@ const formatChallengeStatusLabel = (status: 'attended' | 'late' | 'absent' | 'va
 const calculateRemainingVacances = (vacances: number, usedVacationCount: number) =>
   Math.max(vacances - usedVacationCount, 0);
 
+const formatDisplayDate = (yearmonthday: string) =>
+  `${yearmonthday.slice(0, 4)}-${yearmonthday.slice(4, 6)}-${yearmonthday.slice(6, 8)}`;
+
 const buildChallengeReportRow = (payload: {
   username: string;
   status: 'attended' | 'late' | 'absent' | 'vacation';
@@ -98,7 +101,7 @@ const buildChallengeReportRow = (payload: {
   absencecount: number;
   remainingVacances: number;
 }) =>
-  `- ${payload.username}: ${formatChallengeStatusLabel(payload.status)} (월 누적 지각 ${payload.latecount}회, 결석 ${payload.absencecount}회, 잔여휴가 ${payload.remainingVacances}일)\n`;
+  `- ${payload.username}: ${formatChallengeStatusLabel(payload.status)} (지각 ${payload.latecount}회, 결석 ${payload.absencecount}회, 잔여휴가 ${payload.remainingVacances}일)\n`;
 
 const splitDiscordMessage = (message: string) => {
   if (message.length <= DISCORD_MESSAGE_LIMIT) {
@@ -217,7 +220,7 @@ const buildChallengeReport = async () => {
     return { attendanceMessage: null, hallOfFameMessage };
   }
 
-  let attendanceMessage = `### ${yearmonthday} 출석표\n`;
+  let attendanceMessage = `### ${formatDisplayDate(yearmonthday)} 출석표\n`;
   let attendees = '';
   let latecomers = '';
   let vacationers = '';
