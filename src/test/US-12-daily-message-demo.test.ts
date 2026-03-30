@@ -117,6 +117,7 @@ describe('US-12: daily message 데모', () => {
     expect(send.mock.calls[0]?.[0]).not.toContain('오늘의 한마디:');
     expect(startThread).toHaveBeenCalledOnce();
     expect(threadSend).toHaveBeenCalledOnce();
+    expect(threadSend).toHaveBeenCalledWith(expect.stringContaining('봇 판정(이모지) 안내'));
     expect(interaction.getLastReply()).toContain('데모 출석 메시지와 쓰레드를 생성했습니다');
     randomSpy.mockRestore();
   });

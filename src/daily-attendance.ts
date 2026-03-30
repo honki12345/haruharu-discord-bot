@@ -23,7 +23,7 @@ const buildDailyAttendanceMessageContent = (year: number, month: string, date: s
 
 const buildDailyAttendanceThreadGuide = () => {
   return [
-    '출석 안내',
+    '봇 판정(이모지) 안내',
     '- ⏰ 대기: 출석 가능 시간 전',
     '- ✅ 출석: 등록 시간 ±10분',
     '- 🟡 지각: 등록 시간 +11~30분',
