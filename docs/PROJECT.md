@@ -36,13 +36,13 @@
 
 ### 채널별 고정/반복 안내 메시지
 
-| 채널               | 메시지 유형      | 설명                                                                                          | 출처                           |
-| ------------------ | ---------------- | --------------------------------------------------------------------------------------------- | ------------------------------ |
-| `#start-here`      | 고정 안내        | 서버 소개, 참여 방법, 공통 self-service 명령어 고정 안내                                      | 운영 수동 관리, `USER_STORIES` |
-| `#time-start-here` | 고정 안내        | 기상 self-service 명령어와 시간 설정/휴가 사용 안내                                           | 운영 수동 관리, `USER_STORIES` |
-| `#wake-up`         | 반복 자동 메시지 | 매일 04:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내                        | `src/daily-attendance.ts`      |
-| `#wake-up`         | 반복 자동 메시지 | 평일 13:00 당일 출석 thread 댓글로 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영          | `src/services/reporting.ts`    |
-| `#test`            | 관리자 운영 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message` 실행과 self-service 결과 로그 확인 | `src/commands/haruharu/*.ts`   |
+| 채널               | 메시지 유형      | 설명                                                                                                                   | 출처                           |
+| ------------------ | ---------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `#start-here`      | 고정 안내        | 서버 소개, 참여 방법, 공통 self-service 명령어 고정 안내                                                               | 운영 수동 관리, `USER_STORIES` |
+| `#time-start-here` | 고정 안내        | 기상 self-service 명령어와 시간 설정/휴가 사용 안내                                                                    | 운영 수동 관리, `USER_STORIES` |
+| `#wake-up`         | 반복 자동 메시지 | 매일 04:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내                                                 | `src/daily-attendance.ts`      |
+| `#wake-up`         | 반복 자동 메시지 | 평일 13:00 당일 출석 thread 댓글로 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영                                   | `src/services/reporting.ts`    |
+| `#test`            | 관리자 운영 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui` 실행과 self-service 결과 로그 확인 | `src/commands/haruharu/*.ts`   |
 
 ---
 
@@ -72,6 +72,7 @@ haruharu-discord-bot/
 │   │       ├── add-vacances.ts  # 휴가 추가
 │   │       ├── delete.ts        # 챌린저 삭제
 │   │       ├── demo-daily-message.ts # 테스트 채널 daily message 데모
+│   │       ├── demo-self-service-ui.ts # 테스트 채널 self-service 버튼 UI 데모
 │   │       └── ping.ts          # 헬스체크
 │   │
 │   ├── events/
@@ -87,7 +88,9 @@ haruharu-discord-bot/
 │   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
 │   │   ├── camStudyRoleSync.ts  # 역할 기반 캠스터디 참가자 동기화
 │   │   ├── participationApplication.ts # self-service 활성화/역할 부여 처리
+│   │   ├── selfServiceActions.ts # slash command/button/modal 공통 self-service 실행 래퍼
 │   │   ├── selfServiceAudit.ts  # self-service ephemeral 응답 후 test 채널 감사 로그 전송
+│   │   ├── selfServiceOnboardingDemo.ts # test 채널용 self-service 버튼/모달 데모
 │   │   └── reporting.ts         # 일일/주간 리포트 생성 및 스케줄링
 │   │
 │   └── repository/
@@ -170,10 +173,11 @@ haruharu-discord-bot/
 
 #### 유틸리티 커맨드
 
-| 내부 key              | 한국어 표시명(ko)      | 권한   | 설명                                                                   |
-| --------------------- | ---------------------- | ------ | ---------------------------------------------------------------------- |
-| `/ping`               | `/admin-상태확인`      | 관리자 | 봇 상태 확인                                                           |
-| `/demo-daily-message` | `/admin-demo-출석생성` | 관리자 | 테스트 채널에 랜덤 질문이 포함된 daily message + 출석 demo thread 생성 |
+| 내부 key                | 한국어 표시명(ko)          | 권한   | 설명                                                                   |
+| ----------------------- | -------------------------- | ------ | ---------------------------------------------------------------------- |
+| `/ping`                 | `/admin-상태확인`          | 관리자 | 봇 상태 확인                                                           |
+| `/demo-daily-message`   | `/admin-demo-출석생성`     | 관리자 | 테스트 채널에 랜덤 질문이 포함된 daily message + 출석 demo thread 생성 |
+| `/demo-self-service-ui` | `/admin-demo-셀프서비스ui` | 관리자 | 테스트 채널에 self-service 버튼/모달 데모 메시지 생성                  |
 
 ---
 
@@ -340,7 +344,8 @@ flowchart TD
 - stale `/apply-wakeup` interaction 이 들어오면 커맨드 미존재 오류로 끝내지 않고 `/register` migration 안내를 ephemeral 응답으로 반환한다.
 - `/apply-cam`은 `#start-here` 전용 채널에서만 실행된다.
 - `/apply-cam`은 사용자에게 `ephemeral`로 응답하고, 성공/실패 모두 `testChannelId`에도 남긴다.
-- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId` 전용으로 실행된다.
+- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui`)은 `testChannelId` 전용으로 실행된다.
+- `interactionCreate.ts`는 chat input 외에도 `demo-self-service-ui`가 게시한 button / modal submit interaction 을 라우팅한다.
 
 #### camStudyHandler.ts
 
@@ -434,15 +439,23 @@ flowchart TD
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 역할   | self-service 참여 활성화와 역할 부여                                                                                                                                      |
 | 담당   | `ParticipationApplication` 조회/갱신, `@cam-study` 역할 매핑, `/apply-cam` 즉시 `approved` 반영, 캠스터디 자동 활성화 시 `CamStudyUsers` upsert, 실패 시 role/db rollback |
-| 호출처 | `src/commands/haruharu/apply-cam.ts`                                                                                                                                      |
+| 호출처 | `src/commands/haruharu/apply-cam.ts`, `src/services/selfServiceActions.ts`                                                                                                |
+
+#### selfServiceActions.ts
+
+| 항목   | 내용                                                                                                                                                                                                      |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | slash command 와 test 채널 button/modal 데모가 공통 self-service 서비스와 감사 로그 경로를 재사용하도록 정리                                                                                              |
+| 담당   | `/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`의 공통 실행 래퍼, display name 해석, 성공/실패 `ephemeral` 응답과 `testChannelId` 감사 로그 연결                                             |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`, `src/commands/haruharu/apply-cam.ts`, `src/services/selfServiceOnboardingDemo.ts` |
 
 #### selfServiceAudit.ts
 
-| 항목   | 내용                                                                                                                                                         |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 역할   | self-service 명령 응답을 사용자 `ephemeral` 응답과 `testChannelId` 운영 로그로 분리                                                                          |
-| 담당   | `/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`의 결과 문자열 추출, `testChannelId` 전송, 전송 실패 시 서버 logger fallback 처리                |
-| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`, `src/commands/haruharu/apply-cam.ts` |
+| 항목   | 내용                                                                                                                          |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | self-service 응답을 사용자 `ephemeral` 응답과 `testChannelId` 운영 로그로 분리                                                |
+| 담당   | slash command 와 test 채널 button/modal 경로의 결과 문자열 추출, `testChannelId` 전송, 전송 실패 시 서버 logger fallback 처리 |
+| 호출처 | `src/services/selfServiceActions.ts`                                                                                          |
 
 #### reporting.ts
 
@@ -756,10 +769,12 @@ flowchart TD
 - `/apply-vacation`은 Discord 한국어 locale에서 `/휴가신청`으로 표시되며 현재 월 날짜 단위(`yyyymmdd`)로 동작한다.
 - 관리자 전용 커맨드는 Discord 한국어 locale에서 `admin-...` 접두어로 표시된다.
 - 데모 전용 커맨드는 Discord 한국어 locale에서 `admin-demo-...` 접두어로 표시된다.
-- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서만 실행된다.
+- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui`)은 `testChannelId`에서만 실행된다.
 - stale `/apply-wakeup` interaction 은 잘못된 채널 안내 대신 `/register` migration 응답으로 종료한다.
 - `/apply-cam`은 `#start-here`에서만 실행되고, 실행 즉시 역할 부여와 `approved` 상태 반영을 시도하며 결과는 `ephemeral`로 응답하고 같은 내용을 `testChannelId`에도 남긴다.
 - `/apply-cam` 성공 시 `@cam-study` 역할과 `CamStudyUsers`가 함께 맞춰지고, 이후 역할 변경은 `guildMemberUpdate`가 계속 동기화한다.
+- `/demo-self-service-ui`는 `testChannelId`에 `기상 등록/수정`, `휴가 신청`, `기상 중단`, `캠스터디 참여` 버튼을 가진 데모 메시지를 게시한다.
+- 데모 버튼/모달 경로도 실제 `/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`과 같은 서비스 로직과 `testChannelId` 감사 로그 경로를 재사용한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 - 주말/공휴일에도 `#wake-up` daily message/thread는 생성된다.
 - 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `AttendanceLog.status='attended'` 인 사용자만 결석 1회 우선 차감 후 없으면 지각 1회를 차감한다.

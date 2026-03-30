@@ -93,6 +93,14 @@ const commandSpecs = [
     options: [],
   },
   {
+    modulePath: '../commands/haruharu/demo-self-service-ui.js',
+    baseName: 'demo-self-service-ui',
+    koName: 'admin-demo-셀프서비스ui',
+    koDescription: '관리자가 테스트 채널에 셀프서비스 버튼 UI 데모 메시지를 게시합니다',
+    category: 'admin-demo',
+    options: [],
+  },
+  {
     modulePath: '../commands/haruharu/ping.js',
     baseName: 'ping',
     koName: 'admin-상태확인',

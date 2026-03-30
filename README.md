@@ -7,8 +7,9 @@
 - `#start-here`와 기상 self-service 안내 채널이 온보딩/self-service 진입점 역할을 맡습니다.
 - 기상 챌린지는 `/register <waketime>`로 참여를 시작하고, `/stop-wakeup`으로 이후 월 자동 참여를 중단합니다.
 - `/apply-cam`은 `@cam-study` 역할과 캠스터디 참가자 상태를 즉시 활성화합니다.
-- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`)은 `testChannelId`에서 실행합니다.
+- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui`)은 `testChannelId`에서 실행합니다.
 - self-service 명령(`/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`) 응답은 사용자에게만 보이는 `ephemeral`로 처리하고, 같은 결과를 운영 확인용으로 `testChannelId`에도 남깁니다.
+- `/demo-self-service-ui`는 `testChannelId`에 버튼/모달 기반 self-service 샘플 메시지를 게시하며, 데모 버튼도 기존 self-service 서비스 로직과 같은 감사 로그를 재사용합니다.
 
 ## 캠스터디
 

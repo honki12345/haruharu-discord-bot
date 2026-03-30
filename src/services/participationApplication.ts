@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, GuildMember } from 'discord.js';
+import { Guild, GuildMember } from 'discord.js';
 import { camStudyRoleId } from '../config.js';
 import { logger } from '../logger.js';
 import { ParticipationApplication } from '../repository/ParticipationApplication.js';
@@ -88,7 +88,14 @@ const persistApprovedApplication = async (
 };
 
 const submitParticipationApplication = async (
-  interaction: ChatInputCommandInteraction,
+  interaction: {
+    guild: Guild | null;
+    user: {
+      id: string;
+      globalName?: string | null;
+      username: string;
+    };
+  },
   program: ParticipationProgram,
 ) => {
   const userid = interaction.user.id;

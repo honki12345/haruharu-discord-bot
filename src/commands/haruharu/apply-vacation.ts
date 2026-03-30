@@ -1,7 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { startHereChannelId, timeStartHereChannelId } from '../../commandChannelConfig.js';
-import { logger } from '../../logger.js';
-import { replyWithEphemeralAudit } from '../../services/selfServiceAudit.js';
+import { executeApplyVacationSelfService } from '../../services/selfServiceActions.js';
 
 export const command = {
   cooldown: 5,
@@ -20,25 +19,10 @@ export const command = {
         .setRequired(true),
     ),
   async execute(interaction: ChatInputCommandInteraction) {
-    try {
-      const { executeApplyVacation } = await import('../../services/challengeSelfService.js');
-      const result = await executeApplyVacation({
-        userId: interaction.user.id,
-        yearmonthday: interaction.options.getString('date') ?? '',
-      });
-
-      await replyWithEphemeralAudit({
-        commandName: command.data.name,
-        interaction,
-        content: result.reply,
-      });
-    } catch (error) {
-      logger.error('apply-vacation 실행 실패', { error });
-      await replyWithEphemeralAudit({
-        commandName: command.data.name,
-        interaction,
-        content: '휴가 신청 처리에 실패했습니다',
-      });
-    }
+    await executeApplyVacationSelfService({
+      interaction,
+      yearmonthday: interaction.options.getString('date') ?? '',
+      commandName: command.data.name,
+    });
   },
 };
