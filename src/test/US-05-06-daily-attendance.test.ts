@@ -32,6 +32,7 @@ const expectMonthlyStatus = (
   attendanceMessage: string | null,
   expectation: {
     username: string;
+    waketime: string;
     todayStatus: '출석' | '지각' | '결석' | '휴가';
     latecount: number;
     absencecount: number;
@@ -39,7 +40,7 @@ const expectMonthlyStatus = (
   },
 ) => {
   expect(attendanceMessage).toContain(
-    `${expectation.username}: ${expectation.todayStatus} (지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
+    `${expectation.username}: ${expectation.todayStatus} (기상시간 ${expectation.waketime}, 지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
   );
 };
 
@@ -72,6 +73,7 @@ describe('US-05: 일일 출석 리포트', () => {
       expect(attendanceMessage).toContain('### 2025-12-08 출석표');
       expectMonthlyStatus(attendanceMessage, {
         username: '홍길동',
+        waketime: '07:00',
         todayStatus: '출석',
         latecount: 0,
         absencecount: 0,
@@ -109,6 +111,7 @@ describe('US-05: 일일 출석 리포트', () => {
 
       expectMonthlyStatus(attendanceMessage, {
         username: '홍길동',
+        waketime: '07:00',
         todayStatus: '지각',
         latecount: 1,
         absencecount: 0,
@@ -135,6 +138,7 @@ describe('US-05: 일일 출석 리포트', () => {
 
       expectMonthlyStatus(attendanceMessage, {
         username: '홍길동',
+        waketime: '07:00',
         todayStatus: '결석',
         latecount: 0,
         absencecount: 1,

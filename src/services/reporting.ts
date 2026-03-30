@@ -94,14 +94,37 @@ const calculateRemainingVacances = (vacances: number, usedVacationCount: number)
 const formatDisplayDate = (yearmonthday: string) =>
   `${yearmonthday.slice(0, 4)}-${yearmonthday.slice(4, 6)}-${yearmonthday.slice(6, 8)}`;
 
+const formatDisplayWaketime = (waketime: string) => {
+  if (!/^\d{4}$/.test(waketime)) {
+    return waketime;
+  }
+
+  return `${waketime.slice(0, 2)}:${waketime.slice(2, 4)}`;
+};
+
+const compareChallengeUsersByWaketime = (left: Users, right: Users) => {
+  const waketimeCompare = left.waketime.localeCompare(right.waketime);
+  if (waketimeCompare !== 0) {
+    return waketimeCompare;
+  }
+
+  const usernameCompare = left.username.localeCompare(right.username, 'ko');
+  if (usernameCompare !== 0) {
+    return usernameCompare;
+  }
+
+  return left.userid.localeCompare(right.userid);
+};
+
 const buildChallengeReportRow = (payload: {
   username: string;
+  waketime: string;
   status: 'attended' | 'late' | 'absent' | 'vacation';
   latecount: number;
   absencecount: number;
   remainingVacances: number;
 }) =>
-  `- ${payload.username}: ${formatChallengeStatusLabel(payload.status)} (지각 ${payload.latecount}회, 결석 ${payload.absencecount}회, 잔여휴가 ${payload.remainingVacances}일)\n`;
+  `- ${payload.username}: ${formatChallengeStatusLabel(payload.status)} (기상시간 ${payload.waketime}, 지각 ${payload.latecount}회, 결석 ${payload.absencecount}회, 잔여휴가 ${payload.remainingVacances}일)\n`;
 
 const splitDiscordMessage = (message: string) => {
   if (message.length <= DISCORD_MESSAGE_LIMIT) {
@@ -177,6 +200,7 @@ const buildChallengeReport = async () => {
   const yearmonthday = getYearMonthDay(year, month, date);
   await ensureActiveWakeUpMembershipSnapshots(yearmonth);
   const users = await listChallengeUsers(yearmonth);
+  const sortedUsers = [...users].sort(compareChallengeUsersByWaketime);
   const userMap = new Map(users.map(user => [user.userid, user]));
   const attendanceLogs = await listChallengeAttendanceLogs(yearmonthday);
   const dailyVacationLogs = await listVacationLogs(yearmonthday);
@@ -226,15 +250,12 @@ const buildChallengeReport = async () => {
   let vacationers = '';
   let absentees = '';
 
-  for (const userid of userMap.keys()) {
-    const user = userMap.get(userid);
-    if (!user) {
-      continue;
-    }
-
+  for (const user of sortedUsers) {
+    const { userid } = user;
     if (vacationUserIds.has(userid)) {
       vacationers += buildChallengeReportRow({
         username: user.username,
+        waketime: formatDisplayWaketime(user.waketime),
         status: 'vacation',
         latecount: user.latecount ?? 0,
         absencecount: user.absencecount ?? 0,
@@ -256,6 +277,7 @@ const buildChallengeReport = async () => {
       await updateChallengeUser(userid, yearmonth, { absencecount: nextAbsenceCount });
       absentees += buildChallengeReportRow({
         username: user.username,
+        waketime: formatDisplayWaketime(user.waketime),
         status: 'absent',
         latecount: currentLateCount,
         absencecount: nextAbsenceCount,
@@ -269,6 +291,7 @@ const buildChallengeReport = async () => {
       await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
       latecomers += buildChallengeReportRow({
         username: user.username,
+        waketime: formatDisplayWaketime(user.waketime),
         status: 'late',
         latecount: nextLateCount,
         absencecount: currentAbsenceCount,
@@ -279,6 +302,7 @@ const buildChallengeReport = async () => {
 
     attendees += buildChallengeReportRow({
       username: user.username,
+      waketime: formatDisplayWaketime(user.waketime),
       status: 'attended',
       latecount: currentLateCount,
       absencecount: currentAbsenceCount,
