@@ -77,4 +77,48 @@ describe('interactionCreate 이벤트', () => {
       ephemeral: true,
     });
   });
+
+  it('self-service 데모 버튼 interaction은 전용 라우터로 전달한다', async () => {
+    const buttonHandler = vi.fn();
+    vi.doMock('../services/selfServiceOnboardingDemo.js', () => ({
+      isSelfServiceDemoButtonCustomId: vi.fn().mockReturnValue(true),
+      isSelfServiceDemoModalCustomId: vi.fn().mockReturnValue(false),
+      handleSelfServiceDemoButtonInteraction: buttonHandler,
+      handleSelfServiceDemoModalSubmitInteraction: vi.fn(),
+    }));
+
+    const interaction = {
+      isChatInputCommand: () => false,
+      isButton: () => true,
+      isModalSubmit: () => false,
+      customId: 'self-service-demo:register:open',
+    };
+
+    const { event } = await import('../events/interactionCreate.js');
+    await event.execute(interaction as never);
+
+    expect(buttonHandler).toHaveBeenCalledWith(interaction);
+  });
+
+  it('self-service 데모 modal submit interaction은 전용 라우터로 전달한다', async () => {
+    const modalHandler = vi.fn();
+    vi.doMock('../services/selfServiceOnboardingDemo.js', () => ({
+      isSelfServiceDemoButtonCustomId: vi.fn().mockReturnValue(false),
+      isSelfServiceDemoModalCustomId: vi.fn().mockReturnValue(true),
+      handleSelfServiceDemoButtonInteraction: vi.fn(),
+      handleSelfServiceDemoModalSubmitInteraction: modalHandler,
+    }));
+
+    const interaction = {
+      isChatInputCommand: () => false,
+      isButton: () => false,
+      isModalSubmit: () => true,
+      customId: 'self-service-demo:register:submit',
+    };
+
+    const { event } = await import('../events/interactionCreate.js');
+    await event.execute(interaction as never);
+
+    expect(modalHandler).toHaveBeenCalledWith(interaction);
+  });
 });

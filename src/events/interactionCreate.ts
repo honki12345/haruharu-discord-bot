@@ -1,4 +1,4 @@
-import { Events, Collection, ChatInputCommandInteraction } from 'discord.js';
+import { Events, Collection, type Interaction } from 'discord.js';
 import { commandChannelIds } from '../config.js';
 import type { MyClient } from '../runtime.js';
 
@@ -12,7 +12,29 @@ const buildInvalidChannelMessage = (commandName: string) => {
 
 export const event = {
   name: Events.InteractionCreate,
-  async execute(interaction: ChatInputCommandInteraction) {
+  async execute(interaction: Interaction) {
+    if ('isButton' in interaction && typeof interaction.isButton === 'function' && interaction.isButton()) {
+      const { handleSelfServiceDemoButtonInteraction, isSelfServiceDemoButtonCustomId } =
+        await import('../services/selfServiceOnboardingDemo.js');
+      if (isSelfServiceDemoButtonCustomId(interaction.customId)) {
+        await handleSelfServiceDemoButtonInteraction(interaction);
+      }
+      return;
+    }
+
+    if (
+      'isModalSubmit' in interaction &&
+      typeof interaction.isModalSubmit === 'function' &&
+      interaction.isModalSubmit()
+    ) {
+      const { handleSelfServiceDemoModalSubmitInteraction, isSelfServiceDemoModalCustomId } =
+        await import('../services/selfServiceOnboardingDemo.js');
+      if (isSelfServiceDemoModalCustomId(interaction.customId)) {
+        await handleSelfServiceDemoModalSubmitInteraction(interaction);
+      }
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const command = (interaction.client as MyClient).commands.get(interaction.commandName);

@@ -1,8 +1,25 @@
-import type { ChatInputCommandInteraction, InteractionReplyOptions } from 'discord.js';
+import type { InteractionReplyOptions } from 'discord.js';
 import { testChannelId } from '../commandChannelConfig.js';
 import { logger } from '../logger.js';
 
 type ReplyPayload = string | InteractionReplyOptions;
+type SendableChannel = {
+  send: (options: { content: string; allowedMentions: { parse: [] } }) => Promise<unknown>;
+};
+type SelfServiceAuditInteraction = {
+  channelId: string | null;
+  client: {
+    channels: {
+      fetch: (channelId: string) => Promise<unknown>;
+    };
+  };
+  reply: (options: InteractionReplyOptions) => Promise<unknown>;
+  user: {
+    id: string;
+    globalName?: string | null;
+    username: string;
+  };
+};
 
 const getReplyContent = (reply: ReplyPayload) => {
   if (typeof reply === 'string') {
@@ -22,7 +39,7 @@ const buildAuditMessage = ({
   reply,
 }: {
   commandName: string;
-  interaction: ChatInputCommandInteraction;
+  interaction: SelfServiceAuditInteraction;
   reply: ReplyPayload;
 }) => {
   const username = interaction.user.globalName ?? interaction.user.username ?? 'unknown';
@@ -37,18 +54,26 @@ const buildAuditMessage = ({
   ].join('\n');
 };
 
+const isSendableChannel = (channel: unknown): channel is SendableChannel => {
+  if (typeof channel !== 'object' || channel === null) {
+    return false;
+  }
+
+  return 'send' in channel && typeof channel.send === 'function';
+};
+
 const sendSelfServiceAuditLog = async ({
   commandName,
   interaction,
   reply,
 }: {
   commandName: string;
-  interaction: ChatInputCommandInteraction;
+  interaction: SelfServiceAuditInteraction;
   reply: ReplyPayload;
 }) => {
   try {
     const channel = await interaction.client.channels.fetch(testChannelId);
-    if (!channel || !('send' in channel)) {
+    if (!isSendableChannel(channel)) {
       logger.error('self-service audit target is not sendable', {
         commandName,
         testChannelId,
@@ -78,7 +103,7 @@ const replyWithEphemeralAudit = async ({
   content,
 }: {
   commandName: string;
-  interaction: ChatInputCommandInteraction;
+  interaction: SelfServiceAuditInteraction;
   content: string;
 }) => {
   const reply = {
