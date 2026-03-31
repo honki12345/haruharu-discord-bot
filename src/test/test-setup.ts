@@ -579,23 +579,68 @@ interface MockVoiceStateOptions {
   streaming?: boolean;
   hasCamStudyRole?: boolean;
   userId: string;
+  member?: {
+    roles: {
+      cache: {
+        has: () => boolean;
+      };
+    };
+    send?: (content: string) => Promise<unknown>;
+    displayName?: string | null;
+    user?: {
+      globalName?: string | null;
+      username?: string | null;
+    };
+  } | null;
+  memberSend?: ReturnType<typeof vi.fn>;
+  auditChannelSend?: ReturnType<typeof vi.fn>;
+  auditChannelFetch?: ReturnType<typeof vi.fn>;
+  clientUsersFetch?: ReturnType<typeof vi.fn>;
 }
 
 export function createMockVoiceState(opts: MockVoiceStateOptions) {
   const sendMock = vi.fn();
+  const memberSendMock = opts.memberSend ?? vi.fn().mockResolvedValue(undefined);
+  const auditSendMock = opts.auditChannelSend ?? vi.fn().mockResolvedValue(undefined);
+  const auditFetchMock =
+    opts.auditChannelFetch ??
+    vi.fn().mockResolvedValue({
+      send: auditSendMock,
+    });
+  const usersFetchMock =
+    opts.clientUsersFetch ??
+    vi.fn().mockResolvedValue({
+      id: opts.userId,
+      send: vi.fn().mockResolvedValue(undefined),
+      username: 'fetched-username',
+      globalName: 'fetched-global-name',
+    });
   const channelId = opts.channelId !== undefined ? opts.channelId : 'valid-voice-channel-id';
+  const member =
+    opts.member === undefined
+      ? {
+          roles: {
+            cache: {
+              has: () => opts.hasCamStudyRole ?? true,
+            },
+          },
+          send: memberSendMock,
+        }
+      : opts.member;
   return {
     channelId,
     selfVideo: opts.selfVideo ?? false,
     streaming: opts.streaming ?? false,
     id: opts.userId,
-    member: {
-      roles: {
-        cache: {
-          has: () => opts.hasCamStudyRole ?? true,
-        },
+    client: {
+      channels: {
+        fetch: auditFetchMock,
+      },
+      users: {
+        fetch: usersFetchMock,
       },
     },
+    member,
     guild: {
       channels: {
         cache: {
@@ -607,5 +652,9 @@ export function createMockVoiceState(opts: MockVoiceStateOptions) {
     },
     channel: channelId ? { send: sendMock } : null,
     _sendMock: sendMock,
+    _memberSendMock: memberSendMock,
+    _auditSendMock: auditSendMock,
+    _auditFetchMock: auditFetchMock,
+    _usersFetchMock: usersFetchMock,
   };
 }

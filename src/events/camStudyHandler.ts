@@ -1,13 +1,13 @@
 import { VoiceState } from 'discord.js';
 import { camStudyRoleId, voiceChannelId } from '../config.js';
 import { logger } from '../logger.js';
+import { sendCamStudyNotification } from '../services/camStudyNotification.js';
 import { processCamStudyStateChange } from '../services/camStudy.js';
 
 export const event = {
   name: 'voiceStateUpdate',
   async execute(oldState: VoiceState, newState: VoiceState) {
     try {
-      const voiceChannel = newState.guild.channels.cache.get(voiceChannelId);
       const result = await processCamStudyStateChange(
         {
           channelId: oldState.channelId,
@@ -30,14 +30,13 @@ export const event = {
         return;
       }
 
-      if (result.target === 'channel') {
-        await newState.channel?.send(result.message);
-        return;
-      }
-
-      if (voiceChannel && 'send' in voiceChannel) {
-        await voiceChannel.send(result.message);
-      }
+      await sendCamStudyNotification({
+        channelId: newState.channelId ?? oldState.channelId,
+        client: newState.client,
+        member: newState.member ?? oldState.member,
+        message: result.message,
+        userId: newState.id,
+      });
     } catch (error) {
       logger.error('cam study handler failed', {
         error,

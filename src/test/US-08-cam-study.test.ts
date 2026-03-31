@@ -11,6 +11,26 @@ import {
   createMockVoiceState,
 } from './test-setup.js';
 
+const expectCamStudyPrivateNotification = (
+  state: {
+    _auditFetchMock: ReturnType<typeof vi.fn>;
+    _auditSendMock: ReturnType<typeof vi.fn>;
+    _memberSendMock: ReturnType<typeof vi.fn>;
+    _sendMock: ReturnType<typeof vi.fn>;
+  },
+  expectedMessage: string,
+) => {
+  expect(state._sendMock).not.toHaveBeenCalled();
+  expect(state._memberSendMock).toHaveBeenCalledWith(expectedMessage);
+  expect(state._auditFetchMock).toHaveBeenCalledWith('valid-test-channel-id');
+  expect(state._auditSendMock).toHaveBeenCalledWith({
+    content: expect.stringContaining(expectedMessage),
+    allowedMentions: {
+      parse: [],
+    },
+  });
+};
+
 describe('US-08: 캠스터디 공부 시간 기록', () => {
   beforeAll(async () => {
     await testSequelize.sync({ force: true });
@@ -60,7 +80,7 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       const { event } = await import('../events/camStudyHandler.js');
       await event.execute(oldState as never, newState as never);
 
-      expect(newState._sendMock).toHaveBeenCalledWith('등록되지 않은 회원입니다');
+      expectCamStudyPrivateNotification(newState, '등록되지 않은 회원입니다');
     });
   });
 
@@ -94,7 +114,7 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       expect(log).not.toBeNull();
       expect(log?.yearmonthday).toBe('20251207');
       expect(log?.totalminutes).toBe(0);
-      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study start');
+      expectCamStudyPrivateNotification(newState, '테스트유저님 study start');
     });
 
     it('채널에서 카메라만 켜도 타임로그가 생성된다', async () => {
@@ -119,7 +139,7 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       expect(log).not.toBeNull();
       expect(log?.yearmonthday).toBe('20251207');
       expect(log?.totalminutes).toBe(0);
-      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study start');
+      expectCamStudyPrivateNotification(newState, '테스트유저님 study start');
     });
 
     it('활성 상태로 대상 채널에 입장하면 타임로그가 생성된다', async () => {
@@ -142,7 +162,7 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
 
       const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
       expect(log).not.toBeNull();
-      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study start');
+      expectCamStudyPrivateNotification(newState, '테스트유저님 study start');
     });
 
     it('다른 채널에서 활성 상태로 이동해도 타임로그가 생성된다', async () => {
@@ -165,7 +185,98 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
 
       const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
       expect(log).not.toBeNull();
-      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study start');
+      expectCamStudyPrivateNotification(newState, '테스트유저님 study start');
+    });
+
+    it('member 가 없어도 user fetch fallback 으로 참가자 DM을 보낸다', async () => {
+      const fetchedUserSendMock = vi.fn().mockResolvedValue(undefined);
+      const usersFetchMock = vi.fn().mockResolvedValue({
+        id: 'test-user-id',
+        send: fetchedUserSendMock,
+        username: 'fetched-username',
+        globalName: 'fetched-global-name',
+      });
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: false,
+        userId: 'test-user-id',
+        member: null,
+        clientUsersFetch: usersFetchMock,
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: true,
+        userId: 'test-user-id',
+        member: null,
+        clientUsersFetch: usersFetchMock,
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
+      expect(log).not.toBeNull();
+      expect(newState._memberSendMock).not.toHaveBeenCalled();
+      expect(newState._usersFetchMock).toHaveBeenCalledWith('test-user-id');
+      expect(fetchedUserSendMock).toHaveBeenCalledWith('테스트유저님 study start');
+      expect(newState._auditSendMock).toHaveBeenCalledWith({
+        content: expect.stringContaining('테스트유저님 study start'),
+        allowedMentions: {
+          parse: [],
+        },
+      });
+    });
+
+    it('member.send 가 this 에 의존해도 참가자 DM을 보낸다', async () => {
+      const { logger } = await import('../logger.js');
+      const deliveredMessages: string[] = [];
+      const contextualMember = {
+        displayName: '컨텍스트유저',
+        roles: {
+          cache: {
+            has: () => true,
+          },
+        },
+        async send(this: unknown, content: string) {
+          if (this !== contextualMember) {
+            throw new Error('member send lost context');
+          }
+
+          deliveredMessages.push(content);
+        },
+        user: {
+          globalName: '컨텍스트유저',
+          username: 'context-user',
+        },
+      };
+
+      const errorCallsBefore = logger.error.mock.calls.length;
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: false,
+        userId: 'test-user-id',
+        member: contextualMember,
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: true,
+        userId: 'test-user-id',
+        member: contextualMember,
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      expect(deliveredMessages).toEqual(['테스트유저님 study start']);
+      expect(newState._auditSendMock).toHaveBeenCalledWith({
+        content: expect.stringContaining('테스트유저님 study start'),
+        allowedMentions: {
+          parse: [],
+        },
+      });
+      expect(logger.error.mock.calls.length).toBe(errorCallsBefore);
     });
 
     it('이미 타임로그가 있으면 timestamp만 업데이트한다', async () => {
@@ -343,7 +454,7 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
 
       const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
       expect(log?.totalminutes).toBe(0);
-      expect(newState._sendMock).toHaveBeenCalledWith('등록되지 않은 회원입니다');
+      expectCamStudyPrivateNotification(newState, '등록되지 않은 회원입니다');
     });
 
     it('5분 이내면 공부시간이 기록되지 않는다', async () => {
@@ -375,7 +486,7 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
 
       const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
       expect(log?.totalminutes).toBe(0);
-      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study end: 5분 이내 입력안됨');
+      expectCamStudyPrivateNotification(newState, '테스트유저님 study end: 5분 이내 입력안됨');
     });
 
     it('누적 공부시간이 합산된다', async () => {
@@ -407,7 +518,55 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
 
       const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
       expect(log?.totalminutes).toBe(90);
-      expect(newState._sendMock).toHaveBeenCalledWith(expect.stringContaining('총 공부시간: 90분'));
+      expectCamStudyPrivateNotification(newState, '테스트유저님 study end: 30분 입력완료, 총 공부시간: 90분');
+    });
+
+    it('참가자 DM 전송에 실패해도 공부시간 기록과 운영 로그는 계속 처리된다', async () => {
+      const { logger } = await import('../logger.js');
+      const dmSendMock = vi.fn().mockRejectedValue(new Error('dm send failed'));
+      const startTime = new Date('2025-12-07T10:00:00').getTime();
+      await TestCamStudyTimeLog.create({
+        userid: 'test-user-id',
+        username: '테스트유저',
+        yearmonthday: '20251207',
+        timestamp: startTime.toString(),
+        totalminutes: 0,
+      });
+
+      vi.setSystemTime(new Date('2025-12-07T10:30:00'));
+
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: true,
+        userId: 'test-user-id',
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: false,
+        userId: 'test-user-id',
+        memberSend: dmSendMock,
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await expect(event.execute(oldState as never, newState as never)).resolves.toBeUndefined();
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
+      expect(log?.totalminutes).toBe(30);
+      expect(newState._memberSendMock).toHaveBeenCalledWith('테스트유저님 study end: 30분 입력완료, 총 공부시간: 30분');
+      expect(newState._auditFetchMock).toHaveBeenCalledWith('valid-test-channel-id');
+      expect(newState._auditSendMock).toHaveBeenCalledWith({
+        content: expect.stringContaining('테스트유저님 study end: 30분 입력완료, 총 공부시간: 30분'),
+        allowedMentions: {
+          parse: [],
+        },
+      });
+      expect(logger.error).toHaveBeenCalledWith(
+        'failed to send cam study DM',
+        expect.objectContaining({
+          userId: 'test-user-id',
+        }),
+      );
     });
 
     it('카메라를 꺼도 화면공유가 유지되면 공부 종료로 처리되지 않는다', async () => {
@@ -529,7 +688,7 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       expect(log?.timestamp).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
       expect(activeSession?.startedat).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
       expect(activeSession?.lastobservedat).toBe(new Date('2025-12-07T11:00:00').getTime().toString());
-      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study start');
+      expectCamStudyPrivateNotification(newState, '테스트유저님 study start');
     });
   });
 
@@ -647,7 +806,7 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       const { event } = await import('../events/camStudyHandler.js');
       await event.execute(oldState as never, newState as never);
 
-      expect(newState._sendMock).toHaveBeenCalledWith('테스트유저님 study end: 공부시간 정상 입력안됨');
+      expectCamStudyPrivateNotification(newState, '테스트유저님 study end: 공부시간 정상 입력안됨');
     });
   });
 

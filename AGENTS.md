@@ -118,7 +118,7 @@
 - `interactionCreate.ts`는 배포 전환 중 stale 슬래시 등록이 남을 수 있는 경우, 무응답으로 끝내지 말고 migration 안내를 우선 반환한다. 현재는 stale `/apply-wakeup` 에 대해 `/register` 안내를 반환한다.
 - `guildMemberUpdate.ts`는 역할 변경이 없어도 서버 닉네임(display name) 변경을 감지하고, 활성 `WakeUpMembership`/현재 월 `Users`/`CamStudyUsers`/`CamStudyActiveSession`의 표시 이름을 최신값으로 동기화해야 한다.
 - `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 감지해서 `CamStudyUsers`를 자동 동기화하고, 활성 세션 중 역할 회수면 삭제를 종료 시점까지 미룬다.
-- `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 역할 회수 뒤 종료 시점 정리까지 포함해 실패 시 상태 전이 문맥을 로그에 남긴다.
+- `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 결과 안내는 참가자 DM + `testChannelId` 운영 로그로 분리하며, 역할 회수 뒤 종료 시점 정리까지 포함해 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
 - 이벤트에 새 분기나 스케줄을 추가하면 시간 기준, 채널 사용, 부작용을 문서화한다.
 - `interactionCreate.ts`에 커맨드별 허용 채널 분기가 추가되면, 어떤 커맨드가 `#start-here`/기상 self-service 온보딩 채널/`test` 같은 전용 채널에 묶이는지 문서에 남긴다.
@@ -195,6 +195,7 @@
 - 날짜/시간 계산과 상수는 가능한 한 `src/utils.ts`에 모은다.
 - daily message 질문 정책은 `src/daily-message.ts`, 운영 daily message/thread 생성 규칙은 `src/daily-attendance.ts`에 모은다.
 - 캠스터디 재기동 복구, heartbeat, 종료 이벤트 유실 보호 로직은 `src/services/camStudy.ts`에 모은다.
+- 캠스터디 이벤트의 참가자 DM과 `testChannelId` 감사 로그 전송은 `src/services/camStudyNotification.ts`에 모은다.
 - 비즈니스 규칙은 하드코딩을 흩뿌리지 말고 상수 또는 유틸 함수로 끌어올린다.
 - 기존 파일 스타일을 존중한다. 이 저장소는 한국어 설명과 영어 식별자가 혼용된다.
 
