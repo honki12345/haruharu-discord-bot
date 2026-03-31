@@ -5,18 +5,21 @@
 ## 참여 온보딩
 
 - `#start-here`와 기상 self-service 안내 채널이 온보딩/self-service 진입점 역할을 맡습니다.
-- 기상 챌린지는 `/register <waketime>`로 참여를 시작하고, `/stop-wakeup`으로 이후 월 자동 참여를 중단합니다.
+- `#start-here`에는 `캠스터디 참여`, `기상 등록/수정`, `기상 중단`, `휴가 신청` 버튼이 상시 노출되고, `#time-start-here`에는 기상 관련 버튼만 상시 노출됩니다.
+- 버튼 경로는 modal 또는 확인 단계를 거쳐 기존 `/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam` 비즈니스 로직을 그대로 재사용합니다.
+- 기상 챌린지는 `기상 등록/수정` 버튼 또는 `/register <waketime>` fallback 으로 참여를 시작하고, `기상 중단` 버튼 또는 `/stop-wakeup` fallback 으로 이후 월 자동 참여를 중단합니다.
 - `/register <waketime>`의 `waketime`은 `HHmm` 또는 `HH:mm` 형식으로 입력할 수 있고, 내부 저장은 `HHmm` canonical 값으로 유지합니다.
-- `/apply-cam`은 `@cam-study` 역할과 캠스터디 참가자 상태를 즉시 활성화합니다.
-- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui`)은 `testChannelId`에서 실행합니다.
+- `캠스터디 참여` 버튼 또는 `/apply-cam` fallback 은 `@cam-study` 역할과 캠스터디 참가자 상태를 즉시 활성화합니다.
+- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui`, `/sync-self-service-ui`)은 `testChannelId`에서 실행합니다.
 - self-service 명령(`/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`) 응답은 사용자에게만 보이는 `ephemeral`로 처리하고, 같은 결과를 운영 확인용으로 `testChannelId`에도 남깁니다.
 - `/demo-self-service-ui`는 `testChannelId`에 버튼/모달 기반 self-service 샘플 메시지를 게시하며, 데모 버튼도 기존 self-service 서비스 로직과 같은 감사 로그를 재사용합니다.
+- `/sync-self-service-ui`는 운영 `#start-here`, `#time-start-here`의 bot-owned self-service UI 메시지를 최초 배포하거나 최신 상태로 갱신하고, 같은 채널의 중복 관리 메시지를 정리합니다.
 
 ## 캠스터디
 
 - self-service 온보딩
-  - `/apply-cam`은 `#start-here`에서 실행합니다.
-  - `/apply-cam`을 실행하면 `@cam-study` 역할과 캠스터디 등록이 즉시 활성화됩니다.
+  - `#start-here`의 `캠스터디 참여` 버튼이 1차 진입점이며 `/apply-cam`은 fallback 으로 유지합니다.
+  - 버튼 또는 `/apply-cam` fallback 을 실행하면 `@cam-study` 역할과 캠스터디 등록이 즉시 활성화됩니다.
   - 응답은 신청자에게만 보이는 `ephemeral`로 반환하고, 성공/실패 결과는 `testChannelId`에도 기록합니다.
   - 역할이 제거되면 새 세션 추적은 중단되고, 이미 진행 중이던 세션만 종료 시점까지 정산됩니다.
 
@@ -40,11 +43,11 @@
 ## 기상챌린지
 
 - self-service 온보딩
-  - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`와 기상 self-service 안내 채널에서 실행합니다.
+  - `#start-here`, `#time-start-here`의 bot-owned 버튼 UI가 1차 진입점이고 `/register`, `/stop-wakeup`, `/apply-vacation`은 fallback 으로 유지합니다.
   - 세 명령의 응답은 사용자에게만 보이는 `ephemeral`로 반환하고, 성공/실패 결과는 `testChannelId`에도 기록합니다.
-  - 기상 참여 시작은 `/register`로 처리합니다.
+  - 기상 참여 시작은 `기상 등록/수정` 버튼 또는 `/register` fallback 으로 처리합니다.
   - `#start-here`에 남아 있는 stale `/apply-wakeup` 등록은 `/register` 사용 안내로 전환됩니다.
-  - 참여 중단은 `/stop-wakeup`으로 처리합니다.
+  - 참여 중단은 `기상 중단` 버튼의 확인 단계 또는 `/stop-wakeup` fallback 으로 처리합니다.
 
 - 초기화:
   - 사용자가 `/register`로 자신의 월별 기상시간을 등록합니다.
@@ -71,6 +74,7 @@
 
 ## 기상챌린지-명령어
 
+- 운영 채널의 상시 버튼 UI가 1차 진입점이고 아래 슬래시 명령은 fallback 경로로 유지됩니다.
 - `/register <waketime>`
   - 사용자가 자신의 월별 기상시간을 직접 등록하거나 수정한다
   - `waketime`은 `HHmm` 또는 `HH:mm` 형식으로 입력할 수 있고 내부 저장은 `HHmm`로 정규화된다

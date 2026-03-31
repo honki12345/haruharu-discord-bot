@@ -92,15 +92,18 @@
 - 기상시간 self-service는 `/register` 하나로 기상 참여 시작/재시작과 기상시간 등록/수정을 처리하되 하루 1회 제한을 지켜야 한다.
 - `/register` 기상시간 입력은 `HHmm` 또는 `HH:mm` 형식을 허용하되, 내부 저장/응답/후속 로직에는 `HHmm` canonical 값만 사용하도록 유지한다.
 - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`와 기상 self-service 전용 온보딩 채널에서만 실행되도록 유지한다.
+- 운영 `#start-here`, `#time-start-here`에는 bot-owned persistent self-service UI 메시지를 유지하고, 버튼/모달/확인 단계도 기존 self-service 서비스/감사 로그 경로를 재사용하도록 유지한다.
+- 운영 self-service UI 메시지는 `#start-here`에 `캠스터디 참여`, `기상 등록/수정`, `기상 중단`, `휴가 신청` 버튼을, `#time-start-here`에 기상 관련 버튼만 노출하도록 유지한다.
 - `/register` 성공 시 `@wake-up` 역할도 함께 부여하고, 역할 부여 실패 시 DB 등록을 남기지 않도록 유지한다.
 - self-service 명령(`/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`)은 사용자에게는 `ephemeral`로 응답하고, 운영 확인용 결과는 `testChannelId`에도 남긴다.
 - `testChannelId` 데모 경로는 `/demo-self-service-ui`로 셀프서비스 버튼 UI 메시지를 게시하고, 버튼/모달 제출도 기존 self-service 서비스/감사 로그 경로를 재사용하도록 유지한다.
+- 운영 UI 관리 경로는 `/sync-self-service-ui`로 유지하고, 기존 bot-owned 메시지를 식별해 갱신하며 같은 채널에 중복 관리 메시지를 남기지 않도록 유지한다.
 - 기상 self-service 중단은 `/stop-wakeup` 으로 처리하고, 현재 월 참여도 즉시 중단해야 한다.
 - `/stop-wakeup` 성공 시 `@wake-up` 역할도 함께 회수하고, 역할 회수 실패 시 `WakeUpMembership`을 `stopped`로 바꾸지 않도록 유지한다.
 - `/stop-wakeup` 은 현재 월 `Users` 스냅샷을 제거하고 같은 달 exclusion 을 남겨 그 달 `/register` 재등록과 자동 복구를 막아야 한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - 캠스터디 등록 원본은 `@cam-study` 역할과 `guildMemberUpdate` 동기화로 본다.
-- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui`)은 `testChannelId`에서만 실행되도록 유지한다.
+- 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui`, `/sync-self-service-ui`)은 `testChannelId`에서만 실행되도록 유지한다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
 - 역할 기반 운영 흐름을 추가할 때는 `#start-here` 같은 온보딩 채널을 기준으로 두고, 신청 응답은 가능하면 `ephemeral`로 처리한다.
 
@@ -108,7 +111,7 @@
 
 - Discord 이벤트당 파일 하나를 유지한다.
 - `ready.ts`는 부팅, 테이블 sync, 매일 04:00 운영 daily message/thread 생성 스케줄, 기상 결과표 thread 댓글 전송을 포함한 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
-- `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅과 `testChannelId` 데모 button/modal interaction 라우팅을 담당한다.
+- `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅과 운영/데모 self-service button/modal interaction 라우팅을 담당한다.
 - `messageCreate.ts`는 운영 `#wake-up` 출석 thread와 테스트 `출석-demo` thread의 첫 댓글을 감지하고, 운영 thread 첫 공식 판정은 `AttendanceLog`로 즉시 저장한다.
 - `interactionCreate.ts`는 배포 전환 중 stale 슬래시 등록이 남을 수 있는 경우, 무응답으로 끝내지 말고 migration 안내를 우선 반환한다. 현재는 stale `/apply-wakeup` 에 대해 `/register` 안내를 반환한다.
 - `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 감지해서 `CamStudyUsers`를 자동 동기화하고, 활성 세션 중 역할 회수면 삭제를 종료 시점까지 미룬다.
