@@ -5,12 +5,14 @@ const createMockMember = (
   roleIds: string[],
   overrides?: {
     id?: string;
+    displayName?: string | null;
     globalName?: string;
     username?: string;
     voice?: { channelId?: string | null; selfVideo?: boolean; streaming?: boolean };
   },
 ) => ({
   id: overrides?.id ?? 'cam-user-123',
+  displayName: overrides?.displayName ?? null,
   user: {
     id: overrides?.id ?? 'cam-user-123',
     globalName: overrides?.globalName ?? '홍길동',
@@ -141,5 +143,52 @@ describe('US-16: 캠스터디 역할 기반 자동 등록', () => {
 
     const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
     expect(user).not.toBeNull();
+  });
+
+  it('TC-CSRS06: guildMemberUpdate는 역할 유지 상태의 서버 닉네임 변경도 CamStudyUsers와 active session에 반영한다', async () => {
+    await TestCamStudyUsers.create({
+      userid: 'cam-user-123',
+      username: '기존닉네임',
+    });
+    await TestCamStudyActiveSession.create({
+      userid: 'cam-user-123',
+      username: '기존닉네임',
+      channelid: 'valid-voice-channel-id',
+      startedat: '1711674000000',
+      lastobservedat: '1711674300000',
+    });
+
+    const oldMember = createMockMember(['valid-cam-study-role-id'], {
+      displayName: '기존닉네임',
+      globalName: '글로벌닉네임',
+    });
+    const newMember = createMockMember(['valid-cam-study-role-id'], {
+      displayName: '새서버닉네임',
+      globalName: '글로벌닉네임',
+    });
+
+    const { event } = await import('../events/guildMemberUpdate.js');
+    await event.execute(oldMember as never, newMember as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
+    const activeSession = await TestCamStudyActiveSession.findOne({ where: { userid: 'cam-user-123' } });
+
+    expect(user?.username).toBe('새서버닉네임');
+    expect(activeSession?.username).toBe('새서버닉네임');
+  });
+
+  it('TC-CSRS07: guildMemberUpdate는 cam-study 역할 추가 시 globalName보다 서버 display name을 우선 저장한다', async () => {
+    const oldMember = createMockMember([]);
+    const newMember = createMockMember(['valid-cam-study-role-id'], {
+      displayName: '서버우선닉네임',
+      globalName: '글로벌닉네임',
+      username: 'plain-user',
+    });
+
+    const { event } = await import('../events/guildMemberUpdate.js');
+    await event.execute(oldMember as never, newMember as never);
+
+    const user = await TestCamStudyUsers.findOne({ where: { userid: 'cam-user-123' } });
+    expect(user?.username).toBe('서버우선닉네임');
   });
 });
