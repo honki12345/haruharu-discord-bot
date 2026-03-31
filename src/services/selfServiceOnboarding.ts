@@ -26,6 +26,12 @@ type ManagedSelfServiceMessage = {
   id: string;
   content: string;
   createdTimestamp: number;
+  components?: Array<{
+    components?: Array<{
+      customId?: string;
+      custom_id?: string;
+    }>;
+  }>;
   author?: {
     id: string;
   };
@@ -122,27 +128,32 @@ const buildApplyVacationModal = () =>
 
 const buildMarker = (onboardingType: SelfServiceOnboardingType) => `[self-service-onboarding:${onboardingType}]`;
 
-const buildSelfServiceOnboardingMessage = (onboardingType: SelfServiceOnboardingType) => {
-  const contentLines =
-    onboardingType === 'start-here'
-      ? [
-          buildMarker(onboardingType),
-          '버튼으로 셀프서비스를 시작하세요.',
-          '- 캠스터디 참여: `@cam-study` 역할과 참여 상태를 바로 활성화합니다.',
-          '- 기상 등록/수정: `HHmm` 또는 `HH:mm` 형식의 기상시간을 입력합니다.',
-          '- 기상 중단: 확인 단계 후 현재 월 참여 중단 규칙을 그대로 적용합니다.',
-          '- 휴가 신청: `yyyymmdd` 형식의 날짜를 입력합니다.',
-          '- 기존 슬래시 커맨드는 fallback 경로로 계속 사용할 수 있습니다.',
-        ]
-      : [
-          buildMarker(onboardingType),
-          '기상 self-service를 버튼으로 시작하세요.',
-          '- 기상 등록/수정: `HHmm` 또는 `HH:mm` 형식의 기상시간을 입력합니다.',
-          '- 기상 중단: 확인 단계 후 현재 월 참여 중단 규칙을 그대로 적용합니다.',
-          '- 휴가 신청: `yyyymmdd` 형식의 날짜를 입력합니다.',
-          '- 기존 슬래시 커맨드는 fallback 경로로 계속 사용할 수 있습니다.',
-        ];
+const getManagedCustomIds = (onboardingType: SelfServiceOnboardingType) =>
+  onboardingType === 'start-here'
+    ? [APPLY_CAM_CUSTOM_ID, REGISTER_OPEN_CUSTOM_ID]
+    : [REGISTER_OPEN_CUSTOM_ID, APPLY_VACATION_OPEN_CUSTOM_ID, STOP_WAKEUP_OPEN_CUSTOM_ID];
 
+const getMessageCustomIds = (message: ManagedSelfServiceMessage) =>
+  (message.components ?? [])
+    .flatMap(row => row.components ?? [])
+    .map(component => component.customId ?? component.custom_id)
+    .filter((customId): customId is string => typeof customId === 'string')
+    .sort();
+
+const matchesManagedMessageFingerprint = (
+  message: ManagedSelfServiceMessage,
+  onboardingType: SelfServiceOnboardingType,
+) => {
+  const expectedCustomIds = [...getManagedCustomIds(onboardingType)].sort();
+  const messageCustomIds = getMessageCustomIds(message);
+
+  return (
+    expectedCustomIds.length === messageCustomIds.length &&
+    expectedCustomIds.every((customId, index) => customId === messageCustomIds[index])
+  );
+};
+
+const buildSelfServiceOnboardingMessage = (onboardingType: SelfServiceOnboardingType) => {
   const rows =
     onboardingType === 'start-here'
       ? [
@@ -153,18 +164,8 @@ const buildSelfServiceOnboardingMessage = (onboardingType: SelfServiceOnboarding
               .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
               .setCustomId(REGISTER_OPEN_CUSTOM_ID)
-              .setLabel('기상 등록/수정')
+              .setLabel('기상챌린지 참여')
               .setStyle(ButtonStyle.Primary),
-          ),
-          new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder()
-              .setCustomId(STOP_WAKEUP_OPEN_CUSTOM_ID)
-              .setLabel('기상 중단')
-              .setStyle(ButtonStyle.Danger),
-            new ButtonBuilder()
-              .setCustomId(APPLY_VACATION_OPEN_CUSTOM_ID)
-              .setLabel('휴가 신청')
-              .setStyle(ButtonStyle.Secondary),
           ),
         ]
       : [
@@ -187,7 +188,7 @@ const buildSelfServiceOnboardingMessage = (onboardingType: SelfServiceOnboarding
         ];
 
   return {
-    content: contentLines.join('\n'),
+    content: '',
     components: rows,
   };
 };
@@ -354,7 +355,7 @@ const syncSelfServiceOnboardingMessage = async ({
   const marker = buildMarker(onboardingType);
   const existingMessages = messageValues
     .filter(isManagedSelfServiceMessage)
-    .filter(message => message.content.includes(marker))
+    .filter(message => message.content.includes(marker) || matchesManagedMessageFingerprint(message, onboardingType))
     .filter(message => {
       if (!botUserId) {
         return true;

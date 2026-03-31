@@ -28,13 +28,28 @@ vi.mock('node:module', async importOriginal => {
   };
 });
 
-const createManagedMessage = (id: string, content: string, createdTimestamp: number) => ({
+const createManagedMessage = ({
+  id,
+  content = '',
+  createdTimestamp,
+  customIds = [],
+  authorId = 'bot-user-id',
+}: {
+  id: string;
+  content?: string;
+  createdTimestamp: number;
+  customIds?: string[];
+  authorId?: string;
+}) => ({
   id,
   content,
   createdTimestamp,
   author: {
-    id: 'bot-user-id',
+    id: authorId,
   },
+  components: customIds.map(customId => ({
+    components: [{ customId }],
+  })),
   editable: true,
   edit: vi.fn().mockResolvedValue(undefined),
   delete: vi.fn().mockResolvedValue(undefined),
@@ -46,28 +61,54 @@ describe('US-19: 운영 self-service 온보딩 UI', () => {
     vi.clearAllMocks();
   });
 
-  it('운영 온보딩 메시지는 start-here 와 time-start-here 에서 노출 버튼 구성이 다르다', async () => {
+  it('운영 온보딩 메시지는 채널별로 UI-only 버튼 구성만 노출한다', async () => {
     const { buildSelfServiceOnboardingMessage } = await import('../services/selfServiceOnboarding.js');
 
     const startHereMessage = buildSelfServiceOnboardingMessage('start-here');
     const timeStartHereMessage = buildSelfServiceOnboardingMessage('time-start-here');
 
-    const startHereLabels = startHereMessage.components.flatMap(
-      (row: { toJSON: () => { components: Array<{ label: string }> } }) =>
-        row.toJSON().components.map(component => component.label),
+    const startHereButtons = startHereMessage.components.flatMap(
+      (row: { toJSON: () => { components: Array<{ label: string; custom_id: string }> } }) =>
+        row.toJSON().components.map(component => ({
+          label: component.label,
+          customId: component.custom_id,
+        })),
     );
-    const timeStartHereLabels = timeStartHereMessage.components.flatMap(
-      (row: { toJSON: () => { components: Array<{ label: string }> } }) =>
-        row.toJSON().components.map(component => component.label),
+    const timeStartHereButtons = timeStartHereMessage.components.flatMap(
+      (row: { toJSON: () => { components: Array<{ label: string; custom_id: string }> } }) =>
+        row.toJSON().components.map(component => ({
+          label: component.label,
+          customId: component.custom_id,
+        })),
     );
 
-    expect(startHereMessage.content).toContain('[self-service-onboarding:start-here]');
-    expect(startHereLabels).toEqual(
-      expect.arrayContaining(['캠스터디 참여', '기상 등록/수정', '기상 중단', '휴가 신청']),
-    );
-    expect(timeStartHereMessage.content).toContain('[self-service-onboarding:time-start-here]');
-    expect(timeStartHereLabels).toEqual(expect.arrayContaining(['기상 등록/수정', '기상 중단', '휴가 신청']));
-    expect(timeStartHereLabels).not.toContain('캠스터디 참여');
+    expect(startHereMessage.content).toBe('');
+    expect(startHereButtons).toEqual([
+      {
+        label: '캠스터디 참여',
+        customId: 'self-service-onboarding:apply-cam:submit',
+      },
+      {
+        label: '기상챌린지 참여',
+        customId: 'self-service-onboarding:register:open',
+      },
+    ]);
+
+    expect(timeStartHereMessage.content).toBe('');
+    expect(timeStartHereButtons).toEqual([
+      {
+        label: '기상 등록/수정',
+        customId: 'self-service-onboarding:register:open',
+      },
+      {
+        label: '휴가 신청',
+        customId: 'self-service-onboarding:apply-vacation:open',
+      },
+      {
+        label: '기상 중단',
+        customId: 'self-service-onboarding:stop-wakeup:open',
+      },
+    ]);
   });
 
   it('운영 기상 중단 버튼의 첫 클릭은 destructive action 없이 확인 단계만 연다', async () => {
@@ -154,19 +195,36 @@ describe('US-19: 운영 self-service 온보딩 UI', () => {
     });
   });
 
-  it('운영 UI sync 는 기존 봇 메시지를 갱신하고 중복 메시지는 제거한다', async () => {
-    const olderMessage = createManagedMessage('message-1', '[self-service-onboarding:start-here]\nold message', 100);
-    const latestMessage = createManagedMessage(
-      'message-2',
-      '[self-service-onboarding:start-here]\nlatest message',
-      200,
-    );
+  it('운영 UI sync 는 marker 없이도 기존 봇 메시지를 갱신하고 중복 메시지는 제거한다', async () => {
+    const olderMessage = createManagedMessage({
+      id: 'message-1',
+      createdTimestamp: 100,
+      customIds: ['self-service-onboarding:apply-cam:submit', 'self-service-onboarding:register:open'],
+    });
+    const latestMessage = createManagedMessage({
+      id: 'message-2',
+      createdTimestamp: 200,
+      customIds: ['self-service-onboarding:apply-cam:submit', 'self-service-onboarding:register:open'],
+    });
+    const unrelatedMessage = createManagedMessage({
+      id: 'message-3',
+      createdTimestamp: 300,
+      customIds: ['self-service-onboarding:register:open', 'self-service-onboarding:apply-vacation:open'],
+    });
+    const foreignAuthorMessage = createManagedMessage({
+      id: 'message-4',
+      createdTimestamp: 400,
+      customIds: ['self-service-onboarding:apply-cam:submit', 'self-service-onboarding:register:open'],
+      authorId: 'other-bot-id',
+    });
     const channel = {
       messages: {
         fetch: vi.fn().mockResolvedValue(
           new Collection([
             ['message-1', olderMessage],
             ['message-2', latestMessage],
+            ['message-3', unrelatedMessage],
+            ['message-4', foreignAuthorMessage],
           ]),
         ),
       },
@@ -182,6 +240,10 @@ describe('US-19: 운영 self-service 온보딩 UI', () => {
 
     expect(latestMessage.edit).toHaveBeenCalledOnce();
     expect(olderMessage.delete).toHaveBeenCalledOnce();
+    expect(unrelatedMessage.edit).not.toHaveBeenCalled();
+    expect(unrelatedMessage.delete).not.toHaveBeenCalled();
+    expect(foreignAuthorMessage.edit).not.toHaveBeenCalled();
+    expect(foreignAuthorMessage.delete).not.toHaveBeenCalled();
     expect(channel.send).not.toHaveBeenCalled();
   });
 });
