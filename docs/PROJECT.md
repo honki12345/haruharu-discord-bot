@@ -32,17 +32,17 @@
 | `#wake-up`         | 기상인증 전용 채널                        | `@wake-up` 역할 기반 접근, 신청 전에는 보이지 않음                                    |
 | `#cam-study`       | 캠스터디 전용 텍스트 채널                 | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음                                  |
 | `음성: 캠스터디`   | 캠스터디 전용 음성 채널                   | `@cam-study` 역할 기반 접근, 신청 전에는 보이지 않음                                  |
-| `#test`            | 관리자 운영/감사 채널                     | 관리자 명령 실행과 self-service 결과 로그 확인 용도                                   |
+| `#test`            | 관리자 운영/감사 채널                     | 관리자 명령 실행, self-service 결과 로그, 캠스터디 이벤트 감사 로그 확인 용도         |
 
 ### 채널별 고정/반복 안내 메시지
 
-| 채널               | 메시지 유형      | 설명                                                                                                                   | 출처                           |
-| ------------------ | ---------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `#start-here`      | 고정 안내        | 서버 소개, 참여 방법, 공통 self-service 명령어 고정 안내                                                               | 운영 수동 관리, `USER_STORIES` |
-| `#time-start-here` | 고정 안내        | 기상 self-service 명령어와 시간 설정/휴가 사용 안내                                                                    | 운영 수동 관리, `USER_STORIES` |
-| `#wake-up`         | 반복 자동 메시지 | 매일 04:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내                                                 | `src/daily-attendance.ts`      |
-| `#wake-up`         | 반복 자동 메시지 | 평일 13:00 당일 출석 thread 댓글로 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영                                   | `src/services/reporting.ts`    |
-| `#test`            | 관리자 운영 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui` 실행과 self-service 결과 로그 확인 | `src/commands/haruharu/*.ts`   |
+| 채널               | 메시지 유형      | 설명                                                                                                                            | 출처                                                                 |
+| ------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `#start-here`      | 고정 안내        | 서버 소개, 참여 방법, 공통 self-service 명령어 고정 안내                                                                        | 운영 수동 관리, `USER_STORIES`                                       |
+| `#time-start-here` | 고정 안내        | 기상 self-service 명령어와 시간 설정/휴가 사용 안내                                                                             | 운영 수동 관리, `USER_STORIES`                                       |
+| `#wake-up`         | 반복 자동 메시지 | 매일 04:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내                                                          | `src/daily-attendance.ts`                                            |
+| `#wake-up`         | 반복 자동 메시지 | 평일 13:00 당일 출석 thread 댓글로 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영                                            | `src/services/reporting.ts`                                          |
+| `#test`            | 관리자 운영 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui` 실행과 self-service/캠스터디 결과 로그 확인 | `src/commands/haruharu/*.ts`, `src/services/camStudyNotification.ts` |
 
 ---
 
@@ -86,6 +86,7 @@ haruharu-discord-bot/
 │   │   ├── attendance.ts        # 레거시 check-in/check-out 처리
 │   │   ├── challengeSelfService.ts # 사용자 기상시간/휴가 self-service 정책 처리
 │   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
+│   │   ├── camStudyNotification.ts # 캠스터디 DM + test 채널 감사 로그 전송
 │   │   ├── camStudyRoleSync.ts  # 역할 기반 캠스터디 참가자 동기화
 │   │   ├── participationApplication.ts # self-service 활성화/역할 부여 처리
 │   │   ├── selfServiceActions.ts # slash command/button/modal 공통 self-service 실행 래퍼
@@ -347,17 +348,19 @@ flowchart TD
 - `/apply-cam`은 사용자에게 `ephemeral`로 응답하고, 성공/실패 모두 `testChannelId`에도 남긴다.
 - 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui`)은 `testChannelId` 전용으로 실행된다.
 - `interactionCreate.ts`는 chat input 외에도 `demo-self-service-ui`가 게시한 button / modal submit interaction 을 라우팅한다.
+- 캠스터디 `voiceStateUpdate` 결과는 공개 채널 대신 참가자 DM으로 전달되고, 동일 결과가 `testChannelId` 감사 로그에도 남는다.
 
 #### camStudyHandler.ts
 
-| 항목   | 내용                                                                                                                         |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| 트리거 | 음성 채널 상태 변경                                                                                                          |
-| 기능   | 카메라(`selfVideo`) 또는 화면공유(`streaming`) ON/OFF 감지, 상태 전이를 `src/services/camStudy.ts`에 위임하여 학습 시간 기록 |
+| 항목   | 내용                                                                                                                                                                       |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 트리거 | 음성 채널 상태 변경                                                                                                                                                        |
+| 기능   | 카메라(`selfVideo`) 또는 화면공유(`streaming`) ON/OFF 감지, 상태 전이를 `src/services/camStudy.ts`에 위임하여 학습 시간 기록 후 참가자 DM + `testChannelId` 감사 로그 전송 |
 
 **구현 메모:**
 
 - 학습 세션이 이미 시작된 뒤 `@cam-study` 역할이 제거되어도, 기존 `CamStudyTimeLog`를 기준으로 종료 시점 분 계산은 마무리한다.
+- 공개 텍스트 채널 알림은 남기지 않고, 시작/종료/5분 미만/미등록 결과를 참가자 DM과 `testChannelId` 운영 로그로 분리한다.
 
 #### messageCreate.ts
 
@@ -406,17 +409,25 @@ flowchart TD
 
 #### camStudy.ts
 
-| 항목   | 내용                                                                                                                                                                                   |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 음성 채널 상태 변경을 캠스터디 시작/종료 이벤트로 해석                                                                                                                                 |
-| 담당   | 입장/퇴장/카메라/화면공유 활성 전이 계산, 최소 인정 시간 검증, 일간 로그 생성/갱신, 진행 중 active session 저장, 재기동 시 voice state 기반 복구/종료 정산, 상태 전이 구조화 로그 기록 |
-| 호출처 | `src/events/camStudyHandler.ts`, `src/events/ready.ts`                                                                                                                                 |
+| 항목   | 내용                                                                                                                                                                                                              |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 음성 채널 상태 변경을 캠스터디 시작/종료 이벤트로 해석                                                                                                                                                            |
+| 담당   | 입장/퇴장/카메라/화면공유 활성 전이 계산, 최소 인정 시간 검증, 일간 로그 생성/갱신, 진행 중 active session 저장, 재기동 시 voice state 기반 복구/종료 정산, 참가자 알림용 메시지 생성, 상태 전이 구조화 로그 기록 |
+| 호출처 | `src/events/camStudyHandler.ts`, `src/events/ready.ts`                                                                                                                                                            |
 
 비고:
 
 - 진행 중 세션은 `CamStudyActiveSession`에 `(userid, channelid, startedat, lastobservedat)` 형태로 저장한다.
 - 재배포 후 `ready.ts`는 저장된 active session과 현재 음성 채널 상태를 비교해 세션을 유지하거나 마지막 관측 시각 기준으로 종료 정산한다.
 - 종료 이벤트를 놓친 뒤 다음 시작 이벤트가 오면, 남아 있던 active session을 먼저 정리한 뒤 새 세션을 시작한다.
+
+#### camStudyNotification.ts
+
+| 항목   | 내용                                                                                                              |
+| ------ | ----------------------------------------------------------------------------------------------------------------- |
+| 역할   | 캠스터디 이벤트 결과를 참가자 DM과 `testChannelId` 운영 로그로 분리                                               |
+| 담당   | 시작/종료/미등록 메시지 DM 전송, `testChannelId` 감사 로그 전송, 전송 실패 시 logger fallback, 멘션 파싱 비활성화 |
+| 호출처 | `src/events/camStudyHandler.ts`                                                                                   |
 
 #### camStudyRoleSync.ts
 

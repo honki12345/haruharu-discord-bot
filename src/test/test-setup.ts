@@ -579,22 +579,38 @@ interface MockVoiceStateOptions {
   streaming?: boolean;
   hasCamStudyRole?: boolean;
   userId: string;
+  memberSend?: ReturnType<typeof vi.fn>;
+  auditChannelSend?: ReturnType<typeof vi.fn>;
+  auditChannelFetch?: ReturnType<typeof vi.fn>;
 }
 
 export function createMockVoiceState(opts: MockVoiceStateOptions) {
   const sendMock = vi.fn();
+  const memberSendMock = opts.memberSend ?? vi.fn().mockResolvedValue(undefined);
+  const auditSendMock = opts.auditChannelSend ?? vi.fn().mockResolvedValue(undefined);
+  const auditFetchMock =
+    opts.auditChannelFetch ??
+    vi.fn().mockResolvedValue({
+      send: auditSendMock,
+    });
   const channelId = opts.channelId !== undefined ? opts.channelId : 'valid-voice-channel-id';
   return {
     channelId,
     selfVideo: opts.selfVideo ?? false,
     streaming: opts.streaming ?? false,
     id: opts.userId,
+    client: {
+      channels: {
+        fetch: auditFetchMock,
+      },
+    },
     member: {
       roles: {
         cache: {
           has: () => opts.hasCamStudyRole ?? true,
         },
       },
+      send: memberSendMock,
     },
     guild: {
       channels: {
@@ -607,5 +623,8 @@ export function createMockVoiceState(opts: MockVoiceStateOptions) {
     },
     channel: channelId ? { send: sendMock } : null,
     _sendMock: sendMock,
+    _memberSendMock: memberSendMock,
+    _auditSendMock: auditSendMock,
+    _auditFetchMock: auditFetchMock,
   };
 }

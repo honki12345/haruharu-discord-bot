@@ -25,7 +25,7 @@ interface VoiceStateSnapshot {
 }
 
 interface CamStudyEventResult {
-  target: 'channel' | 'voice-channel';
+  delivery: 'participant';
   message: string;
 }
 
@@ -260,13 +260,13 @@ const resolveLegacyCamStudyEnd = async (
     const result = await finalizeCamStudyDuration(user, Number(timelog.timestamp), endedAt, 'legacy-end');
     if (result.tooShort) {
       return {
-        target: 'voice-channel' as const,
+        delivery: 'participant' as const,
         message: `${user.username}님 study end: 5분 이내 입력안됨`,
       };
     }
 
     return {
-      target: 'voice-channel' as const,
+      delivery: 'participant' as const,
       message: `${user.username}님 study end: ${result.recordedMinutes}분 입력완료, 총 공부시간: ${result.totalMinutes}분`,
     };
   }
@@ -279,7 +279,7 @@ const resolveLegacyCamStudyEnd = async (
       userId: user.userid,
     });
     return {
-      target: 'voice-channel' as const,
+      delivery: 'participant' as const,
       message: `${user.username}님 study end: 공부시간 정상 입력안됨`,
     };
   }
@@ -290,20 +290,20 @@ const resolveLegacyCamStudyEnd = async (
       const result = await finalizeCamStudyDuration(user, Number(yesterdayTimelog.timestamp), endedAt, 'legacy-end');
       if (result.tooShort) {
         return {
-          target: 'voice-channel' as const,
+          delivery: 'participant' as const,
           message: `${user.username}님 study end: 5분 이내 입력안됨`,
         };
       }
 
       return {
-        target: 'voice-channel' as const,
+        delivery: 'participant' as const,
         message: `${user.username}님 study end: ${result.recordedMinutes}분 입력완료, 총 공부시간: ${result.totalMinutes}분`,
       };
     }
   }
 
   return {
-    target: 'voice-channel' as const,
+    delivery: 'participant' as const,
     message: `${user.username}님 study end: 공부시간 정상 입력안됨`,
   };
 };
@@ -378,7 +378,7 @@ const processCamStudyStateChange = async (
 
   if (!user) {
     if (transition.userEnteredConfiguredChannel) {
-      return { target: 'channel', message: '등록되지 않은 회원입니다' };
+      return { delivery: 'participant', message: '등록되지 않은 회원입니다' };
     }
     return null;
   }
@@ -397,13 +397,13 @@ const processCamStudyStateChange = async (
 
       if (result.tooShort) {
         return {
-          target: 'voice-channel',
+          delivery: 'participant',
           message: `${user.username}님 study end: 5분 이내 입력안됨`,
         };
       }
 
       return {
-        target: 'voice-channel',
+        delivery: 'participant',
         message: `${user.username}님 study end: ${result.recordedMinutes}분 입력완료, 총 공부시간: ${result.totalMinutes}분`,
       };
     }
@@ -457,7 +457,7 @@ const processCamStudyStateChange = async (
   });
 
   return {
-    target: 'voice-channel',
+    delivery: 'participant',
     message: `${user.username}님 study start`,
   };
 };

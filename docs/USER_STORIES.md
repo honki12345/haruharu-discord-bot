@@ -609,6 +609,9 @@ SO THAT 별도 조작 없이 공부 시간이 측정된다
 - 진행 중 세션은 `CamStudyActiveSession`에 저장한다
 - 재배포 후 봇이 다시 올라오면 저장된 active session 과 현재 voice state 를 비교해 세션을 복구하거나 종료 정산한다
 - 재배포 중 종료 이벤트를 놓치면 마지막 heartbeat(`lastobservedat`) 기준으로 손실 범위를 제한한다
+- 시작/종료/5분 미만 무시/미등록 결과는 공개 채널이 아니라 참가자 DM으로만 전달된다
+- 같은 결과는 운영 확인용으로 `testChannelId`에도 기록된다
+- 참가자 DM 전송 실패가 발생해도 공부시간 기록/정산과 `testChannelId` 로그는 계속 처리된다
 
 ```mermaid
 sequenceDiagram
@@ -616,14 +619,16 @@ sequenceDiagram
     participant VC as Voice Channel
     participant B as Bot
     participant DB as SQLite
-    participant L as Log Channel
+    participant DM as Participant DM
+    participant T as #test
 
     Note over U,VC: 음성 채널 입장 + 카메라 또는 화면공유 ON
     VC->>B: voiceStateUpdate<br/>(selfVideo: true 또는 streaming: true)
 
     B->>DB: CamStudyUsers 조회 (userid)
     alt 미등록 사용자
-        B->>L: "등록되지 않은 사용자입니다"
+        B->>DM: "등록되지 않은 회원입니다"
+        B->>T: 실행 결과 로그 전송
         B->>B: 종료
     end
 
@@ -634,7 +639,8 @@ sequenceDiagram
     end
 
     B->>DB: timestamp = 현재시간
-    B->>L: "홍길동님 study start"
+    B->>DM: "홍길동님 study start"
+    B->>T: 실행 결과 로그 전송
 
     Note over U,VC: 학습 중...
     B->>DB: lastobservedat heartbeat 갱신 (1분 간격)
@@ -656,12 +662,15 @@ sequenceDiagram
     alt 경과시간 < 5분
         B->>DB: timestamp = 현재시간 (갱신만)
         B->>DB: CamStudyActiveSession 삭제
+        B->>DM: "홍길동님 study end: 5분 이내 입력안됨"
+        B->>T: 실행 결과 로그 전송
         B->>B: 종료 (무시)
     end
 
     B->>DB: 종료 날짜 기준 CamStudyTimeLog 생성/업데이트
     B->>DB: CamStudyActiveSession 삭제
-    B->>L: "홍길동님 study end: 45분 입력완료<br/>총 공부시간: 120분"
+    B->>DM: "홍길동님 study end: 45분 입력완료<br/>총 공부시간: 120분"
+    B->>T: 실행 결과 로그 전송
 ```
 
 ---
