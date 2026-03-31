@@ -14,10 +14,12 @@ import {
   listChallengeUserExclusions,
   listWakeUpMembershipsByUserIds,
   updateChallengeUser,
+  updateWakeUpMembership,
 } from '../repository/challengeRepository.js';
 import { isValidWakeTime } from '../attendance.js';
 import { wakeUpRoleId } from '../config.js';
 import { logger } from '../logger.js';
+import { hasDiscordDisplayNameChanged, resolveDiscordDisplayName } from '../utils/discordName.js';
 import { DEFAULT_VACANCES_COUNT, getYearMonth, getYearMonthDate } from '../utils.js';
 import { Users } from '../repository/Users.js';
 import { WakeUpMembership } from '../repository/WakeUpMembership.js';
@@ -166,6 +168,46 @@ const ensureWakeUpMembershipSnapshot = async (userId: string, yearmonth: string)
 
 const ensureWakeUpMembershipSnapshotForDate = async (userId: string, yearmonthday: string) =>
   ensureWakeUpMembershipSnapshot(userId, yearmonthday.slice(0, 6));
+
+const syncWakeUpMemberState = async (member: GuildMember) => {
+  const membership = await findWakeUpMembership(member.user.id);
+  if (!membership || membership.status !== 'active') {
+    return;
+  }
+
+  const username = resolveDiscordDisplayName(member);
+  const { year, month } = getYearMonthDate();
+  const yearmonth = getYearMonth(year, month);
+  const currentMonthUser = await findChallengeUser(member.user.id, yearmonth);
+  const updatedMembership = membership.username !== username;
+  const updatedCurrentMonthSnapshot = Boolean(currentMonthUser && currentMonthUser.username !== username);
+
+  if (updatedMembership) {
+    await updateWakeUpMembership(member.user.id, { username });
+  }
+
+  if (updatedCurrentMonthSnapshot) {
+    await updateChallengeUser(member.user.id, yearmonth, { username });
+  }
+
+  if (updatedMembership || updatedCurrentMonthSnapshot) {
+    logger.info('wake-up member username synced from guildMemberUpdate', {
+      userid: member.user.id,
+      username,
+      yearmonth,
+      updatedMembership,
+      updatedCurrentMonthSnapshot,
+    });
+  }
+};
+
+const syncWakeUpMemberProfile = async (oldMember: GuildMember, newMember: GuildMember) => {
+  if (!hasDiscordDisplayNameChanged(oldMember, newMember)) {
+    return;
+  }
+
+  await syncWakeUpMemberState(newMember);
+};
 
 const backfillWakeUpMembershipsFromLatestUsers = async () => {
   const latestUserSnapshot = await Users.findOne({
@@ -662,4 +704,6 @@ export {
   executeRegisterWithRoleSync,
   executeStopWakeUp,
   executeStopWakeUpWithRoleSync,
+  syncWakeUpMemberProfile,
+  syncWakeUpMemberState,
 };

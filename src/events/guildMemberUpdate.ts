@@ -1,5 +1,6 @@
 import { Events, GuildMember, PartialGuildMember } from 'discord.js';
 import { logger } from '../logger.js';
+import { syncWakeUpMemberProfile, syncWakeUpMemberState } from '../services/challengeSelfService.js';
 import { syncCamStudyMemberState, syncCamStudyRoleMembership } from '../services/camStudyRoleSync.js';
 
 export const event = {
@@ -7,13 +8,16 @@ export const event = {
   async execute(oldMember: GuildMember | PartialGuildMember, newMember: GuildMember) {
     try {
       if (oldMember.partial) {
-        await syncCamStudyMemberState(newMember);
+        await Promise.all([syncWakeUpMemberState(newMember), syncCamStudyMemberState(newMember)]);
         return;
       }
 
-      await syncCamStudyRoleMembership(oldMember, newMember);
+      await Promise.all([
+        syncWakeUpMemberProfile(oldMember, newMember),
+        syncCamStudyRoleMembership(oldMember, newMember),
+      ]);
     } catch (error) {
-      logger.error('guildMemberUpdate cam study sync failed', {
+      logger.error('guildMemberUpdate member sync failed', {
         error,
         newMemberId: newMember.id,
         oldMemberId: oldMember.id,

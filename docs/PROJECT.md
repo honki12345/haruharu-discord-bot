@@ -77,7 +77,7 @@ haruharu-discord-bot/
 │   │
 │   ├── events/
 │   │   ├── ready.ts             # 봇 시작, DB 동기화, 리포트 스케줄러 등록
-│   │   ├── guildMemberUpdate.ts # @cam-study 역할 기반 참가자 동기화
+│   │   ├── guildMemberUpdate.ts # 역할/이름 변경 기반 기상·캠스터디 참가자 동기화
 │   │   ├── interactionCreate.ts # 슬래시 커맨드 핸들러
 │   │   ├── messageCreate.ts     # 운영/데모 출석 thread 첫 댓글 감지 및 공식 AttendanceLog 기록
 │   │   └── camStudyHandler.ts   # 음성 채널 상태 감지 및 캠스터디 서비스 위임
@@ -86,12 +86,18 @@ haruharu-discord-bot/
 │   │   ├── attendance.ts        # 레거시 check-in/check-out 처리
 │   │   ├── challengeSelfService.ts # 사용자 기상시간/휴가 self-service 정책 처리
 │   │   ├── camStudy.ts          # 음성 상태 전이 해석 및 학습 시간 반영
-│   │   ├── camStudyRoleSync.ts  # 역할 기반 캠스터디 참가자 동기화
+│   │   ├── camStudyRoleSync.ts  # 역할/이름 기반 캠스터디 참가자 동기화
 │   │   ├── participationApplication.ts # self-service 활성화/역할 부여 처리
 │   │   ├── selfServiceActions.ts # slash command/button/modal 공통 self-service 실행 래퍼
 │   │   ├── selfServiceAudit.ts  # self-service ephemeral 응답 후 test 채널 감사 로그 전송
 │   │   ├── selfServiceOnboardingDemo.ts # test 채널용 self-service 버튼/모달 데모
 │   │   └── reporting.ts         # 일일/주간 리포트 생성 및 스케줄링
+│   │
+│   ├── utils/
+│   │   ├── discordName.ts      # Discord display name/globalName/username 우선순위 해석
+│   │   ├── constants.ts
+│   │   ├── date.ts
+│   │   └── format.ts
 │   │
 │   └── repository/
 │       ├── config.ts            # Sequelize 설정
@@ -277,16 +283,19 @@ haruharu-discord-bot/
 
 #### guildMemberUpdate.ts
 
-| 항목   | 내용                                                                    |
-| ------ | ----------------------------------------------------------------------- |
-| 트리거 | 서버 멤버 역할 변경                                                     |
-| 기능   | `@cam-study` 역할 부여/회수를 감지하고 `CamStudyUsers`를 자동 등록/해제 |
+| 항목   | 내용                                                                                                        |
+| ------ | ----------------------------------------------------------------------------------------------------------- |
+| 트리거 | 서버 멤버 역할 변경, 서버 닉네임(display name) 변경                                                         |
+| 기능   | 이름 변경만 발생해도 활성 기상/캠스터디 참가자 이름을 최신화하고, `@cam-study` 역할 부여/회수를 계속 동기화 |
 
 **구현 메모:**
 
-- `CamStudyUsers`는 역할 상태를 반영하는 캐시 인덱스이며, 역할 부여 시 upsert 한다.
+- 저장/동기화에 사용할 이름은 Discord 서버 display name을 우선 사용하고, 없으면 `globalName`, 그것도 없으면 `username`으로 fallback 한다.
+- 활성 `WakeUpMembership`이 있으면 이름 변경만 발생해도 `WakeUpMembership.username`을 갱신하고, 현재 월 `Users` 스냅샷이 있으면 같은 이름으로 갱신한다.
+- `CamStudyUsers`는 역할 상태를 반영하는 캐시 인덱스이며, 역할 부여 시 upsert 하고 역할 유지 상태의 이름 변경도 반영한다.
+- 진행 중 `CamStudyActiveSession`이 있으면 이름 변경만으로도 세션 row 의 `username`을 최신값으로 갱신한다.
 - 역할 회수 시에는 보통 즉시 삭제하되, 이미 캠스터디를 진행 중이면 종료 이벤트가 들어올 때까지 삭제를 미룬다.
-- `@cam-study` 역할 변화가 없으면 아무 작업도 하지 않는다.
+- 현재 월 `Users` 스냅샷이 없는 활성 기상 참가자는 이름 변경만으로 새 월 스냅샷을 만들지 않는다.
 - `GuildMembers` intent가 활성화되어야 실제 운영 환경에서 역할 변경 이벤트를 수신할 수 있다.
 - `oldMember`가 partial인 경우에도 `newMember` 현재 역할 상태를 기준으로 self-heal 동기화를 수행한다.
 
@@ -420,19 +429,19 @@ flowchart TD
 
 #### camStudyRoleSync.ts
 
-| 항목   | 내용                                                                                                                                             |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 역할   | `@cam-study` 역할 상태를 `CamStudyUsers` 캐시에 반영                                                                                             |
-| 담당   | 역할 추가/제거 감지, partial member fallback 처리, 표시 이름 추출, `CamStudyUsers` upsert/remove, 활성 세션 중 제거 defer, 역할 동기화 로그 기록 |
-| 호출처 | `src/events/guildMemberUpdate.ts`                                                                                                                |
+| 항목   | 내용                                                                                                                                                                                                    |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | `@cam-study` 역할 상태와 표시 이름을 `CamStudyUsers`/`CamStudyActiveSession`에 반영                                                                                                                     |
+| 담당   | 역할 추가/제거 감지, 이름 변경 감지, partial member fallback 처리, display name 우선 이름 추출, `CamStudyUsers` upsert/remove, active session 이름 갱신, 활성 세션 중 제거 defer, 역할 동기화 로그 기록 |
+| 호출처 | `src/events/guildMemberUpdate.ts`                                                                                                                                                                       |
 
 #### challengeSelfService.ts
 
-| 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| 담당   | `WakeUpMembership` 생성/재활성화/중단, `/register` 성공 시 `@wake-up` 역할 부여, `/stop-wakeup` 성공 시 `@wake-up` 역할 회수, 역할 실패 시 DB 상태 보호, latest `Users` 기반 membership backfill, legacy 참가자의 `/stop-wakeup` 중단 처리, `/stop-wakeup` 현재 월 exclusion 기록과 스냅샷 제거, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 같은 달 `/stop-wakeup` 재등록 차단, 현재 월 `Users` 스냅샷 생성, 현재 월 휴가 날짜 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
-| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                                                                                                                                                                                                                                                                                                                                               |
+| 항목   | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 역할   | 사용자 직접 기상 참여 시작/재시작/중단, 기상시간 등록/수정, 월 스냅샷 보장, 휴가 등록 정책 처리                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 담당   | `WakeUpMembership` 생성/재활성화/중단, `/register` 성공 시 `@wake-up` 역할 부여, `/stop-wakeup` 성공 시 `@wake-up` 역할 회수, 역할 실패 시 DB 상태 보호, latest `Users` 기반 membership backfill, legacy 참가자의 `/stop-wakeup` 중단 처리, `/stop-wakeup` 현재 월 exclusion 기록과 스냅샷 제거, 관리자 월별 삭제 exclusion 기록, 기상시간 범위 검증, register 하루 1회 변경 제한, 같은 달 `/stop-wakeup` 재등록 차단, 현재 월 `Users` 스냅샷 생성, 이름 변경 시 활성 `WakeUpMembership`과 기존 현재 월 `Users` 스냅샷 이름 동기화, 현재 월 휴가 날짜 제한, 휴가 날짜 중복 방지, 잔여 휴가 한도 검증 |
+| 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 #### participationApplication.ts
 
@@ -447,7 +456,7 @@ flowchart TD
 | 항목   | 내용                                                                                                                                                                                                      |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 역할   | slash command 와 test 채널 button/modal 데모가 공통 self-service 서비스와 감사 로그 경로를 재사용하도록 정리                                                                                              |
-| 담당   | `/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`의 공통 실행 래퍼, display name 해석, 성공/실패 `ephemeral` 응답과 `testChannelId` 감사 로그 연결                                             |
+| 담당   | `/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`의 공통 실행 래퍼, display name 우선 이름 해석, 성공/실패 `ephemeral` 응답과 `testChannelId` 감사 로그 연결                                   |
 | 호출처 | `src/commands/haruharu/register.ts`, `src/commands/haruharu/stop-wakeup.ts`, `src/commands/haruharu/apply-vacation.ts`, `src/commands/haruharu/apply-cam.ts`, `src/services/selfServiceOnboardingDemo.ts` |
 
 #### selfServiceAudit.ts
@@ -621,7 +630,7 @@ flowchart TD
 비고:
 
 - `@cam-study` 역할 상태를 반영하는 캐시/인덱스 성격의 테이블이다.
-- 역할 부여 시 upsert 한다.
+- 역할 부여 시 upsert 하고, 역할 유지 상태의 이름 변경도 같은 row 에 반영한다.
 - 역할 회수 시에는 보통 삭제하되, 활성 세션이면 종료 이벤트가 들어온 뒤 삭제한다.
 - 같은 `userid` 중복 row가 발견되면 upsert 과정에서 최신 이름 기준으로 1건으로 정리한다.
 - 과거 학습 로그(`CamStudyTimeLog`, `CamStudyWeeklyTimeLog`)는 역할 회수 후에도 유지된다.
@@ -640,6 +649,7 @@ flowchart TD
 비고:
 
 - 한 사용자당 최대 1건만 열린 세션을 유지한다.
+- 서버 닉네임이 바뀌면 진행 중 세션의 `username`도 후속 종료 메시지/정산에 쓰일 최신 이름으로 갱신된다.
 - 재배포 중 종료 이벤트를 놓치면 `lastobservedat` 기준으로 종료 정산해 손실 범위를 제한한다.
 - `ready.ts`와 1분 heartbeat가 이 테이블을 복구/정리한다.
 
