@@ -188,6 +188,46 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       expectCamStudyPrivateNotification(newState, '테스트유저님 study start');
     });
 
+    it('member 가 없어도 user fetch fallback 으로 참가자 DM을 보낸다', async () => {
+      const fetchedUserSendMock = vi.fn().mockResolvedValue(undefined);
+      const usersFetchMock = vi.fn().mockResolvedValue({
+        id: 'test-user-id',
+        send: fetchedUserSendMock,
+        username: 'fetched-username',
+        globalName: 'fetched-global-name',
+      });
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: false,
+        userId: 'test-user-id',
+        member: null,
+        clientUsersFetch: usersFetchMock,
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: true,
+        userId: 'test-user-id',
+        member: null,
+        clientUsersFetch: usersFetchMock,
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      const log = await TestCamStudyTimeLog.findOne({ where: { userid: 'test-user-id' } });
+      expect(log).not.toBeNull();
+      expect(newState._memberSendMock).not.toHaveBeenCalled();
+      expect(newState._usersFetchMock).toHaveBeenCalledWith('test-user-id');
+      expect(fetchedUserSendMock).toHaveBeenCalledWith('테스트유저님 study start');
+      expect(newState._auditSendMock).toHaveBeenCalledWith({
+        content: expect.stringContaining('테스트유저님 study start'),
+        allowedMentions: {
+          parse: [],
+        },
+      });
+    });
+
     it('이미 타임로그가 있으면 timestamp만 업데이트한다', async () => {
       await TestCamStudyTimeLog.create({
         userid: 'test-user-id',

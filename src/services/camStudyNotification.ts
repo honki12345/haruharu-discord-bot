@@ -14,11 +14,27 @@ type DmSendableMember = {
   };
 } | null;
 
+type DmSendableUser = {
+  globalName?: string | null;
+  send: (content: string) => Promise<unknown>;
+  username?: string | null;
+} | null;
+
 type CamStudyNotificationClient = {
   channels: {
     fetch: (channelId: string) => Promise<unknown>;
   };
+  users?: {
+    fetch: (userId: string) => Promise<unknown>;
+  };
 };
+
+type CamStudyNotificationRecipient = {
+  displayName?: string | null;
+  globalName?: string | null;
+  send: (content: string) => Promise<unknown>;
+  username?: string | null;
+} | null;
 
 const isSendableChannel = (channel: unknown): channel is SendableChannel => {
   if (typeof channel !== 'object' || channel === null) {
@@ -28,24 +44,74 @@ const isSendableChannel = (channel: unknown): channel is SendableChannel => {
   return 'send' in channel && typeof channel.send === 'function';
 };
 
-const resolveParticipantLabel = (member: DmSendableMember, userId: string) => {
-  return member?.displayName ?? member?.user?.globalName ?? member?.user?.username ?? userId;
+const isDmSendableUser = (user: unknown): user is NonNullable<DmSendableUser> => {
+  if (typeof user !== 'object' || user === null) {
+    return false;
+  }
+
+  return 'send' in user && typeof user.send === 'function';
+};
+
+const resolveParticipantLabel = (recipient: CamStudyNotificationRecipient, userId: string) => {
+  return recipient?.displayName ?? recipient?.globalName ?? recipient?.username ?? userId;
+};
+
+const resolveRecipient = async ({
+  client,
+  member,
+  userId,
+}: {
+  client: CamStudyNotificationClient;
+  member: DmSendableMember;
+  userId: string;
+}): Promise<CamStudyNotificationRecipient> => {
+  if (member?.send) {
+    return {
+      displayName: member.displayName,
+      globalName: member.user?.globalName,
+      send: member.send,
+      username: member.user?.username,
+    };
+  }
+
+  if (typeof client.users?.fetch !== 'function') {
+    return null;
+  }
+
+  try {
+    const fetchedUser = await client.users.fetch(userId);
+    if (!isDmSendableUser(fetchedUser)) {
+      return null;
+    }
+
+    return {
+      globalName: fetchedUser.globalName,
+      send: fetchedUser.send,
+      username: fetchedUser.username,
+    };
+  } catch (error) {
+    logger.error('failed to fetch cam study user for DM', {
+      error,
+      userId,
+    });
+    return null;
+  }
 };
 
 const buildCamStudyAuditMessage = ({
   channelId,
-  member,
+  recipient,
   message,
   userId,
 }: {
   channelId: string | null;
-  member: DmSendableMember;
+  recipient: CamStudyNotificationRecipient;
   message: string;
   userId: string;
 }) => {
   return [
     '[cam-study]',
-    `user: ${resolveParticipantLabel(member, userId)} (${userId})`,
+    `user: ${resolveParticipantLabel(recipient, userId)} (${userId})`,
     `channelId: ${channelId ?? 'unknown'}`,
     `result: ${message}`,
   ].join('\n');
@@ -64,9 +130,11 @@ const sendCamStudyNotification = async ({
   message: string;
   userId: string;
 }) => {
-  if (member?.send) {
+  const recipient = await resolveRecipient({ client, member, userId });
+
+  if (recipient) {
     try {
-      await member.send(message);
+      await recipient.send(message);
     } catch (error) {
       logger.error('failed to send cam study DM', {
         channelId,
@@ -92,7 +160,7 @@ const sendCamStudyNotification = async ({
     }
 
     await channel.send({
-      content: buildCamStudyAuditMessage({ channelId, member, message, userId }),
+      content: buildCamStudyAuditMessage({ channelId, recipient, message, userId }),
       allowedMentions: {
         parse: [],
       },
