@@ -20,6 +20,10 @@ type DmSendableUser = {
   username?: string | null;
 } | null;
 
+type ResolvedDmSendableMember = Exclude<DmSendableMember, null> & {
+  send: (content: string) => Promise<unknown>;
+};
+
 type CamStudyNotificationClient = {
   channels: {
     fetch: (channelId: string) => Promise<unknown>;
@@ -29,12 +33,7 @@ type CamStudyNotificationClient = {
   };
 };
 
-type CamStudyNotificationRecipient = {
-  displayName?: string | null;
-  globalName?: string | null;
-  send: (content: string) => Promise<unknown>;
-  username?: string | null;
-} | null;
+type CamStudyNotificationRecipient = ResolvedDmSendableMember | NonNullable<DmSendableUser> | null;
 
 const isSendableChannel = (channel: unknown): channel is SendableChannel => {
   if (typeof channel !== 'object' || channel === null) {
@@ -53,7 +52,18 @@ const isDmSendableUser = (user: unknown): user is NonNullable<DmSendableUser> =>
 };
 
 const resolveParticipantLabel = (recipient: CamStudyNotificationRecipient, userId: string) => {
-  return recipient?.displayName ?? recipient?.globalName ?? recipient?.username ?? userId;
+  if (!recipient) {
+    return userId;
+  }
+
+  return (
+    ('displayName' in recipient ? recipient.displayName : null) ??
+    ('user' in recipient ? recipient.user?.globalName : null) ??
+    ('globalName' in recipient ? recipient.globalName : null) ??
+    ('user' in recipient ? recipient.user?.username : null) ??
+    ('username' in recipient ? recipient.username : null) ??
+    userId
+  );
 };
 
 const resolveRecipient = async ({
@@ -66,12 +76,7 @@ const resolveRecipient = async ({
   userId: string;
 }): Promise<CamStudyNotificationRecipient> => {
   if (member?.send) {
-    return {
-      displayName: member.displayName,
-      globalName: member.user?.globalName,
-      send: member.send,
-      username: member.user?.username,
-    };
+    return member as ResolvedDmSendableMember;
   }
 
   if (typeof client.users?.fetch !== 'function') {
@@ -84,11 +89,7 @@ const resolveRecipient = async ({
       return null;
     }
 
-    return {
-      globalName: fetchedUser.globalName,
-      send: fetchedUser.send,
-      username: fetchedUser.username,
-    };
+    return fetchedUser;
   } catch (error) {
     logger.error('failed to fetch cam study user for DM', {
       error,

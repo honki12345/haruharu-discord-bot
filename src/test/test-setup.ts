@@ -585,7 +585,7 @@ interface MockVoiceStateOptions {
         has: () => boolean;
       };
     };
-    send?: ReturnType<typeof vi.fn>;
+    send?: (content: string) => Promise<unknown>;
     displayName?: string | null;
     user?: {
       globalName?: string | null;

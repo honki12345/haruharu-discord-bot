@@ -228,6 +228,57 @@ describe('US-08: 캠스터디 공부 시간 기록', () => {
       });
     });
 
+    it('member.send 가 this 에 의존해도 참가자 DM을 보낸다', async () => {
+      const { logger } = await import('../logger.js');
+      const deliveredMessages: string[] = [];
+      const contextualMember = {
+        displayName: '컨텍스트유저',
+        roles: {
+          cache: {
+            has: () => true,
+          },
+        },
+        async send(this: unknown, content: string) {
+          if (this !== contextualMember) {
+            throw new Error('member send lost context');
+          }
+
+          deliveredMessages.push(content);
+        },
+        user: {
+          globalName: '컨텍스트유저',
+          username: 'context-user',
+        },
+      };
+
+      const errorCallsBefore = logger.error.mock.calls.length;
+      const oldState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: false,
+        userId: 'test-user-id',
+        member: contextualMember,
+      });
+
+      const newState = createMockVoiceState({
+        channelId: 'valid-voice-channel-id',
+        streaming: true,
+        userId: 'test-user-id',
+        member: contextualMember,
+      });
+
+      const { event } = await import('../events/camStudyHandler.js');
+      await event.execute(oldState as never, newState as never);
+
+      expect(deliveredMessages).toEqual(['테스트유저님 study start']);
+      expect(newState._auditSendMock).toHaveBeenCalledWith({
+        content: expect.stringContaining('테스트유저님 study start'),
+        allowedMentions: {
+          parse: [],
+        },
+      });
+      expect(logger.error.mock.calls.length).toBe(errorCallsBefore);
+    });
+
     it('이미 타임로그가 있으면 timestamp만 업데이트한다', async () => {
       await TestCamStudyTimeLog.create({
         userid: 'test-user-id',
