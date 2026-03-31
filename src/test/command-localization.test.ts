@@ -101,6 +101,14 @@ const commandSpecs = [
     options: [],
   },
   {
+    modulePath: '../commands/haruharu/sync-self-service-ui.js',
+    baseName: 'sync-self-service-ui',
+    koName: 'admin-셀프서비스동기화',
+    koDescription: '관리자가 운영 온보딩 채널의 셀프서비스 버튼 UI를 배포하거나 최신 상태로 갱신합니다',
+    category: 'admin',
+    options: [],
+  },
+  {
     modulePath: '../commands/haruharu/ping.js',
     baseName: 'ping',
     koName: 'admin-상태확인',
