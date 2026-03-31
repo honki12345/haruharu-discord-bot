@@ -18,6 +18,13 @@ export const event = {
         await import('../services/selfServiceOnboardingDemo.js');
       if (isSelfServiceDemoButtonCustomId(interaction.customId)) {
         await handleSelfServiceDemoButtonInteraction(interaction);
+        return;
+      }
+
+      const { handleSelfServiceOnboardingButtonInteraction, isSelfServiceOnboardingButtonCustomId } =
+        await import('../services/selfServiceOnboarding.js');
+      if (isSelfServiceOnboardingButtonCustomId(interaction.customId)) {
+        await handleSelfServiceOnboardingButtonInteraction(interaction);
       }
       return;
     }
@@ -31,6 +38,13 @@ export const event = {
         await import('../services/selfServiceOnboardingDemo.js');
       if (isSelfServiceDemoModalCustomId(interaction.customId)) {
         await handleSelfServiceDemoModalSubmitInteraction(interaction);
+        return;
+      }
+
+      const { handleSelfServiceOnboardingModalSubmitInteraction, isSelfServiceOnboardingModalCustomId } =
+        await import('../services/selfServiceOnboarding.js');
+      if (isSelfServiceOnboardingModalCustomId(interaction.customId)) {
+        await handleSelfServiceOnboardingModalSubmitInteraction(interaction);
       }
       return;
     }
