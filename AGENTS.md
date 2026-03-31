@@ -92,12 +92,12 @@
 - 기상시간 self-service는 `/register` 하나로 기상 참여 시작/재시작과 기상시간 등록/수정을 처리하되 하루 1회 제한을 지켜야 한다.
 - `/register` 기상시간 입력은 `HHmm` 또는 `HH:mm` 형식을 허용하되, 내부 저장/응답/후속 로직에는 `HHmm` canonical 값만 사용하도록 유지한다.
 - `/register`, `/stop-wakeup`, `/apply-vacation`은 `#start-here`와 기상 self-service 전용 온보딩 채널에서만 실행되도록 유지한다.
-- 운영 `#start-here`, `#time-start-here`에는 bot-owned persistent self-service UI 메시지를 유지하고, 버튼/모달/확인 단계도 기존 self-service 서비스/감사 로그 경로를 재사용하도록 유지한다.
-- 운영 self-service UI 메시지는 `#start-here`에 `캠스터디 참여`, `기상 등록/수정`, `기상 중단`, `휴가 신청` 버튼을, `#time-start-here`에 기상 관련 버튼만 노출하도록 유지한다.
+- 운영 `#start-here`, `#time-start-here`에는 설명 문구 없이 bot-owned persistent self-service UI 메시지를 유지하고, 버튼/모달/확인 단계도 기존 self-service 서비스/감사 로그 경로를 재사용하도록 유지한다.
+- 운영 self-service UI 메시지는 `#start-here`에 `캠스터디 참여`, `기상챌린지 참여` 버튼만, `#time-start-here`에 `기상 등록/수정`, `휴가 신청`, `기상 중단` 버튼을 노출하도록 유지한다.
 - `/register` 성공 시 `@wake-up` 역할도 함께 부여하고, 역할 부여 실패 시 DB 등록을 남기지 않도록 유지한다.
 - self-service 명령(`/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`)은 사용자에게는 `ephemeral`로 응답하고, 운영 확인용 결과는 `testChannelId`에도 남긴다.
 - `testChannelId` 데모 경로는 `/demo-self-service-ui`로 셀프서비스 버튼 UI 메시지를 게시하고, 버튼/모달 제출도 기존 self-service 서비스/감사 로그 경로를 재사용하도록 유지한다.
-- 운영 UI 관리 경로는 `/sync-self-service-ui`로 유지하고, 기존 bot-owned 메시지를 식별해 갱신하며 같은 채널에 중복 관리 메시지를 남기지 않도록 유지한다.
+- 운영 UI 관리 경로는 `/sync-self-service-ui`로 유지하고, 기존 bot-owned 메시지를 visible marker 또는 component custom id fingerprint 로 식별해 갱신하며 같은 채널에 중복 관리 메시지를 남기지 않도록 유지한다.
 - 기상 self-service 중단은 `/stop-wakeup` 으로 처리하고, 현재 월 참여도 즉시 중단해야 한다.
 - `/stop-wakeup` 성공 시 `@wake-up` 역할도 함께 회수하고, 역할 회수 실패 시 `WakeUpMembership`을 `stopped`로 바꾸지 않도록 유지한다.
 - `/stop-wakeup` 은 현재 월 `Users` 스냅샷을 제거하고 같은 달 exclusion 을 남겨 그 달 `/register` 재등록과 자동 복구를 막아야 한다.
