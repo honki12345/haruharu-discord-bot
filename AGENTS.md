@@ -102,6 +102,8 @@
 - `/stop-wakeup` 성공 시 `@wake-up` 역할도 함께 회수하고, 역할 회수 실패 시 `WakeUpMembership`을 `stopped`로 바꾸지 않도록 유지한다.
 - `/stop-wakeup` 은 현재 월 `Users` 스냅샷을 제거하고 같은 달 exclusion 을 남겨 그 달 `/register` 재등록과 자동 복구를 막아야 한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
+- self-service와 `guildMemberUpdate`가 저장하는 표시 이름은 Discord 서버 display name을 우선 사용하고, 없으면 `globalName`, 그것도 없으면 `username`으로 fallback 하도록 일관되게 유지한다.
+- 서버 닉네임 변경만 발생한 경우에도 활성 `WakeUpMembership.username`과 현재 월 `Users.username` 스냅샷은 최신 이름으로 동기화하되, 현재 월 `Users` 스냅샷이 없으면 새로 만들지 않도록 유지한다.
 - 캠스터디 등록 원본은 `@cam-study` 역할과 `guildMemberUpdate` 동기화로 본다.
 - 관리자 명령(`/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui`, `/sync-self-service-ui`)은 `testChannelId`에서만 실행되도록 유지한다.
 - 새 커맨드를 추가하면 `src/deploy-commands.ts`와 `src/index.ts`의 동적 로딩 대상 구조를 깨지 않는지 확인한다.
@@ -114,6 +116,7 @@
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅과 운영/데모 self-service button/modal interaction 라우팅을 담당한다.
 - `messageCreate.ts`는 운영 `#wake-up` 출석 thread와 테스트 `출석-demo` thread의 첫 댓글을 감지하고, 운영 thread 첫 공식 판정은 `AttendanceLog`로 즉시 저장한다.
 - `interactionCreate.ts`는 배포 전환 중 stale 슬래시 등록이 남을 수 있는 경우, 무응답으로 끝내지 말고 migration 안내를 우선 반환한다. 현재는 stale `/apply-wakeup` 에 대해 `/register` 안내를 반환한다.
+- `guildMemberUpdate.ts`는 역할 변경이 없어도 서버 닉네임(display name) 변경을 감지하고, 활성 `WakeUpMembership`/현재 월 `Users`/`CamStudyUsers`/`CamStudyActiveSession`의 표시 이름을 최신값으로 동기화해야 한다.
 - `guildMemberUpdate.ts`는 `@cam-study` 역할 부여/회수를 감지해서 `CamStudyUsers`를 자동 동기화하고, 활성 세션 중 역할 회수면 삭제를 종료 시점까지 미룬다.
 - `camStudyHandler.ts`는 캠스터디 음성 채널에서 `selfVideo` 또는 `streaming` 활성 상태 전이를 시작/종료 이벤트로 해석하고, 결과 안내는 참가자 DM + `testChannelId` 운영 로그로 분리하며, 역할 회수 뒤 종료 시점 정리까지 포함해 실패 시 상태 전이 문맥을 로그에 남긴다.
 - 이벤트 파일은 `name`, `once`, `execute` 필드를 가진 `event` 객체를 export 한다.
@@ -139,10 +142,10 @@
 - thread 기반 하루 1회 출석 저장은 `AttendanceLog`로 분리하고, 기존 `TimeLog`는 집계 원본이 아닌 과거 레거시 데이터 호환용으로만 유지한다.
 - 캠스터디 진행 중 세션은 `CamStudyActiveSession`으로 저장하고, `CamStudyTimeLog`는 종료 정산된 누적 시간만 보관한다.
 - `CamStudyWeeklyTimeLog`는 해당 주차의 `CamStudyTimeLog`를 재계산한 결과를 반영하는 용도로 유지하고, 같은 일간 로그를 누적 덧셈으로 중복 반영하지 않는다.
-- `CamStudyUsers`는 수동 등록 원본이 아니라 `@cam-study` 역할 상태를 반영하는 캐시/인덱스로 유지하되, 활성 세션 중 역할 회수면 종료 이벤트까지 임시로 유지할 수 있다.
+- `CamStudyUsers`는 수동 등록 원본이 아니라 `@cam-study` 역할 상태를 반영하는 캐시/인덱스로 유지하되, 활성 세션 중 역할 회수면 종료 이벤트까지 임시로 유지할 수 있고, 표시 이름은 `guildMemberUpdate`의 display name 우선 정책으로 최신화한다.
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
-- 기상 챌린지 상시 참여 상태와 최근 `/register` 기상시간은 `WakeUpMembership` 같은 별도 모델로 관리하고, `Users` 는 월별 집계 스냅샷으로 유지한다.
+- 기상 챌린지 상시 참여 상태와 최근 `/register` 기상시간은 `WakeUpMembership` 같은 별도 모델로 관리하고, `Users` 는 월별 집계 스냅샷으로 유지하며, 이름 변경 시 현재 월 스냅샷만 최신 이름으로 동기화한다.
 - 기상 self-service의 역할 접근 제어 원본은 `/register`, `/stop-wakeup` 성공 시점의 `@wake-up` 역할 동기화로 유지한다.
 - 관리자 `/delete` 로 제거한 `(userid, yearmonth)` 월 스냅샷은 별도 exclusion 기록으로 남겨 자동 backfill 이 같은 달 사용자를 되살리지 않도록 유지한다.
 - 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 신청/활성화 상태 모델 책임은 계속 분리한다.

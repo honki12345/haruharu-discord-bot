@@ -1,5 +1,6 @@
 import type { Guild, InteractionReplyOptions } from 'discord.js';
 import { logger } from '../logger.js';
+import { resolveDiscordDisplayName } from '../utils/discordName.js';
 import { getReplyContent, replyWithEphemeralAudit, sendSelfServiceAuditLog } from './selfServiceAudit.js';
 
 type SelfServiceInteraction = {
@@ -24,14 +25,12 @@ type SelfServiceInteraction = {
 };
 
 const resolveInteractionUsername = (interaction: SelfServiceInteraction) => {
-  return (
-    interaction.member?.displayName ??
-    interaction.member?.nickname ??
-    interaction.member?.nick ??
-    interaction.user.globalName ??
-    interaction.user.username ??
-    'unknown'
-  );
+  return resolveDiscordDisplayName({
+    displayName: interaction.member?.displayName,
+    nickname: interaction.member?.nickname,
+    nick: interaction.member?.nick,
+    user: interaction.user,
+  });
 };
 
 const executeRegisterSelfService = async ({

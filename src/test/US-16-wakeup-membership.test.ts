@@ -9,6 +9,32 @@ import {
   testSequelize,
 } from './test-setup.js';
 
+const createMockGuildMember = (overrides?: {
+  id?: string;
+  displayName?: string | null;
+  globalName?: string | null;
+  username?: string;
+  roleIds?: string[];
+}) => ({
+  id: overrides?.id ?? 'wake-sync-user',
+  displayName: overrides?.displayName ?? null,
+  user: {
+    id: overrides?.id ?? 'wake-sync-user',
+    globalName: overrides?.globalName ?? '기존글로벌닉네임',
+    username: overrides?.username ?? 'plain-user',
+  },
+  roles: {
+    cache: {
+      has: (roleId: string) => (overrides?.roleIds ?? []).includes(roleId),
+    },
+  },
+  voice: {
+    channelId: null,
+    selfVideo: false,
+    streaming: false,
+  },
+});
+
 describe('US-16: 기상스터디 상시 참여와 중단', () => {
   beforeAll(async () => {
     await testSequelize.sync({ force: true });
@@ -581,5 +607,70 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(membership?.stoppedat).toBeNull();
     expect(exclusion).toBeNull();
     expect(currentMonthUser).not.toBeNull();
+  });
+
+  it('TC-WM15: guildMemberUpdate는 역할 변경 없이 서버 닉네임만 바뀌어도 활성 membership과 현재 월 스냅샷 이름을 갱신한다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'wake-sync-user',
+      username: '기존닉네임',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+    });
+    await TestUsers.create({
+      userid: 'wake-sync-user',
+      username: '기존닉네임',
+      yearmonth: '202601',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+
+    const oldMember = createMockGuildMember({
+      displayName: '기존닉네임',
+      globalName: '기존글로벌닉네임',
+    });
+    const newMember = createMockGuildMember({
+      displayName: '새서버닉네임',
+      globalName: '기존글로벌닉네임',
+    });
+
+    const { event } = await import('../events/guildMemberUpdate.js');
+    await event.execute(oldMember as never, newMember as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'wake-sync-user' } });
+    const currentMonthUser = await TestUsers.findOne({ where: { userid: 'wake-sync-user', yearmonth: '202601' } });
+
+    expect(membership?.username).toBe('새서버닉네임');
+    expect(currentMonthUser?.username).toBe('새서버닉네임');
+  });
+
+  it('TC-WM16: guildMemberUpdate는 현재 월 Users 스냅샷이 없어도 활성 membership 이름만 갱신하고 새 스냅샷은 만들지 않는다', async () => {
+    await TestWakeUpMembership.create({
+      userid: 'wake-sync-user',
+      username: '기존닉네임',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+    });
+
+    const oldMember = createMockGuildMember({
+      displayName: '기존닉네임',
+      globalName: '기존글로벌닉네임',
+    });
+    const newMember = createMockGuildMember({
+      displayName: '새서버닉네임',
+      globalName: '기존글로벌닉네임',
+    });
+
+    const { event } = await import('../events/guildMemberUpdate.js');
+    await event.execute(oldMember as never, newMember as never);
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'wake-sync-user' } });
+    const currentMonthUser = await TestUsers.findOne({ where: { userid: 'wake-sync-user', yearmonth: '202601' } });
+
+    expect(membership?.username).toBe('새서버닉네임');
+    expect(currentMonthUser).toBeNull();
   });
 });
