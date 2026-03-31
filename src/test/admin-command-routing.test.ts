@@ -34,6 +34,7 @@ const adminCommandSpecs = [
   '../commands/haruharu/delete.js',
   '../commands/haruharu/demo-daily-message.js',
   '../commands/haruharu/demo-self-service-ui.js',
+  '../commands/haruharu/sync-self-service-ui.js',
   '../commands/haruharu/ping.js',
 ] as const;
 
@@ -68,6 +69,7 @@ describe('관리자 명령 채널 라우팅', () => {
     expect(commandNames).toContain('add-vacances');
     expect(commandNames).toContain('demo-daily-message');
     expect(commandNames).toContain('demo-self-service-ui');
+    expect(commandNames).toContain('sync-self-service-ui');
     expect(commandNames).not.toContain('approve-application');
     expect(commandNames).not.toContain('reject-application');
     expect(commandNames).not.toContain('register-cam');

@@ -121,4 +121,60 @@ describe('interactionCreate 이벤트', () => {
 
     expect(modalHandler).toHaveBeenCalledWith(interaction);
   });
+
+  it('운영 self-service 버튼 interaction은 전용 라우터로 전달한다', async () => {
+    const buttonHandler = vi.fn();
+    vi.doMock('../services/selfServiceOnboardingDemo.js', () => ({
+      isSelfServiceDemoButtonCustomId: vi.fn().mockReturnValue(false),
+      isSelfServiceDemoModalCustomId: vi.fn().mockReturnValue(false),
+      handleSelfServiceDemoButtonInteraction: vi.fn(),
+      handleSelfServiceDemoModalSubmitInteraction: vi.fn(),
+    }));
+    vi.doMock('../services/selfServiceOnboarding.js', () => ({
+      isSelfServiceOnboardingButtonCustomId: vi.fn().mockReturnValue(true),
+      isSelfServiceOnboardingModalCustomId: vi.fn().mockReturnValue(false),
+      handleSelfServiceOnboardingButtonInteraction: buttonHandler,
+      handleSelfServiceOnboardingModalSubmitInteraction: vi.fn(),
+    }));
+
+    const interaction = {
+      isChatInputCommand: () => false,
+      isButton: () => true,
+      isModalSubmit: () => false,
+      customId: 'self-service-onboarding:register:open',
+    };
+
+    const { event } = await import('../events/interactionCreate.js');
+    await event.execute(interaction as never);
+
+    expect(buttonHandler).toHaveBeenCalledWith(interaction);
+  });
+
+  it('운영 self-service modal submit interaction은 전용 라우터로 전달한다', async () => {
+    const modalHandler = vi.fn();
+    vi.doMock('../services/selfServiceOnboardingDemo.js', () => ({
+      isSelfServiceDemoButtonCustomId: vi.fn().mockReturnValue(false),
+      isSelfServiceDemoModalCustomId: vi.fn().mockReturnValue(false),
+      handleSelfServiceDemoButtonInteraction: vi.fn(),
+      handleSelfServiceDemoModalSubmitInteraction: vi.fn(),
+    }));
+    vi.doMock('../services/selfServiceOnboarding.js', () => ({
+      isSelfServiceOnboardingButtonCustomId: vi.fn().mockReturnValue(false),
+      isSelfServiceOnboardingModalCustomId: vi.fn().mockReturnValue(true),
+      handleSelfServiceOnboardingButtonInteraction: vi.fn(),
+      handleSelfServiceOnboardingModalSubmitInteraction: modalHandler,
+    }));
+
+    const interaction = {
+      isChatInputCommand: () => false,
+      isButton: () => false,
+      isModalSubmit: () => true,
+      customId: 'self-service-onboarding:register:submit',
+    };
+
+    const { event } = await import('../events/interactionCreate.js');
+    await event.execute(interaction as never);
+
+    expect(modalHandler).toHaveBeenCalledWith(interaction);
+  });
 });
