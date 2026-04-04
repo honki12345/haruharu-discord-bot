@@ -4,6 +4,7 @@ import { ensureTodayAttendanceThread } from '../daily-attendance.js';
 import { logger } from '../logger.js';
 import { syncCamStudyActiveSessionsFromClient } from '../services/camStudy.js';
 import { buildCamStudyReports, buildChallengeReport, scheduleDailyReports, syncModels } from '../services/reporting.js';
+import { syncSelfServiceOnboardingMessages } from '../services/selfServiceOnboarding.js';
 import {
   calculateRemainingTimeDailyMessage,
   CAM_STUDY_HEARTBEAT_MILLISECONDS,
@@ -28,11 +29,26 @@ const syncCamStudyActiveSessions = async (client: Client, source: 'ready' | 'hea
   }
 };
 
+const syncSelfServiceOnboarding = async (client: Client) => {
+  try {
+    await syncSelfServiceOnboardingMessages({
+      client,
+      botUserId: client.user?.id ?? null,
+    });
+  } catch (error) {
+    logger.error('Failed to sync self-service onboarding UI', {
+      botUserId: client.user?.id ?? null,
+      error,
+    });
+  }
+};
+
 export const event = {
   name: Events.ClientReady,
   once: true,
   async execute(client: Client) {
     await syncModels();
+    await syncSelfServiceOnboarding(client);
     await syncCamStudyActiveSessions(client, 'ready');
     const { hours } = getYearMonthDate();
 

@@ -263,10 +263,10 @@ haruharu-discord-bot/
 
 #### ready.ts
 
-| 항목   | 내용                                                                                                                                                                                                                                                               |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                                                               |
-| 기능   | DB 테이블 동기화(`WakeUpMembership`, `ChallengeUserExclusion`, `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
+| 항목   | 내용                                                                                                                                                                                                                                                                                                            |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 트리거 | 봇 Discord 연결 완료                                                                                                                                                                                                                                                                                            |
+| 기능   | DB 테이블 동기화(`WakeUpMembership`, `ChallengeUserExclusion`, `Users`, `TimeLog`, `AttendanceLog`, `VacationLog`, `WaketimeChangeLog`, `ParticipationApplication`, `CamStudy*`), 운영 self-service onboarding UI 자동 동기화, 운영 daily message/thread 생성, 캠스터디 active session 복구, 각종 스케줄러 등록 |
 
 **스케줄러:**
 
@@ -278,6 +278,7 @@ haruharu-discord-bot/
 **구현 메모:**
 
 - 운영 daily message/thread 중복 방지와 재탐색은 `src/daily-attendance.ts`가 담당한다.
+- `ClientReady` 직후 운영 `#start-here`, `#time-start-here`의 bot-owned self-service UI 메시지를 기존 fingerprint 기반 sync 로직으로 1회 자동 갱신하고, 실패해도 에러 로그만 남긴 뒤 나머지 부팅을 계속한다.
 - 평일 13:00 기상 결과표는 당일 출석 thread를 재탐색하거나 확보한 뒤 해당 thread 댓글로 전송한다.
 - 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
 - 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `attended` 또는 `late` 시 `absencecount` 우선 1회 차감 후 없으면 `latecount`를 1회 차감한다.
@@ -480,7 +481,7 @@ flowchart TD
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 역할   | 운영 `#start-here`, `#time-start-here`의 bot-owned persistent self-service UI 메시지와 button/modal/confirm 라우팅 관리                                                                                                        |
 | 담당   | 운영 UI-only 메시지 payload 생성, 채널별 버튼 노출 차이 유지, button/modal 입력을 기존 self-service 서비스로 연결, visible marker 또는 component custom id fingerprint 기반 기존 bot-owned 메시지 갱신과 중복 관리 메시지 정리 |
-| 호출처 | `src/events/interactionCreate.ts`, `src/commands/haruharu/sync-self-service-ui.ts`                                                                                                                                             |
+| 호출처 | `src/events/interactionCreate.ts`, `src/events/ready.ts`, `src/commands/haruharu/sync-self-service-ui.ts`                                                                                                                      |
 
 #### selfServiceAudit.ts
 

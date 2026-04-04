@@ -163,6 +163,7 @@ SO THAT 배포 전 검증과 배포 후 확인을 같은 절차로 반복할 수
 - verify job이 `ubuntu-22.04` + Node.js 24에서 `lint`, `prettier`, `build`, `test`, `smoke test`를 통과해야 deploy가 실행된다
 - deploy는 GitHub-hosted `ubuntu-22.04` runner에서 검증된 artifact를 OCI 서버로 SSH 배포한다
 - deploy 뒤에는 `pm2 status`와 `Ready! Logged in as` 로그를 확인한다
+- `ClientReady` 이후 운영 `#start-here`, `#time-start-here`의 bot-owned self-service onboarding UI는 별도 `/sync-self-service-ui` 실행 없이 최신 payload로 자동 동기화된다
 - 실패 시 이전 안정 ref로 같은 workflow를 다시 실행해 롤백할 수 있다
 
 ```mermaid
@@ -184,6 +185,7 @@ sequenceDiagram
         OCI->>OCI: validate realpath / platform / arch / Node ABI / glibc
         OCI->>OCI: staged extract artifact and replace dist/node_modules
         OCI->>PM2: reload or start haruharu-bot
+        PM2->>D: ClientReady + self-service onboarding UI auto sync
         GH->>OCI: pm2 status / ready log 확인
         O->>D: /admin-상태확인 수동 확인
     end

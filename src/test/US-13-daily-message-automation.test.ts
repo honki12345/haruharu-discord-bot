@@ -19,6 +19,7 @@ const mockBuildCamStudyReports = vi.fn().mockResolvedValue({
   weeklyMessage: 'cam study weekly report',
 });
 const mockSyncCamStudyActiveSessionsFromClient = vi.fn().mockResolvedValue(undefined);
+const mockSyncSelfServiceOnboardingMessages = vi.fn().mockResolvedValue([]);
 
 vi.mock('../logger.js', () => ({
   logger: mockLogger,
@@ -33,6 +34,10 @@ vi.mock('../services/reporting.js', () => ({
 
 vi.mock('../services/camStudy.js', () => ({
   syncCamStudyActiveSessionsFromClient: mockSyncCamStudyActiveSessionsFromClient,
+}));
+
+vi.mock('../services/selfServiceOnboarding.js', () => ({
+  syncSelfServiceOnboardingMessages: mockSyncSelfServiceOnboardingMessages,
 }));
 
 vi.mock('node:module', async importOriginal => {
@@ -74,6 +79,8 @@ describe('US-13: 운영 daily message 자동화', () => {
     mockBuildChallengeReport.mockClear();
     mockBuildCamStudyReports.mockClear();
     mockSyncCamStudyActiveSessionsFromClient.mockClear();
+    mockSyncSelfServiceOnboardingMessages.mockReset();
+    mockSyncSelfServiceOnboardingMessages.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -320,6 +327,67 @@ describe('US-13: 운영 daily message 자동화', () => {
     );
     expect(hasDailyScheduler).toBe(true);
     expect(hasHeartbeatScheduler).toBe(true);
+  });
+
+  it('ready 이벤트는 운영 self-service onboarding UI를 bot user id로 1회 자동 동기화한다', async () => {
+    const { event } = await import('../events/ready.js');
+
+    const client = {
+      channels: {
+        cache: {
+          get: vi.fn(),
+        },
+      },
+      user: {
+        id: 'bot-user-id',
+        tag: 'haruharu#0001',
+      },
+    };
+
+    await event.execute(client as never);
+
+    expect(mockSyncSelfServiceOnboardingMessages).toHaveBeenCalledTimes(1);
+    expect(mockSyncSelfServiceOnboardingMessages).toHaveBeenCalledWith({
+      client,
+      botUserId: 'bot-user-id',
+    });
+  });
+
+  it('self-service onboarding 자동 sync 가 실패해도 ready 흐름은 계속되고 logger.error 로만 격리한다', async () => {
+    mockSyncSelfServiceOnboardingMessages.mockRejectedValueOnce(new Error('self-service sync failed'));
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+    const { calculateRemainingTimeDailyMessage } = await import('../utils.js');
+    const { CAM_STUDY_HEARTBEAT_MILLISECONDS } = await import('../utils/constants.js');
+    const { event } = await import('../events/ready.js');
+
+    await expect(
+      event.execute({
+        channels: {
+          cache: {
+            get: vi.fn(),
+          },
+        },
+        user: {
+          id: 'bot-user-id',
+          tag: 'haruharu#0001',
+        },
+      } as never),
+    ).resolves.toBeUndefined();
+
+    expect(mockSyncSelfServiceOnboardingMessages).toHaveBeenCalledTimes(1);
+    expect(mockSyncModels).toHaveBeenCalledOnce();
+    expect(mockScheduleDailyReports).toHaveBeenCalledOnce();
+    expect(mockSyncCamStudyActiveSessionsFromClient).toHaveBeenCalledOnce();
+    const hasDailyScheduler = setTimeoutSpy.mock.calls.some(
+      ([, delay]) => delay === calculateRemainingTimeDailyMessage(),
+    );
+    const hasHeartbeatScheduler = setIntervalSpy.mock.calls.some(
+      ([, delay]) => delay === CAM_STUDY_HEARTBEAT_MILLISECONDS,
+    );
+    expect(hasDailyScheduler).toBe(true);
+    expect(hasHeartbeatScheduler).toBe(true);
+    expect(mockLogger.error).toHaveBeenCalledWith('Failed to sync self-service onboarding UI', expect.any(Object));
   });
 
   it('challenge 결과표는 당일 출석 thread 댓글로 전송한다', async () => {

@@ -112,7 +112,7 @@
 ### `src/events`
 
 - Discord 이벤트당 파일 하나를 유지한다.
-- `ready.ts`는 부팅, 테이블 sync, 매일 04:00 운영 daily message/thread 생성 스케줄, 기상 결과표 thread 댓글 전송을 포함한 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
+- `ready.ts`는 부팅, 테이블 sync, 운영 self-service onboarding UI 자동 동기화 1회 실행, 매일 04:00 운영 daily message/thread 생성 스케줄, 기상 결과표 thread 댓글 전송을 포함한 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅과 운영/데모 self-service button/modal interaction 라우팅을 담당한다.
 - `messageCreate.ts`는 운영 `#wake-up` 출석 thread와 테스트 `출석-demo` thread의 첫 댓글을 감지하고, 운영 thread 첫 공식 판정은 `AttendanceLog`로 즉시 저장한다.
 - `messageCreate.ts`는 주말/공휴일 `attended`, `late` 판정 댓글에 기존 판정 이모지와 함께 `🎁` 반응을 추가해야 한다.
