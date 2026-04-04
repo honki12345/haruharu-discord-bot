@@ -7,7 +7,7 @@ import {
   ThreadAutoArchiveDuration,
 } from 'discord.js';
 import { testChannelId } from '../../commandChannelConfig.js';
-import { buildDailyAttendanceMessageContent } from '../../daily-attendance.js';
+import { buildDailyAttendanceMessageContent, buildDailyAttendanceThreadGuide } from '../../daily-attendance.js';
 import { pickDailyMessageQuestion } from '../../daily-message.js';
 import { logger } from '../../logger.js';
 import { getYearMonthDate, PERMISSION_NUM_ADMIN } from '../../utils.js';
@@ -75,16 +75,7 @@ export const command = {
         reason: 'daily attendance thread demo',
       });
 
-      await thread.send(
-        [
-          '봇 판정(이모지) 안내',
-          '- ⏰ 대기: 출석 가능 시간 전',
-          '- ✅ 출석: 등록 시간 ±10분',
-          '- 🟡 지각: 등록 시간 +11~30분',
-          '- ❌ 결석: 등록 시간 +30분 초과',
-          '- ❓ 미등록: 등록되지 않은 사용자',
-        ].join('\n'),
-      );
+      await thread.send(buildDailyAttendanceThreadGuide());
 
       return {
         thread,

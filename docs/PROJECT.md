@@ -41,7 +41,7 @@
 | `#start-here`      | 고정 안내        | 서버 소개 + 설명 문구 없는 bot-owned persistent self-service UI 메시지(캠스터디 참여, 기상챌린지 참여)                                                   | `/sync-self-service-ui`, `USER_STORIES`                              |
 | `#time-start-here` | 고정 안내        | 설명 문구 없는 기상 self-service bot-owned persistent UI 메시지(기상 등록/수정, 휴가 신청, 기상 중단)                                                    | `/sync-self-service-ui`, `USER_STORIES`                              |
 | `#wake-up`         | 반복 자동 메시지 | 매일 04:00 daily message와 출석 thread, thread guide, 보너스 규칙 안내                                                                                   | `src/daily-attendance.ts`                                            |
-| `#wake-up`         | 반복 자동 메시지 | 평일 13:00 당일 출석 thread 댓글로 출석표 전송, 주말/공휴일 13:00 보너스 차감만 반영                                                                     | `src/services/reporting.ts`                                          |
+| `#wake-up`         | 반복 자동 메시지 | 평일 13:00 당일 출석 thread 댓글로 출석표 전송, 주말/공휴일 13:00 `attended`/`late` 보너스 차감만 반영                                                   | `src/services/reporting.ts`                                          |
 | `#test`            | 관리자 운영 허브 | `/ping`, `/delete`, `/add-vacances`, `/demo-daily-message`, `/demo-self-service-ui`, `/sync-self-service-ui` 실행과 self-service/캠스터디 결과 로그 확인 | `src/commands/haruharu/*.ts`, `src/services/camStudyNotification.ts` |
 
 ---
@@ -280,7 +280,7 @@ haruharu-discord-bot/
 - 운영 daily message/thread 중복 방지와 재탐색은 `src/daily-attendance.ts`가 담당한다.
 - 평일 13:00 기상 결과표는 당일 출석 thread를 재탐색하거나 확보한 뒤 해당 thread 댓글로 전송한다.
 - 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
-- 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, 출석 성공 시 `absencecount` 우선 1회 차감 후 없으면 `latecount`를 1회 차감한다.
+- 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `attended` 또는 `late` 시 `absencecount` 우선 1회 차감 후 없으면 `latecount`를 1회 차감한다.
 - `ClientReady` 직후에는 저장된 `CamStudyActiveSession`과 현재 voice state를 비교해 세션을 복구/종료 정산한다.
 - heartbeat는 `lastobservedat`를 주기적으로 갱신해 재배포 중 종료 이벤트를 놓쳤을 때 손실 범위를 제한한다.
 - 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
@@ -384,6 +384,7 @@ flowchart TD
 **구현 메모:**
 
 - 운영 출석 thread의 첫 공식 판정(`✅`, `🟡`, `❌`)은 즉시 `AttendanceLog`에 저장한다.
+- 주말/공휴일 `attended`, `late` 댓글에는 기존 판정 이모지 뒤에 `🎁` 반응을 추가한다.
 - `⏰`, `❓` 같은 임시 반응은 최종 출석으로 고정하지 않으며, 이후 댓글의 공식 판정을 허용한다.
 
 #### daily-attendance.ts
@@ -814,7 +815,7 @@ flowchart TD
 - 데모 버튼/모달 경로도 실제 `/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`과 같은 서비스 로직과 `testChannelId` 감사 로그 경로를 재사용한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 - 주말/공휴일에도 `#wake-up` daily message/thread는 생성된다.
-- 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `AttendanceLog.status='attended'` 인 사용자만 결석 1회 우선 차감 후 없으면 지각 1회를 차감한다.
+- 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `AttendanceLog.status='attended'` 또는 `AttendanceLog.status='late'` 인 사용자에게 결석 1회 우선 차감 후 없으면 지각 1회를 차감한다.
 
 ### package.json 스크립트
 

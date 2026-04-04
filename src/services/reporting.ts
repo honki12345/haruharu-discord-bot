@@ -27,7 +27,7 @@ import { VacationLog } from '../repository/VacationLog.js';
 import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
 import { logger } from '../logger.js';
 import { WakeUpMembership } from '../repository/WakeUpMembership.js';
-import { HARUHARU_TIMES, ONE_DAY_MILLISECONDS, PUBLIC_HOLIDAYS_2026, SATURDAY, SUNDAY } from '../utils/constants.js';
+import { HARUHARU_TIMES, ONE_DAY_MILLISECONDS } from '../utils/constants.js';
 import { ensureActiveWakeUpMembershipSnapshots } from './challengeSelfService.js';
 import {
   calculateRemainingTimeCamStudy,
@@ -37,6 +37,7 @@ import {
   getYearMonth,
   getYearMonthDate,
   getYearMonthDay,
+  isChallengeBonusDay,
   isLastDayOfMonth,
   padTwoDigits,
 } from '../utils.js';
@@ -162,9 +163,6 @@ const splitDiscordMessage = (message: string) => {
   return chunks;
 };
 
-const isChallengeBonusDay = (day: number, monthdate: string) =>
-  day === SATURDAY || day === SUNDAY || PUBLIC_HOLIDAYS_2026.includes(monthdate);
-
 const applyBonusAttendanceAdjustment = async (
   payload: {
     userid: string;
@@ -177,7 +175,7 @@ const applyBonusAttendanceAdjustment = async (
   const currentLateCount = payload.latecount ?? 0;
   const currentAbsenceCount = payload.absencecount ?? 0;
 
-  if (attendanceLogStatus !== 'attended') {
+  if (attendanceLogStatus !== 'attended' && attendanceLogStatus !== 'late') {
     return;
   }
 
