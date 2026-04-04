@@ -1,10 +1,13 @@
 import { logger } from '../logger.js';
 import {
   HARUHARU_TIMES,
+  PUBLIC_HOLIDAYS_2026,
   PRINT_HOURS_CAM_STUDY,
   PRINT_HOURS_CHALLENGE,
   PRINT_HOURS_DAILY_MESSAGE,
   PRINT_MINUTES_CAM_STUDY,
+  SATURDAY,
+  SUNDAY,
 } from './constants.js';
 
 const padTwoDigits = (value: number) => value.toString().padStart(2, '0');
@@ -50,6 +53,12 @@ const calculateWeekTimes = () => {
   return Math.floor((now.getTime() - HARUHARU_TIMES.getTime()) / 1000 / 60 / 60 / 24 / 7);
 };
 
+const isChallengeBonusDay = (day: number, monthdate: string) =>
+  day === SATURDAY || day === SUNDAY || PUBLIC_HOLIDAYS_2026.includes(monthdate);
+
+const isChallengeBonusDate = (target: Date) =>
+  isChallengeBonusDay(target.getDay(), `${padTwoDigits(target.getMonth() + 1)}${padTwoDigits(target.getDate())}`);
+
 const calculateRemainingTime = (hours: number, minutes: number, logLabel: string) => {
   const now = new Date();
   const target = new Date();
@@ -84,6 +93,8 @@ export {
   getYearMonth,
   getYearMonthDate,
   getYearMonthDay,
+  isChallengeBonusDate,
+  isChallengeBonusDay,
   isLastDayOfMonth,
   padTwoDigits,
 };

@@ -6,9 +6,10 @@ import { logger } from '../logger.js';
 import { AttendanceLog } from '../repository/AttendanceLog.js';
 import { Users } from '../repository/Users.js';
 import { ensureWakeUpMembershipSnapshot } from '../services/challengeSelfService.js';
-import { getYearMonthDay, padTwoDigits } from '../utils.js';
+import { getYearMonthDay, isChallengeBonusDate, padTwoDigits } from '../utils.js';
 
 const DEMO_THREAD_SUFFIX = '출석-demo';
+const BONUS_REACTION = '🎁';
 const FINAL_ATTENDANCE_EMOJIS = new Set(['✅', '🟡', '❌']);
 const finalizedAttendanceCache = new Map<string, Set<string>>();
 const inFlightAttendanceKeys = new Set<string>();
@@ -183,6 +184,9 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string,
 
     const emoji = getAttendanceStatusEmoji(status);
     await message.react(emoji);
+    if (isChallengeBonusDate(createdAt) && (status === 'attended' || status === 'late')) {
+      await message.react(BONUS_REACTION);
+    }
 
     if (FINAL_ATTENDANCE_EMOJIS.has(emoji)) {
       rememberFinalAttendance(message.channel.id, message.author.id);

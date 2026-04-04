@@ -493,8 +493,9 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 - 평일 결과표는 당일 출석 thread 댓글로 전송한다
 - 결과표가 Discord 2000자 제한을 넘기면 줄 경계를 기준으로 여러 메시지로 나눠 같은 thread에 순서대로 전송
 - 주말/공휴일에는 결과 메시지를 공지하지 않는다
-- 주말/공휴일에는 무댓글, `late`, `absent`로 새 패널티를 추가하지 않는다
-- 주말/공휴일 `attended`는 `absencecount`를 우선 1 감소시키고, 차감할 결석이 없으면 `latecount`를 1 감소시킨다
+- 주말/공휴일 `attended`, `late` 댓글에는 기존 판정 이모지와 함께 `🎁` 반응이 추가된다
+- 주말/공휴일에는 무댓글, `absent`로 새 패널티를 추가하지 않는다
+- 주말/공휴일 `attended`, `late`는 `absencecount`를 우선 1 감소시키고, 차감할 결석이 없으면 `latecount`를 1 감소시킨다
 
 ```mermaid
 sequenceDiagram
@@ -515,11 +516,11 @@ sequenceDiagram
         loop 각 사용자별
             alt 휴가 등록됨
                 B->>B: 변화 없음
-            else AttendanceLog.status = attended and absencecount > 0
+            else AttendanceLog.status = attended/late and absencecount > 0
                 B->>DB: Users.absencecount--
-            else AttendanceLog.status = attended and absencecount = 0 and latecount > 0
+            else AttendanceLog.status = attended/late and absencecount = 0 and latecount > 0
                 B->>DB: Users.latecount--
-            else AttendanceLog 없음 또는 AttendanceLog.status = late/absent
+            else AttendanceLog 없음 또는 AttendanceLog.status = absent
                 B->>B: 무패널티
             end
         end
