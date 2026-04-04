@@ -140,6 +140,33 @@ describe('US-19: 운영 self-service 온보딩 UI', () => {
     );
   });
 
+  it('운영 기상 등록 버튼은 허용 시간 범위를 안내하는 modal을 연다', async () => {
+    vi.doMock('../services/selfServiceActions.js', () => ({
+      executeRegisterSelfService: vi.fn(),
+      executeApplyVacationSelfService: vi.fn(),
+      executeStopWakeupSelfService: vi.fn(),
+      executeApplyCamSelfService: vi.fn(),
+    }));
+
+    const { handleSelfServiceOnboardingButtonInteraction } = await import('../services/selfServiceOnboarding.js');
+    const showModal = vi.fn();
+    const interaction = {
+      customId: 'self-service-onboarding:register:open',
+      channelId: 'valid-time-start-here-channel-id',
+      reply: vi.fn(),
+      showModal,
+    };
+
+    await handleSelfServiceOnboardingButtonInteraction(interaction as never);
+
+    expect(showModal).toHaveBeenCalledOnce();
+    const modalPayload = showModal.mock.calls[0]?.[0].toJSON();
+    const textInput = modalPayload.components[0].components[0];
+
+    expect(textInput.label).toBe('기상시간 (HHmm 또는 HH:mm)');
+    expect(textInput.placeholder).toBe('05:00~09:00, 예: 0700 또는 07:00');
+  });
+
   it('운영 기상 등록 modal submit 은 기존 register 처리 경로를 재사용한다', async () => {
     const executeRegisterSelfService = vi.fn().mockResolvedValue(undefined);
     vi.doMock('../services/selfServiceActions.js', () => ({

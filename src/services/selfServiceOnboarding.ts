@@ -104,8 +104,8 @@ const buildRegisterModal = () =>
       new ActionRowBuilder<TextInputBuilder>().addComponents(
         new TextInputBuilder()
           .setCustomId(REGISTER_WAKETIME_INPUT_ID)
-          .setLabel('기상시간 (HHmm)')
-          .setPlaceholder('0700')
+          .setLabel('기상시간 (HHmm 또는 HH:mm)')
+          .setPlaceholder('05:00~09:00, 예: 0700 또는 07:00')
           .setRequired(true)
           .setStyle(TextInputStyle.Short),
       ),
