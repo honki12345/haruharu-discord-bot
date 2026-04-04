@@ -98,8 +98,9 @@ flowchart TD
 
 1. Discord에서 `/ping` 명령으로 운영 응답을 확인한다.
 2. 필요 시 등록/체크인/체크아웃 허용 채널에서 명령 라우팅이 정상인지 확인한다.
-3. 운영 채널에서 daily message/thread, 운영 출석 thread messageCreate 반응/AttendanceLog 기록, cam-study 이벤트 영향이 없는지 확인한다.
-4. OCI 서버에서 `pm2 status`와 최근 로그를 한 번 더 점검한다.
+3. 운영 `#start-here`, `#time-start-here`에서 bot-owned self-service onboarding UI가 최신 버튼 payload로 자동 동기화됐는지 확인한다.
+4. 운영 채널에서 daily message/thread, 운영 출석 thread messageCreate 반응/AttendanceLog 기록, cam-study 이벤트 영향이 없는지 확인한다.
+5. OCI 서버에서 `pm2 status`와 최근 로그를 한 번 더 점검한다.
 
 ## 운영 출석 누락 1회성 보정
 
