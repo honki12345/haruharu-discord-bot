@@ -163,7 +163,7 @@ describe('US-18: self-service 온보딩 버튼 데모', () => {
     const modalPayload = showModal.mock.calls[0]?.[0].toJSON();
     const textInput = modalPayload.components[0].components[0];
 
-    expect(textInput.label).toBe('기상시간 (05:00~09:00, HHmm 또는 HH:mm)');
+    expect(textInput.label).toBe('기상시간 (05:00~09:00, HHmm)');
     expect(textInput.placeholder).toBe('0700');
   });
 
