@@ -163,8 +163,8 @@ describe('US-19: 운영 self-service 온보딩 UI', () => {
     const modalPayload = showModal.mock.calls[0]?.[0].toJSON();
     const textInput = modalPayload.components[0].components[0];
 
-    expect(textInput.label).toBe('기상시간 (HHmm 또는 HH:mm)');
-    expect(textInput.placeholder).toBe('05:00~09:00, 예: 0700 또는 07:00');
+    expect(textInput.label).toBe('기상시간 (HHmm, 05:00~09:00)');
+    expect(textInput.placeholder).toBe('0700');
   });
 
   it('운영 기상 등록 modal submit 은 기존 register 처리 경로를 재사용한다', async () => {
