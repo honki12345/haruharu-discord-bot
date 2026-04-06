@@ -1,5 +1,5 @@
 import type { Guild, GuildMember } from 'discord.js';
-import { QueryTypes, type Transaction } from 'sequelize';
+import type { Transaction } from 'sequelize';
 import {
   bulkCreateWakeUpMemberships,
   createChallengeUserExclusion,
@@ -22,7 +22,7 @@ import { logger } from '../logger.js';
 import { hasDiscordDisplayNameChanged, resolveDiscordDisplayName } from '../utils/discordName.js';
 import { DEFAULT_VACANCES_COUNT, getYearMonth, getYearMonthDate } from '../utils.js';
 import { Users } from '../repository/Users.js';
-import { WakeUpMembership } from '../repository/WakeUpMembership.js';
+import { ensureWakeUpMembershipStreakColumns, WakeUpMembership } from '../repository/WakeUpMembership.js';
 import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
 import { ChallengeUserExclusion } from '../repository/ChallengeUserExclusion.js';
 
@@ -103,34 +103,6 @@ const runWithWakeUpUserLock = async <T>(userId: string, callback: () => Promise<
     if (wakeUpUserLocks.get(userId) === queued) {
       wakeUpUserLocks.delete(userId);
     }
-  }
-};
-
-const ensureWakeUpMembershipStreakColumns = async (transaction: Transaction) => {
-  const sequelize = Users.sequelize;
-  if (!sequelize) {
-    throw new Error('Users sequelize is not initialized');
-  }
-
-  const columns = await sequelize.query<{ name: string }>('PRAGMA table_info("wake_up_memberships")', {
-    transaction,
-    type: QueryTypes.SELECT,
-  });
-  const columnNames = new Set(columns.map(column => column.name));
-
-  if (!columnNames.has('attendancestreak')) {
-    await sequelize.query(
-      'ALTER TABLE "wake_up_memberships" ADD COLUMN "attendancestreak" INTEGER NOT NULL DEFAULT 0',
-      {
-        transaction,
-      },
-    );
-  }
-
-  if (!columnNames.has('attendancestreakupdatedon')) {
-    await sequelize.query('ALTER TABLE "wake_up_memberships" ADD COLUMN "attendancestreakupdatedon" TEXT', {
-      transaction,
-    });
   }
 };
 

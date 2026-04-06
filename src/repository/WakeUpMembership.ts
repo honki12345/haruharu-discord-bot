@@ -1,4 +1,12 @@
-import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model } from 'sequelize';
+import {
+  CreationOptional,
+  DataTypes,
+  InferAttributes,
+  InferCreationAttributes,
+  Model,
+  QueryTypes,
+  type Transaction,
+} from 'sequelize';
 import { sequelize } from './config.js';
 
 class WakeUpMembership extends Model<InferAttributes<WakeUpMembership>, InferCreationAttributes<WakeUpMembership>> {
@@ -59,4 +67,27 @@ WakeUpMembership.init(
   },
 );
 
-export { WakeUpMembership };
+const ensureWakeUpMembershipStreakColumns = async (transaction?: Transaction) => {
+  const columns = await sequelize.query<{ name: string }>('PRAGMA table_info("wake_up_memberships")', {
+    transaction,
+    type: QueryTypes.SELECT,
+  });
+  const columnNames = new Set(columns.map(column => column.name));
+
+  if (!columnNames.has('attendancestreak')) {
+    await sequelize.query(
+      'ALTER TABLE "wake_up_memberships" ADD COLUMN "attendancestreak" INTEGER NOT NULL DEFAULT 0',
+      {
+        transaction,
+      },
+    );
+  }
+
+  if (!columnNames.has('attendancestreakupdatedon')) {
+    await sequelize.query('ALTER TABLE "wake_up_memberships" ADD COLUMN "attendancestreakupdatedon" TEXT', {
+      transaction,
+    });
+  }
+};
+
+export { WakeUpMembership, ensureWakeUpMembershipStreakColumns };

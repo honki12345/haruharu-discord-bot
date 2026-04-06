@@ -26,7 +26,7 @@ import { Users } from '../repository/Users.js';
 import { VacationLog } from '../repository/VacationLog.js';
 import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
 import { logger } from '../logger.js';
-import { WakeUpMembership } from '../repository/WakeUpMembership.js';
+import { ensureWakeUpMembershipStreakColumns, WakeUpMembership } from '../repository/WakeUpMembership.js';
 import { Op } from 'sequelize';
 import { HARUHARU_TIMES, ONE_DAY_MILLISECONDS } from '../utils/constants.js';
 import { ensureActiveWakeUpMembershipSnapshots } from './challengeSelfService.js';
@@ -48,6 +48,7 @@ type ChallengeReportStatus = 'attended' | 'late' | 'absent' | 'vacation' | 'miss
 
 const syncModels = async () => {
   await WakeUpMembership.sync();
+  await ensureWakeUpMembershipStreakColumns();
   await Users.sync();
   await ChallengeUserExclusion.sync();
   await TimeLog.sync();
@@ -267,6 +268,7 @@ const buildChallengeReport = async () => {
   const isBonusDay = isChallengeBonusDay(day, monthdate);
   const yearmonth = getYearMonth(year, month);
   const yearmonthday = getYearMonthDay(year, month, date);
+  await ensureWakeUpMembershipStreakColumns();
   await ensureActiveWakeUpMembershipSnapshots(yearmonth);
   const users = await listChallengeUsers(yearmonth);
   const sortedUsers = [...users].sort(compareChallengeUsersByWaketime);

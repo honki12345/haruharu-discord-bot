@@ -989,6 +989,52 @@ describe('reporting service', () => {
     });
   });
 
+  it('legacy wake_up_memberships 스키마에서도 리포트 전에 streak 컬럼을 보강한다', async () => {
+    vi.setSystemTime(new Date('2025-12-08T13:00:00'));
+
+    await testSequelize.query('DROP TABLE wake_up_memberships');
+    await testSequelize.query(`
+      CREATE TABLE wake_up_memberships (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userid VARCHAR(128) NOT NULL UNIQUE,
+        username VARCHAR(128) NOT NULL,
+        waketime VARCHAR(4) NOT NULL,
+        status VARCHAR(32) NOT NULL,
+        stoppedat TEXT,
+        createdAt DATETIME,
+        updatedAt DATETIME
+      )
+    `);
+    await testSequelize.query(`
+      INSERT INTO wake_up_memberships (userid, username, waketime, status, stoppedat, createdAt, updatedAt)
+      VALUES ('legacy-user', '레거시참가자', '0700', 'active', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `);
+    await TestAttendanceLog.create({
+      userid: 'legacy-user',
+      username: '레거시참가자',
+      yearmonthday: '20251208',
+      threadid: 'thread-legacy',
+      messageid: 'message-legacy',
+      commentedat: '2025-12-07T22:00:00Z',
+      status: 'attended',
+    });
+
+    const { attendanceMessage } = await buildChallengeReport();
+    const currentMonthUser = await TestUsers.findOne({
+      where: { userid: 'legacy-user', yearmonth: '202512' },
+    });
+    const columns = (await testSequelize.query('PRAGMA table_info("wake_up_memberships")')) as [
+      Array<{ name: string }>,
+      unknown,
+    ];
+
+    expect(attendanceMessage).toContain('레거시참가자(07:00): 출석(연속 1회)');
+    expect(currentMonthUser?.waketime).toBe('0700');
+    expect(columns[0].map(column => column.name)).toEqual(
+      expect.arrayContaining(['attendancestreak', 'attendancestreakupdatedon']),
+    );
+  });
+
   it('syncModels는 self-service 와 active session 관련 모델도 함께 동기화한다', async () => {
     const attendanceLogSyncSpy = vi.spyOn(TestAttendanceLog, 'sync').mockResolvedValue(TestAttendanceLog);
     const camStudyActiveSessionSyncSpy = vi
