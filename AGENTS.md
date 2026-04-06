@@ -100,6 +100,7 @@
 - 운영 UI 관리 경로는 `/sync-self-service-ui`로 유지하고, 기존 bot-owned 메시지를 visible marker 또는 component custom id fingerprint 로 식별해 갱신하며 같은 채널에 중복 관리 메시지를 남기지 않도록 유지한다.
 - 기상 self-service 중단은 `/stop-wakeup` 으로 처리하고, 현재 월 참여도 즉시 중단해야 한다.
 - `/stop-wakeup` 성공 시 `@wake-up` 역할도 함께 회수하고, 역할 회수 실패 시 `WakeUpMembership`을 `stopped`로 바꾸지 않도록 유지한다.
+- `/stop-wakeup` 성공 시 `WakeUpMembership.attendancestreak`는 `0`, `attendancestreakupdatedon`은 `null`로 초기화해 다음 재참여가 이전 연속 출석을 이어받지 않도록 유지한다.
 - `/stop-wakeup` 은 현재 월 `Users` 스냅샷을 제거하고 같은 달 exclusion 을 남겨 그 달 `/register` 재등록과 자동 복구를 막아야 한다.
 - 휴가 self-service는 총 지급량 조정이 아니라 날짜 단위 사용만 담당해야 한다.
 - self-service와 `guildMemberUpdate`가 저장하는 표시 이름은 Discord 서버 display name을 우선 사용하고, 없으면 `globalName`, 그것도 없으면 `username`으로 fallback 하도록 일관되게 유지한다.
@@ -148,6 +149,7 @@
 - 사용자 직접 휴가 사용 날짜는 `VacationLog`로 분리하고, `Users.vacances`는 총 지급 휴가일수로 해석한다.
 - 사용자 기상시간 하루 1회 변경 제한은 `WaketimeChangeLog`로 추적한다.
 - 기상 챌린지 상시 참여 상태와 최근 `/register` 기상시간은 `WakeUpMembership` 같은 별도 모델로 관리하고, `Users` 는 월별 집계 스냅샷으로 유지하며, 이름 변경 시 현재 월 스냅샷만 최신 이름으로 동기화한다.
+- 연속 출석 streak는 월 스냅샷 `Users`가 아니라 상시 상태 `WakeUpMembership`에 저장하고, 13:00 집계에서만 갱신한다.
 - 기상 self-service의 역할 접근 제어 원본은 `/register`, `/stop-wakeup` 성공 시점의 `@wake-up` 역할 동기화로 유지한다.
 - 관리자 `/delete` 로 제거한 `(userid, yearmonth)` 월 스냅샷은 별도 exclusion 기록으로 남겨 자동 backfill 이 같은 달 사용자를 되살리지 않도록 유지한다.
 - 실제 기능 등록 모델(`Users`, `CamStudyUsers`)과 신청/활성화 상태 모델 책임은 계속 분리한다.

@@ -12,6 +12,7 @@ import {
   TestTimeLog,
   TestUsers,
   TestVacationLog,
+  TestWakeUpMembership,
   TestWaketimeChangeLog,
   clearAllTables,
   testSequelize,
@@ -38,16 +39,35 @@ describe('reporting service', () => {
       latecount: number;
       absencecount: number;
       remainingVacances: number;
+      attendanceStreak?: number;
     },
   ) => {
+    const detail =
+      expectation.todayStatus === '출석'
+        ? `연속 ${expectation.attendanceStreak ?? 1}회`
+        : expectation.todayStatus === '지각'
+          ? `누적 ${expectation.latecount}회`
+          : expectation.todayStatus === '결석'
+            ? `누적 ${expectation.absencecount}회`
+            : `잔여 ${expectation.remainingVacances}일`;
+
     expect(attendanceMessage).toContain(
-      `${expectation.username}: ${expectation.todayStatus} (기상시간 ${expectation.waketime}, 지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
+      `${expectation.username}(${expectation.waketime}): ${expectation.todayStatus}(${detail})`,
     );
   };
 
   it('AttendanceLog.status=attended 사용자는 출석으로 출력되고 카운트가 증가하지 않는다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 2,
+      attendancestreakupdatedon: '20251207',
+    } as never);
     await TestUsers.create({
       userid: 'user1',
       username: '홍길동',
@@ -70,9 +90,12 @@ describe('reporting service', () => {
 
     const { attendanceMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
 
     expect(updatedUser?.latecount).toBe(0);
     expect(updatedUser?.absencecount).toBe(0);
+    expect(membership?.get('attendancestreak')).toBe(3);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20251208');
     expect(attendanceMessage).toContain('### 2025-12-08 출석표');
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
@@ -81,6 +104,7 @@ describe('reporting service', () => {
       latecount: 0,
       absencecount: 0,
       remainingVacances: 5,
+      attendanceStreak: 3,
     });
   });
 
@@ -165,6 +189,15 @@ describe('reporting service', () => {
   it('AttendanceLog.status=late 사용자는 지각으로 출력되고 latecount가 1 증가한다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 4,
+      attendancestreakupdatedon: '20251207',
+    } as never);
     await TestUsers.create({
       userid: 'user1',
       username: '홍길동',
@@ -187,8 +220,11 @@ describe('reporting service', () => {
 
     const { attendanceMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
 
     expect(updatedUser?.latecount).toBe(1);
+    expect(membership?.get('attendancestreak')).toBe(0);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20251208');
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
       waketime: '07:00',
@@ -250,6 +286,15 @@ describe('reporting service', () => {
   it('AttendanceLog.status=absent 사용자는 결석으로 출력되고 absencecount가 1 증가한다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 3,
+      attendancestreakupdatedon: '20251207',
+    } as never);
     await TestUsers.create({
       userid: 'user1',
       username: '홍길동',
@@ -272,8 +317,11 @@ describe('reporting service', () => {
 
     const { attendanceMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
 
     expect(updatedUser?.absencecount).toBe(1);
+    expect(membership?.get('attendancestreak')).toBe(0);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20251208');
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
       waketime: '07:00',
@@ -288,6 +336,15 @@ describe('reporting service', () => {
   it('당일 무댓글 사용자도 결석으로 확정되어 결과표와 absencecount에 반영된다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 5,
+      attendancestreakupdatedon: '20251207',
+    } as never);
     await TestUsers.create({
       userid: 'user1',
       username: '홍길동',
@@ -300,8 +357,11 @@ describe('reporting service', () => {
 
     const { attendanceMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
 
     expect(updatedUser?.absencecount).toBe(1);
+    expect(membership?.get('attendancestreak')).toBe(0);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20251208');
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
       waketime: '07:00',
@@ -343,6 +403,15 @@ describe('reporting service', () => {
   it('휴가 등록된 날짜는 결석으로 카운트하지 않고 휴가로 표시한다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 4,
+      attendancestreakupdatedon: '20251207',
+    } as never);
     await TestUsers.create({
       userid: 'user1',
       username: '홍길동',
@@ -361,8 +430,11 @@ describe('reporting service', () => {
 
     const { attendanceMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
 
     expect(updatedUser?.absencecount).toBe(0);
+    expect(membership?.get('attendancestreak')).toBe(4);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20251208');
     expectMonthlyStatus(attendanceMessage, {
       username: '홍길동',
       waketime: '07:00',
@@ -492,12 +564,12 @@ describe('reporting service', () => {
 
     const { attendanceMessage } = await buildChallengeReport();
 
-    expect(attendanceMessage).toContain('출석빠름: 출석 (기상시간 06:00');
-    expect(attendanceMessage).toContain('출석느림: 출석 (기상시간 07:00');
-    expect(attendanceMessage).toContain('지각빠름: 지각 (기상시간 06:30');
-    expect(attendanceMessage).toContain('지각느림: 지각 (기상시간 07:30');
-    expect(attendanceMessage).toContain('결석빠름: 결석 (기상시간 06:15');
-    expect(attendanceMessage).toContain('결석느림: 결석 (기상시간 07:45');
+    expect(attendanceMessage).toContain('출석빠름(06:00): 출석(연속 1회)');
+    expect(attendanceMessage).toContain('출석느림(07:00): 출석(연속 1회)');
+    expect(attendanceMessage).toContain('지각빠름(06:30): 지각(누적 2회)');
+    expect(attendanceMessage).toContain('지각느림(07:30): 지각(누적 3회)');
+    expect(attendanceMessage).toContain('결석빠름(06:15): 결석(누적 1회)');
+    expect(attendanceMessage).toContain('결석느림(07:45): 결석(누적 1회)');
 
     expect(attendanceMessage!.indexOf('출석빠름')).toBeLessThan(attendanceMessage!.indexOf('출석느림'));
     expect(attendanceMessage!.indexOf('지각빠름')).toBeLessThan(attendanceMessage!.indexOf('지각느림'));
@@ -509,9 +581,9 @@ describe('reporting service', () => {
   it('결과표가 Discord 2000자 제한을 넘기면 여러 메시지로 분할한다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
-    for (let index = 0; index < 40; index += 1) {
+    for (let index = 0; index < 90; index += 1) {
       const userid = `user-${index}`;
-      const username = `출석자-${String(index).padStart(2, '0')}-이름이조금긴테스트사용자`;
+      const username = `출석자-${String(index).padStart(2, '0')}-이름이조금긴테스트사용자-분할검증용-${'x'.repeat(12)}`;
 
       await TestUsers.create({
         userid,
@@ -545,6 +617,15 @@ describe('reporting service', () => {
   it('주말에는 출석 집계를 건너뛰고 카운트를 변경하지 않는다', async () => {
     vi.setSystemTime(new Date('2025-12-07T13:00:00'));
 
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 5,
+      attendancestreakupdatedon: '20251206',
+    } as never);
     await TestUsers.create({
       userid: 'user1',
       username: '홍길동',
@@ -557,16 +638,28 @@ describe('reporting service', () => {
 
     const { attendanceMessage, hallOfFameMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
 
     expect(attendanceMessage).toBeNull();
     expect(hallOfFameMessage).toBeNull();
     expect(updatedUser?.latecount).toBe(1);
     expect(updatedUser?.absencecount).toBe(2);
+    expect(membership?.get('attendancestreak')).toBe(5);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20251207');
   });
 
   it('주말 attended 로그는 absencecount를 우선 차감한다', async () => {
     vi.setSystemTime(new Date('2025-12-07T13:00:00'));
 
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 2,
+      attendancestreakupdatedon: '20251206',
+    } as never);
     await TestUsers.create({
       userid: 'user1',
       username: '홍길동',
@@ -589,11 +682,14 @@ describe('reporting service', () => {
 
     const { attendanceMessage, hallOfFameMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
 
     expect(attendanceMessage).toBeNull();
     expect(hallOfFameMessage).toBeNull();
     expect(updatedUser?.latecount).toBe(1);
     expect(updatedUser?.absencecount).toBe(1);
+    expect(membership?.get('attendancestreak')).toBe(3);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20251207');
   });
 
   it('주말 attended 로그는 absencecount가 없으면 latecount를 차감한다', async () => {
@@ -661,6 +757,15 @@ describe('reporting service', () => {
   it('주말 late 로그는 absencecount가 없으면 latecount를 차감한다', async () => {
     vi.setSystemTime(new Date('2025-12-07T13:00:00'));
 
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 2,
+      attendancestreakupdatedon: '20251206',
+    } as never);
     await TestUsers.create({
       userid: 'user1',
       username: '홍길동',
@@ -683,10 +788,53 @@ describe('reporting service', () => {
 
     const { attendanceMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
 
     expect(attendanceMessage).toBeNull();
     expect(updatedUser?.latecount).toBe(1);
     expect(updatedUser?.absencecount).toBe(0);
+    expect(membership?.get('attendancestreak')).toBe(3);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20251207');
+  });
+
+  it('같은 bonus day 리포트를 다시 실행해도 streak는 한 번만 증가한다', async () => {
+    vi.setSystemTime(new Date('2025-12-07T13:00:00'));
+
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 2,
+      attendancestreakupdatedon: '20251206',
+    } as never);
+    await TestUsers.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonth: '202512',
+      waketime: '0700',
+      vacances: 5,
+      latecount: 0,
+      absencecount: 0,
+    });
+    await TestAttendanceLog.create({
+      userid: 'user1',
+      username: '홍길동',
+      yearmonthday: '20251207',
+      threadid: 'thread-1',
+      messageid: 'message-1',
+      commentedat: '2025-12-06T22:00:00Z',
+      status: 'attended',
+    });
+
+    await buildChallengeReport();
+    await buildChallengeReport();
+
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
+
+    expect(membership?.get('attendancestreak')).toBe(3);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20251207');
   });
 
   it('공휴일 attended 로그는 주말과 같은 보너스 규칙을 적용한다', async () => {

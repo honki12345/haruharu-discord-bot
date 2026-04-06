@@ -37,10 +37,20 @@ const expectMonthlyStatus = (
     latecount: number;
     absencecount: number;
     remainingVacances: number;
+    attendanceStreak?: number;
   },
 ) => {
+  const detail =
+    expectation.todayStatus === '출석'
+      ? `연속 ${expectation.attendanceStreak ?? 1}회`
+      : expectation.todayStatus === '지각'
+        ? `누적 ${expectation.latecount}회`
+        : expectation.todayStatus === '결석'
+          ? `누적 ${expectation.absencecount}회`
+          : `잔여 ${expectation.remainingVacances}일`;
+
   expect(attendanceMessage).toContain(
-    `${expectation.username}: ${expectation.todayStatus} (기상시간 ${expectation.waketime}, 지각 ${expectation.latecount}회, 결석 ${expectation.absencecount}회, 잔여휴가 ${expectation.remainingVacances}일)`,
+    `${expectation.username}(${expectation.waketime}): ${expectation.todayStatus}(${detail})`,
   );
 };
 

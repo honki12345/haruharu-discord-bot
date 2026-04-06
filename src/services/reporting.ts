@@ -27,6 +27,7 @@ import { VacationLog } from '../repository/VacationLog.js';
 import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
 import { logger } from '../logger.js';
 import { WakeUpMembership } from '../repository/WakeUpMembership.js';
+import { Op } from 'sequelize';
 import { HARUHARU_TIMES, ONE_DAY_MILLISECONDS } from '../utils/constants.js';
 import { ensureActiveWakeUpMembershipSnapshots } from './challengeSelfService.js';
 import {
@@ -43,6 +44,7 @@ import {
 } from '../utils.js';
 
 const DISCORD_MESSAGE_LIMIT = 2000;
+type ChallengeReportStatus = 'attended' | 'late' | 'absent' | 'vacation' | 'missing';
 
 const syncModels = async () => {
   await WakeUpMembership.sync();
@@ -71,22 +73,6 @@ const buildMonthlyHallOfFameMessage = async (year: number, month: string, date: 
     message += `- ${user.username}\n`;
   });
   return message;
-};
-
-const formatChallengeStatusLabel = (status: 'attended' | 'late' | 'absent' | 'vacation') => {
-  if (status === 'vacation') {
-    return '휴가';
-  }
-
-  if (status === 'late') {
-    return '지각';
-  }
-
-  if (status === 'absent') {
-    return '결석';
-  }
-
-  return '출석';
 };
 
 const calculateRemainingVacances = (vacances: number, usedVacationCount: number) =>
@@ -124,8 +110,93 @@ const buildChallengeReportRow = (payload: {
   latecount: number;
   absencecount: number;
   remainingVacances: number;
-}) =>
-  `- ${payload.username}: ${formatChallengeStatusLabel(payload.status)} (기상시간 ${payload.waketime}, 지각 ${payload.latecount}회, 결석 ${payload.absencecount}회, 잔여휴가 ${payload.remainingVacances}일)\n`;
+  attendanceStreak?: number;
+}) => {
+  if (payload.status === 'attended') {
+    return `- ${payload.username}(${payload.waketime}): 출석(연속 ${payload.attendanceStreak ?? 1}회)\n`;
+  }
+
+  if (payload.status === 'late') {
+    return `- ${payload.username}(${payload.waketime}): 지각(누적 ${payload.latecount}회)\n`;
+  }
+
+  if (payload.status === 'absent') {
+    return `- ${payload.username}(${payload.waketime}): 결석(누적 ${payload.absencecount}회)\n`;
+  }
+
+  return `- ${payload.username}(${payload.waketime}): 휴가(잔여 ${payload.remainingVacances}일)\n`;
+};
+
+const getAttendanceStreak = (membership: WakeUpMembership | undefined) => {
+  const value = membership?.get('attendancestreak');
+  return typeof value === 'number' ? value : Number(value ?? 0);
+};
+
+const getAttendanceStreakUpdatedOn = (membership: WakeUpMembership | undefined) => {
+  const value = membership?.get('attendancestreakupdatedon');
+  return typeof value === 'string' ? value : null;
+};
+
+const resolveNextAttendanceStreak = ({
+  currentStreak,
+  isBonusDay,
+  status,
+}: {
+  currentStreak: number;
+  isBonusDay: boolean;
+  status: ChallengeReportStatus;
+}) => {
+  if (isBonusDay) {
+    return status === 'attended' || status === 'late' ? currentStreak + 1 : currentStreak;
+  }
+
+  if (status === 'attended') {
+    return currentStreak + 1;
+  }
+
+  if (status === 'vacation') {
+    return currentStreak;
+  }
+
+  return 0;
+};
+
+const syncAttendanceStreak = async ({
+  membership,
+  userid,
+  yearmonthday,
+  isBonusDay,
+  status,
+}: {
+  membership: WakeUpMembership | undefined;
+  userid: string;
+  yearmonthday: string;
+  isBonusDay: boolean;
+  status: ChallengeReportStatus;
+}) => {
+  const currentStreak = getAttendanceStreak(membership);
+  if (getAttendanceStreakUpdatedOn(membership) === yearmonthday) {
+    return currentStreak;
+  }
+
+  const nextStreak = resolveNextAttendanceStreak({ currentStreak, isBonusDay, status });
+  if (!membership) {
+    return nextStreak;
+  }
+
+  await WakeUpMembership.update(
+    {
+      attendancestreak: nextStreak,
+      attendancestreakupdatedon: yearmonthday,
+    } as never,
+    {
+      where: { userid },
+    },
+  );
+  membership.set('attendancestreak', nextStreak);
+  membership.set('attendancestreakupdatedon', yearmonthday);
+  return nextStreak;
+};
 
 const splitDiscordMessage = (message: string) => {
   if (message.length <= DISCORD_MESSAGE_LIMIT) {
@@ -200,6 +271,14 @@ const buildChallengeReport = async () => {
   const users = await listChallengeUsers(yearmonth);
   const sortedUsers = [...users].sort(compareChallengeUsersByWaketime);
   const userMap = new Map(users.map(user => [user.userid, user]));
+  const memberships = await WakeUpMembership.findAll({
+    where: {
+      userid: {
+        [Op.in]: users.map(user => user.userid),
+      },
+    },
+  });
+  const membershipsByUserId = new Map(memberships.map(membership => [membership.userid, membership]));
   const attendanceLogs = await listChallengeAttendanceLogs(yearmonthday);
   const dailyVacationLogs = await listVacationLogs(yearmonthday);
   const monthlyVacationLogs = await listMonthlyVacationLogs(yearmonth);
@@ -223,6 +302,18 @@ const buildChallengeReport = async () => {
   if (isBonusDay) {
     for (const userid of userMap.keys()) {
       const user = userMap.get(userid);
+      const streakStatus: ChallengeReportStatus = vacationUserIds.has(userid)
+        ? 'vacation'
+        : (attendanceLogsByUserId.get(userid)?.status ?? 'missing');
+
+      await syncAttendanceStreak({
+        membership: membershipsByUserId.get(userid),
+        userid,
+        yearmonthday,
+        isBonusDay,
+        status: streakStatus,
+      });
+
       if (!user || vacationUserIds.has(userid)) {
         continue;
       }
@@ -250,7 +341,15 @@ const buildChallengeReport = async () => {
 
   for (const user of sortedUsers) {
     const { userid } = user;
+    const membership = membershipsByUserId.get(userid);
     if (vacationUserIds.has(userid)) {
+      await syncAttendanceStreak({
+        membership,
+        userid,
+        yearmonthday,
+        isBonusDay,
+        status: 'vacation',
+      });
       vacationers += buildChallengeReportRow({
         username: user.username,
         waketime: formatDisplayWaketime(user.waketime),
@@ -272,6 +371,13 @@ const buildChallengeReport = async () => {
 
     if (!attendanceLog || attendanceLog.status === 'absent') {
       const nextAbsenceCount = currentAbsenceCount + 1;
+      await syncAttendanceStreak({
+        membership,
+        userid,
+        yearmonthday,
+        isBonusDay,
+        status: attendanceLog?.status === 'absent' ? 'absent' : 'missing',
+      });
       await updateChallengeUser(userid, yearmonth, { absencecount: nextAbsenceCount });
       absentees += buildChallengeReportRow({
         username: user.username,
@@ -286,6 +392,13 @@ const buildChallengeReport = async () => {
 
     if (attendanceLog.status === 'late') {
       const nextLateCount = currentLateCount + 1;
+      await syncAttendanceStreak({
+        membership,
+        userid,
+        yearmonthday,
+        isBonusDay,
+        status: 'late',
+      });
       await updateChallengeUser(userid, yearmonth, { latecount: nextLateCount });
       latecomers += buildChallengeReportRow({
         username: user.username,
@@ -298,6 +411,13 @@ const buildChallengeReport = async () => {
       continue;
     }
 
+    const attendanceStreak = await syncAttendanceStreak({
+      membership,
+      userid,
+      yearmonthday,
+      isBonusDay,
+      status: 'attended',
+    });
     attendees += buildChallengeReportRow({
       username: user.username,
       waketime: formatDisplayWaketime(user.waketime),
@@ -305,6 +425,7 @@ const buildChallengeReport = async () => {
       latecount: currentLateCount,
       absencecount: currentAbsenceCount,
       remainingVacances,
+      attendanceStreak,
     });
   }
 

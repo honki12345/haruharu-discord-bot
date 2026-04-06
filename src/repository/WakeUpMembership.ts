@@ -6,6 +6,8 @@ class WakeUpMembership extends Model<InferAttributes<WakeUpMembership>, InferCre
   declare userid: string;
   declare username: string;
   declare waketime: string;
+  declare attendancestreak: CreationOptional<number>;
+  declare attendancestreakupdatedon: CreationOptional<string | null>;
   declare status: 'active' | 'stopped';
   declare stoppedat: string | null;
 }
@@ -29,6 +31,15 @@ WakeUpMembership.init(
     waketime: {
       type: DataTypes.STRING(4),
       allowNull: false,
+    },
+    attendancestreak: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    attendancestreakupdatedon: {
+      type: DataTypes.STRING(8),
+      allowNull: true,
     },
     status: {
       type: DataTypes.STRING(32),
