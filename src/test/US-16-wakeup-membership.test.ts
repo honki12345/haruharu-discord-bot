@@ -72,7 +72,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
 
     expect(currentMonthUser).not.toBeNull();
     expect(currentMonthUser?.waketime).toBe('0700');
-    expect(attendanceMessage).toContain('홍길동: 결석');
+    expect(attendanceMessage).toContain('홍길동(07:00): 결석(누적 1회)');
   });
 
   it('TC-WM02: 활성 사용자는 현재 월 휴가 신청 시 현재 월 스냅샷이 없어도 자동으로 생성된다', async () => {
@@ -115,6 +115,8 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
       waketime: '0700',
       status: 'active',
       stoppedat: null,
+      attendancestreak: 4,
+      attendancestreakupdatedon: '20260107',
     });
     await TestUsers.create({
       userid: 'stopped-user',
@@ -144,10 +146,20 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     const currentMonthUser = await TestUsers.findOne({
       where: { userid: 'stopped-user', yearmonth: '202601' },
     });
+    const [streakRows] = (await testSequelize.query(
+      'SELECT attendancestreak, attendancestreakupdatedon FROM wake_up_memberships WHERE userid = :userid',
+      {
+        replacements: { userid: 'stopped-user' },
+      },
+    )) as [{ attendancestreak: number | null; attendancestreakupdatedon: string | null }[], unknown];
 
     expect(membership?.status).toBe('stopped');
     expect(exclusion).not.toBeNull();
     expect(currentMonthUser).toBeNull();
+    expect(streakRows[0]).toMatchObject({
+      attendancestreak: 0,
+      attendancestreakupdatedon: null,
+    });
     expect(attendanceMessage).not.toContain('박민수');
     expect(stopInteraction.getLastReply()).toContain('중단');
   });
@@ -333,7 +345,7 @@ describe('US-16: 기상스터디 상시 참여와 중단', () => {
     expect(membership?.status).toBe('active');
     expect(membership?.waketime).toBe('0645');
     expect(currentMonthUser?.waketime).toBe('0645');
-    expect(attendanceMessage).toContain('기존참가자: 결석');
+    expect(attendanceMessage).toContain('기존참가자(06:45): 결석(누적 1회)');
   });
 
   it('TC-WM10: legacy Users만 있는 참가자도 첫 리포트 전 /stop-wakeup 으로 중단할 수 있다', async () => {

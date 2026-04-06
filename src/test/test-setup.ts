@@ -1,5 +1,13 @@
 import { vi } from 'vitest';
-import { Sequelize, DataTypes, Model, CreationOptional, InferAttributes, InferCreationAttributes } from 'sequelize';
+import {
+  Sequelize,
+  DataTypes,
+  Model,
+  CreationOptional,
+  InferAttributes,
+  InferCreationAttributes,
+  QueryTypes,
+} from 'sequelize';
 
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const YEAR_MONTH_DAY_PATTERN = /^\d{8}$/;
@@ -278,6 +286,8 @@ export class TestWakeUpMembership extends Model<
   declare userid: string;
   declare username: string;
   declare waketime: string;
+  declare attendancestreak: CreationOptional<number>;
+  declare attendancestreakupdatedon: CreationOptional<string | null>;
   declare status: 'active' | 'stopped';
   declare stoppedat: string | null;
 }
@@ -288,6 +298,8 @@ TestWakeUpMembership.init(
     userid: { type: DataTypes.STRING(128), allowNull: false, unique: true },
     username: { type: DataTypes.STRING(128), allowNull: false },
     waketime: { type: DataTypes.STRING(4), allowNull: false },
+    attendancestreak: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    attendancestreakupdatedon: { type: DataTypes.STRING(8), allowNull: true },
     status: {
       type: DataTypes.STRING(32),
       allowNull: false,
@@ -299,6 +311,23 @@ TestWakeUpMembership.init(
   },
   { sequelize: testSequelize, tableName: 'wake_up_memberships' },
 );
+
+export const ensureWakeUpMembershipStreakColumns = async () => {
+  const columns = await testSequelize.query<{ name: string }>('PRAGMA table_info("wake_up_memberships")', {
+    type: QueryTypes.SELECT,
+  });
+  const columnNames = new Set(columns.map(column => column.name));
+
+  if (!columnNames.has('attendancestreak')) {
+    await testSequelize.query(
+      'ALTER TABLE "wake_up_memberships" ADD COLUMN "attendancestreak" INTEGER NOT NULL DEFAULT 0',
+    );
+  }
+
+  if (!columnNames.has('attendancestreakupdatedon')) {
+    await testSequelize.query('ALTER TABLE "wake_up_memberships" ADD COLUMN "attendancestreakupdatedon" TEXT');
+  }
+};
 
 // ============ CamStudyUsers 모델 ============
 export class TestCamStudyUsers extends Model<
@@ -399,7 +428,10 @@ vi.mock('../repository/TimeLog.js', () => ({ TimeLog: TestTimeLog }));
 vi.mock('../repository/AttendanceLog.js', () => ({ AttendanceLog: TestAttendanceLog }));
 vi.mock('../repository/VacationLog.js', () => ({ VacationLog: TestVacationLog }));
 vi.mock('../repository/WaketimeChangeLog.js', () => ({ WaketimeChangeLog: TestWaketimeChangeLog }));
-vi.mock('../repository/WakeUpMembership.js', () => ({ WakeUpMembership: TestWakeUpMembership }));
+vi.mock('../repository/WakeUpMembership.js', () => ({
+  WakeUpMembership: TestWakeUpMembership,
+  ensureWakeUpMembershipStreakColumns,
+}));
 vi.mock('../repository/CamStudyUsers.js', () => ({ CamStudyUsers: TestCamStudyUsers }));
 vi.mock('../repository/CamStudyTimeLog.js', () => ({ CamStudyTimeLog: TestCamStudyTimeLog }));
 vi.mock('../repository/CamStudyActiveSession.js', () => ({ CamStudyActiveSession: TestCamStudyActiveSession }));

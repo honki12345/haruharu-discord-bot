@@ -22,7 +22,7 @@ import { logger } from '../logger.js';
 import { hasDiscordDisplayNameChanged, resolveDiscordDisplayName } from '../utils/discordName.js';
 import { DEFAULT_VACANCES_COUNT, getYearMonth, getYearMonthDate } from '../utils.js';
 import { Users } from '../repository/Users.js';
-import { WakeUpMembership } from '../repository/WakeUpMembership.js';
+import { ensureWakeUpMembershipStreakColumns, WakeUpMembership } from '../repository/WakeUpMembership.js';
 import { WaketimeChangeLog } from '../repository/WaketimeChangeLog.js';
 import { ChallengeUserExclusion } from '../repository/ChallengeUserExclusion.js';
 
@@ -512,6 +512,11 @@ const persistStopWakeUp = async ({
   currentYearmonth: string;
 }): Promise<CommandResult> =>
   runChallengeTransaction(async transaction => {
+    const sequelize = Users.sequelize;
+    if (!sequelize) {
+      throw new Error('Users sequelize is not initialized');
+    }
+
     const membership = await WakeUpMembership.findOne({
       where: { userid: userId },
       transaction,
@@ -520,13 +525,20 @@ const persistStopWakeUp = async ({
       return { reply: '현재 진행 중인 기상스터디 참여가 없습니다' };
     }
 
-    await WakeUpMembership.update(
+    const stoppedAt = new Date().toISOString();
+    await ensureWakeUpMembershipStreakColumns(transaction);
+    await sequelize.query(
+      `UPDATE wake_up_memberships
+       SET status = 'stopped',
+           stoppedat = :stoppedAt,
+           attendancestreak = 0,
+           attendancestreakupdatedon = NULL
+       WHERE userid = :userId`,
       {
-        status: 'stopped',
-        stoppedat: new Date().toISOString(),
-      },
-      {
-        where: { userid: userId },
+        replacements: {
+          stoppedAt,
+          userId,
+        },
         transaction,
       },
     );
