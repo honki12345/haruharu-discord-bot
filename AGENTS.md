@@ -115,7 +115,7 @@
 - Discord 이벤트당 파일 하나를 유지한다.
 - `ready.ts`는 부팅, 테이블 sync, 운영 self-service onboarding UI 자동 동기화 1회 실행, 매일 04:00 운영 daily message/thread 생성 스케줄, 기상 결과표 thread 댓글 전송을 포함한 집계 스케줄 등록, 캠스터디 active session 복구와 heartbeat 등록을 담당한다.
 - `interactionCreate.ts`는 채널 검증, 쿨다운, 커맨드 실행 라우팅과 운영/데모 self-service button/modal interaction 라우팅을 담당한다.
-- `messageCreate.ts`는 운영 `#wake-up` 출석 thread와 테스트 `출석-demo` thread의 첫 댓글을 감지하고, 운영 thread 첫 공식 판정은 `AttendanceLog`로 즉시 저장한다.
+- `messageCreate.ts`는 운영 `#wake-up` 출석 thread와 테스트 `출석-demo` thread의 첫 댓글을 감지하고, 운영 thread 첫 공식 판정은 `AttendanceLog`로 즉시 저장한다. 등록 시간보다 10분 초과로 이른 댓글도 공식 출석으로 인정하며 `✅`와 `🌅`를 함께 반응해야 한다.
 - `messageCreate.ts`는 주말/공휴일 `attended`, `late` 판정 댓글에 기존 판정 이모지와 함께 `🎁` 반응을 추가해야 한다.
 - `interactionCreate.ts`는 배포 전환 중 stale 슬래시 등록이 남을 수 있는 경우, 무응답으로 끝내지 말고 migration 안내를 우선 반환한다. 현재는 stale `/apply-wakeup` 에 대해 `/register` 안내를 반환한다.
 - `guildMemberUpdate.ts`는 역할 변경이 없어도 서버 닉네임(display name) 변경을 감지하고, 활성 `WakeUpMembership`/현재 월 `Users`/`CamStudyUsers`/`CamStudyActiveSession`의 표시 이름을 최신값으로 동기화해야 한다.
@@ -128,14 +128,14 @@
 ### `src/backfill-attendance.ts`
 
 - production 서버는 source 없이 `dist` artifact만 유지할 수 있으므로, 운영 1회성 보정 helper는 build 없이 `node dist/backfill-attendance.js <input.json>`로 실행 가능해야 한다.
-- helper는 Discord message fetch, 출석 상태 계산, `AttendanceLog.findOrCreate`, 봇 반응 추가를 같은 입력 기준으로 순서대로 수행해야 한다.
+- helper는 Discord message fetch, 출석 상태 계산, `AttendanceLog.findOrCreate`, 봇 반응 추가를 같은 입력 기준으로 순서대로 수행해야 한다. 얼리 출석 backfill도 공식 출석으로 저장하고 `✅` 다음에 `🌅`를 추가해야 한다.
 - helper는 이미 같은 `(userid, yearmonthday)`의 다른 공식 `AttendanceLog`가 있으면 중복 보정을 막기 위해 실패하도록 유지한다.
 
 ### `src/daily-attendance.ts`
 
 - 운영 채널의 daily message 본문 생성, thread 이름 규칙, 결과표 전송용 today thread 재탐색/중복 방지 로직을 한곳에 모은다.
 - 운영 자동화와 테스트 채널 demo 흐름이 서로 다른 채널/이름 규칙을 쓰도록 분리 기준을 유지한다.
-- thread guide는 주말/공휴일 `attended`, `late` 보너스 차감과 `🎁` 반응 규칙을 실제 동작과 일치하게 유지한다.
+- thread guide는 얼리 출석 `✅ + 🌅`, 주말/공휴일 `attended`, `late` 보너스 차감과 `🎁` 반응 규칙을 실제 동작과 일치하게 유지한다.
 - 오늘 thread를 재사용하는 기준이 바뀌면 `docs/PROJECT.md`, `docs/USER_STORIES.md`도 함께 갱신한다.
 
 ### `src/repository`

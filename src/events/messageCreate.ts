@@ -1,5 +1,11 @@
 import { AnyThreadChannel, Events, Message } from 'discord.js';
-import { classifyAttendanceStatus, getAttendanceStatusEmoji, getAttendanceStatusLabel } from '../attendance.js';
+import {
+  ATTENDANCE_OPEN_MINUTES,
+  classifyAttendanceStatus,
+  getAttendanceStatusEmoji,
+  getAttendanceStatusLabel,
+  getAttendanceTimeDifferenceInMinutes,
+} from '../attendance.js';
 import { checkChannelId, testChannelId } from '../config.js';
 import { buildAttendanceThreadName } from '../daily-attendance.js';
 import { logger } from '../logger.js';
@@ -10,6 +16,7 @@ import { getYearMonthDay, isChallengeBonusDate, padTwoDigits } from '../utils.js
 
 const DEMO_THREAD_SUFFIX = '출석-demo';
 const BONUS_REACTION = '🎁';
+const EARLY_ATTENDANCE_REACTION = '🌅';
 const FINAL_ATTENDANCE_EMOJIS = new Set(['✅', '🟡', '❌']);
 const finalizedAttendanceCache = new Map<string, Set<string>>();
 const inFlightAttendanceKeys = new Set<string>();
@@ -140,7 +147,9 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string,
     }
 
     let status;
+    let isEarlyAttendance = false;
     try {
+      isEarlyAttendance = getAttendanceTimeDifferenceInMinutes(user.waketime, createdAt) < -ATTENDANCE_OPEN_MINUTES;
       status = classifyAttendanceStatus(user.waketime, createdAt);
     } catch (error) {
       logger.warn('attendance ignored for invalid waketime', {
@@ -156,7 +165,7 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string,
       return;
     }
 
-    if (scope === 'production' && status !== 'too-early') {
+    if (scope === 'production') {
       const [attendanceLog, created] = await AttendanceLog.findOrCreate({
         where: {
           userid: user.userid,
@@ -184,6 +193,9 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string,
 
     const emoji = getAttendanceStatusEmoji(status);
     await message.react(emoji);
+    if (isEarlyAttendance && emoji === '✅') {
+      await message.react(EARLY_ATTENDANCE_REACTION);
+    }
     if (isChallengeBonusDate(createdAt) && (status === 'attended' || status === 'late')) {
       await message.react(BONUS_REACTION);
     }

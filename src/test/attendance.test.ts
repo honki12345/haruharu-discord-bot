@@ -2,10 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { classifyAttendanceStatus, getAttendanceStatusEmoji, getAttendanceStatusLabel } from '../attendance.js';
 
 describe('attendance helper', () => {
-  it('등록 시간 10분 전보다 이르면 too-early를 반환한다', () => {
+  it('등록 시간 10분 전보다 일러도 출석으로 판정한다', () => {
     const status = classifyAttendanceStatus('0700', new Date('2026-03-24T06:49:00'));
-    expect(status).toBe('too-early');
-    expect(getAttendanceStatusEmoji(status)).toBe('⏰');
+    expect(status).toBe('attended');
+    expect(getAttendanceStatusEmoji(status)).toBe('✅');
+  });
+
+  it('등록 시간보다 훨씬 이른 댓글도 상한 없이 출석으로 판정한다', () => {
+    const status = classifyAttendanceStatus('0700', new Date('2026-03-24T03:00:00'));
+    expect(status).toBe('attended');
+    expect(getAttendanceStatusLabel(status)).toBe('출석');
   });
 
   it('등록 시간 기준 10분 이내면 출석으로 판정한다', () => {

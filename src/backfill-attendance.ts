@@ -1,14 +1,15 @@
 import process from 'node:process';
 import {
-  AttendanceStatus,
   ATTENDANCE_LATE_MINUTES,
   ATTENDANCE_OPEN_MINUTES,
+  AttendanceStatus,
   getAttendanceStatusEmoji,
   isValidWakeTime,
 } from './attendance.js';
 import { logger } from './logger.js';
 
 const KOREA_TIME_ZONE = 'Asia/Seoul';
+type BackfillAttendanceStatus = AttendanceStatus | 'too-early';
 
 type BackfillEntry = {
   threadId: string;
@@ -68,7 +69,7 @@ const getKoreaDateParts = (at: Date): KoreaDateParts => {
   };
 };
 
-const classifyAttendanceStatusInKorea = (waketime: string, at: Date): AttendanceStatus => {
+const classifyAttendanceStatusInKorea = (waketime: string, at: Date): BackfillAttendanceStatus => {
   if (!isValidWakeTime(waketime)) {
     throw new Error(`Invalid waketime: ${waketime}`);
   }
@@ -175,18 +176,8 @@ const main = async () => {
       }
 
       const status = classifyAttendanceStatusInKorea(user.waketime, commentedAt);
-      const emoji = getAttendanceStatusEmoji(status);
-
-      if (status === 'too-early') {
-        await message.react(emoji);
-        logger.info('attendance backfill reacted too-early without AttendanceLog', {
-          threadId: entry.threadId,
-          messageId: entry.messageId,
-          userId: entry.userId,
-          emoji,
-        });
-        continue;
-      }
+      const isTooEarlyAttendance = status === 'too-early';
+      const attendanceLogStatus: 'attended' | 'late' | 'absent' = isTooEarlyAttendance ? 'attended' : status;
 
       const [attendanceLog] = await AttendanceLog.findOrCreate({
         where: {
@@ -200,7 +191,7 @@ const main = async () => {
           threadid: entry.threadId,
           messageid: entry.messageId,
           commentedat: commentedAt.toISOString(),
-          status,
+          status: attendanceLogStatus,
         },
       });
 
@@ -211,6 +202,9 @@ const main = async () => {
       }
 
       await message.react(getAttendanceStatusEmoji(attendanceLog.status));
+      if (isTooEarlyAttendance) {
+        await message.react('🌅');
+      }
       logger.info('attendance backfill completed', {
         threadId: entry.threadId,
         messageId: entry.messageId,

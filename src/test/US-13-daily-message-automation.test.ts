@@ -137,8 +137,12 @@ describe('US-13: 운영 daily message 자동화', () => {
       }),
     );
     expect(threadSend).toHaveBeenCalledOnce();
-    expect(threadSend).toHaveBeenCalledWith(expect.stringContaining('봇 판정(이모지) 안내'));
-    expect(threadSend).toHaveBeenCalledWith(expect.stringContaining('주말/공휴일 보너스'));
+    const threadGuide = threadSend.mock.calls[0]?.[0];
+    expect(threadGuide).toContain('봇 판정(이모지) 안내');
+    expect(threadGuide).toContain('- 🌅 얼리 출석: 등록 시간 -11분 이전 댓글도 출석으로 인정, ✅와 함께 추가 반응');
+    expect(threadGuide).toContain('- ✅ 출석: 등록 시간 -10분~+10분');
+    expect(threadGuide).toContain('주말/공휴일 보너스');
+    expect(threadGuide).not.toContain('- ⏰ 대기: 출석 가능 시간 전');
     expect(result?.created).toBe(true);
   });
 

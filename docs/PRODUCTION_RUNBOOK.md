@@ -130,7 +130,9 @@ node dist/backfill-attendance.js ./attendance-backfill.json
   - 해당 날짜의 `Users` snapshot 조회
   - 댓글 시각 기준 출석 상태 계산
   - `AttendanceLog.findOrCreate(...)`
-  - 봇 계정 반응(`✅`, `🟡`, `❌`, 필요 시 `⏰`) 추가
+  - 봇 계정 반응(`✅`, `🌅`, `🟡`, `❌`) 추가
+- 얼리 출석은 공식 출석으로 인정하므로 backfill 시에도 `✅`와 함께 `🌅`를 붙인다.
+- `⏰`는 공식 임시 반응으로 사용하지 않는다.
 - 이미 같은 `(userid, yearmonthday)`의 다른 공식 `AttendanceLog`가 있으면 중복 보정을 막기 위해 실패시킨다.
 
 ## 롤백 절차
