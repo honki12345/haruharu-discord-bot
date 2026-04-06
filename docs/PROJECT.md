@@ -384,9 +384,9 @@ flowchart TD
 
 **구현 메모:**
 
-- 운영 출석 thread의 첫 공식 판정(`✅`, `🟡`, `❌`)은 즉시 `AttendanceLog`에 저장한다.
+- 운영 출석 thread의 첫 공식 판정은 즉시 `AttendanceLog`에 저장한다.
+- 얼리 출석 반응은 `✅`와 `🌅`를 함께 사용하고, 일반 `attended`는 `✅`만 사용한다. `⏰`는 더 이상 공식 임시 반응으로 사용하지 않는다.
 - 주말/공휴일 `attended`, `late` 댓글에는 기존 판정 이모지 뒤에 `🎁` 반응을 추가한다.
-- `⏰`, `❓` 같은 임시 반응은 최종 출석으로 고정하지 않으며, 이후 댓글의 공식 판정을 허용한다.
 
 #### daily-attendance.ts
 
@@ -406,7 +406,7 @@ flowchart TD
 
 | 항목   | 내용                                                                                                          |
 | ------ | ------------------------------------------------------------------------------------------------------------- |
-| 역할   | 운영자가 누락된 출석 댓글에 대해 `AttendanceLog`와 봇 반응 이모지를 함께 1회성 backfill 할 때 사용하는 helper |
+| 역할   | 운영자가 누락된 출석 댓글에 대해 `AttendanceLog`와 봇 반응 이모지(`✅`, `🌅`, `🟡`, `❌`)를 함께 1회성 backfill 할 때 사용하는 helper |
 | 사용처 | 배포된 artifact에서 `node dist/backfill-attendance.js <input.json>` 형태로 수동 실행                          |
 
 ---
@@ -636,7 +636,7 @@ flowchart TD
 비고:
 
 - `(userid, yearmonthday)` 조합은 UNIQUE이며 하루 1건만 저장한다.
-- `too-early`는 공식 출석 로그에 저장하지 않는다.
+- 등록 시간보다 10분 초과로 이른 댓글도 `attended`로 저장하며, 이 경우 반응은 `✅`와 `🌅`를 함께 사용한다.
 - 13:00 출석 집계의 단일 원본이며, `attended` / `late` / `absent` 상태에 따라 결과표와 `latecount` / `absencecount`가 반영된다.
 - `AttendanceLog`가 없는 등록 사용자는 `TimeLog` 여부와 무관하게 결석으로 확정된다.
 - 결과표는 사용자별 오늘 상태, 기상시간(`HH:mm`), `latecount`, `absencecount`, 잔여휴가를 함께 출력하며, 헤더 날짜는 `YYYY-MM-DD` 형식으로 표시한다.
@@ -816,7 +816,7 @@ flowchart TD
 - 데모 버튼/모달 경로도 실제 `/register`, `/stop-wakeup`, `/apply-vacation`, `/apply-cam`과 같은 서비스 로직과 `testChannelId` 감사 로그 경로를 재사용한다.
 - 휴가가 등록된 날짜는 일일 출석 리포트에서 `휴가`로 표시되고, 결석 카운트는 증가하지 않는다.
 - 주말/공휴일에도 `#wake-up` daily message/thread는 생성된다.
-- 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `AttendanceLog.status='attended'` 또는 `AttendanceLog.status='late'` 인 사용자에게 결석 1회 우선 차감 후 없으면 지각 1회를 차감한다.
+- 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `AttendanceLog.status='attended'` 또는 `AttendanceLog.status='late'` 인 사용자에게 결석 1회 우선 차감 후 없으면 지각 1회를 차감한다. 여기서 `attended`에는 등록 시간보다 10분 초과로 이른 댓글도 포함된다.
 
 ### package.json 스크립트
 

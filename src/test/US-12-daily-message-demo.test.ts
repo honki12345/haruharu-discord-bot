@@ -117,7 +117,11 @@ describe('US-12: daily message 데모', () => {
     expect(send.mock.calls[0]?.[0]).not.toContain('오늘의 한마디:');
     expect(startThread).toHaveBeenCalledOnce();
     expect(threadSend).toHaveBeenCalledOnce();
-    expect(threadSend).toHaveBeenCalledWith(expect.stringContaining('봇 판정(이모지) 안내'));
+    const threadGuide = threadSend.mock.calls[0]?.[0];
+    expect(threadGuide).toContain('봇 판정(이모지) 안내');
+    expect(threadGuide).toContain('- 🌅 얼리 출석: 등록 시간 -11분 이전 댓글도 출석으로 인정, ✅와 함께 추가 반응');
+    expect(threadGuide).toContain('- ✅ 출석: 등록 시간 -10분~+10분');
+    expect(threadGuide).not.toContain('- ⏰ 대기: 출석 가능 시간 전');
     expect(interaction.getLastReply()).toContain('데모 출석 메시지와 쓰레드를 생성했습니다');
     randomSpy.mockRestore();
   });
@@ -266,6 +270,56 @@ describe('US-12: daily message 데모', () => {
     expect(react).toHaveBeenCalledTimes(1);
   });
 
+  it('데모 출석 쓰레드의 얼리 댓글에는 ✅와 🌅 반응을 함께 단다', async () => {
+    mockUsers.findOne.mockResolvedValue({
+      userid: 'demo-user',
+      username: '데모유저',
+      waketime: '0700',
+    });
+
+    const react = vi.fn();
+    const message = {
+      id: 'message-early-demo-1',
+      createdTimestamp: new Date('2026-03-24T06:45:00').getTime(),
+      author: {
+        id: 'demo-user',
+        bot: false,
+      },
+      inGuild: () => true,
+      react,
+      channel: {
+        id: 'thread-early-demo-1',
+        parentId: 'valid-test-channel-id',
+        name: '2026-03-24 출석-demo',
+        isThread: () => true,
+        messages: {
+          fetch: vi.fn().mockResolvedValue(
+            new Collection([
+              [
+                'message-early-demo-1',
+                {
+                  id: 'message-early-demo-1',
+                  author: { id: 'demo-user', bot: false },
+                  createdTimestamp: new Date('2026-03-24T06:45:00').getTime(),
+                  reactions: {
+                    cache: new Collection(),
+                  },
+                },
+              ],
+            ]),
+          ),
+        },
+      },
+    };
+
+    const { event } = await import('../events/messageCreate.js');
+    await event.execute(message as never);
+
+    expect(react).toHaveBeenNthCalledWith(1, '✅');
+    expect(react).toHaveBeenNthCalledWith(2, '🌅');
+    expect(mockAttendanceLog.findOrCreate).not.toHaveBeenCalled();
+  });
+
   it('운영 출석 쓰레드의 첫 댓글에는 출석 이모지를 달고 AttendanceLog를 저장한다', async () => {
     mockUsers.findOne.mockResolvedValue({
       userid: 'prod-user',
@@ -325,6 +379,70 @@ describe('US-12: daily message 데모', () => {
         yearmonthday: '20260324',
         threadid: 'prod-thread-1',
         messageid: 'message-prod-1',
+        status: 'attended',
+      }),
+    });
+  });
+
+  it('운영 출석 쓰레드의 얼리 댓글은 attended로 저장하고 ✅와 🌅 반응을 함께 단다', async () => {
+    mockUsers.findOne.mockResolvedValue({
+      userid: 'prod-user',
+      username: '운영유저',
+      waketime: '0700',
+    });
+    mockAttendanceLog.findOrCreate.mockResolvedValue([{}, true]);
+
+    const react = vi.fn();
+    const message = {
+      id: 'message-early-prod-1',
+      createdTimestamp: new Date('2026-03-24T06:45:00').getTime(),
+      author: {
+        id: 'prod-user',
+        bot: false,
+      },
+      inGuild: () => true,
+      react,
+      channel: {
+        id: 'prod-thread-early-1',
+        parentId: 'valid-check-channel-id',
+        name: '2026-03-24 출석',
+        isThread: () => true,
+        messages: {
+          fetch: vi.fn().mockResolvedValue(
+            new Collection([
+              [
+                'message-early-prod-1',
+                {
+                  id: 'message-early-prod-1',
+                  author: { id: 'prod-user', bot: false },
+                  createdTimestamp: new Date('2026-03-24T06:45:00').getTime(),
+                  reactions: {
+                    cache: new Collection(),
+                  },
+                },
+              ],
+            ]),
+          ),
+        },
+      },
+    };
+
+    const { event } = await import('../events/messageCreate.js');
+    await event.execute(message as never);
+
+    expect(react).toHaveBeenNthCalledWith(1, '✅');
+    expect(react).toHaveBeenNthCalledWith(2, '🌅');
+    expect(mockAttendanceLog.findOrCreate).toHaveBeenCalledWith({
+      where: {
+        userid: 'prod-user',
+        yearmonthday: '20260324',
+      },
+      defaults: expect.objectContaining({
+        userid: 'prod-user',
+        username: '운영유저',
+        yearmonthday: '20260324',
+        threadid: 'prod-thread-early-1',
+        messageid: 'message-early-prod-1',
         status: 'attended',
       }),
     });
@@ -630,7 +748,7 @@ describe('US-12: daily message 데모', () => {
     expect(react).toHaveBeenCalledWith('✅');
   });
 
-  it('미등록 또는 too-early 반응만 있던 이전 댓글은 이후 공식 판정을 막지 않는다', async () => {
+  it('미등록처럼 최종이 아닌 이전 반응만 있던 댓글은 이후 공식 판정을 막지 않는다', async () => {
     mockUsers.findOne.mockResolvedValue({
       userid: 'demo-user',
       username: '데모유저',
@@ -978,8 +1096,8 @@ describe('US-12: daily message 데모', () => {
     expect(reactSecond).not.toHaveBeenCalled();
   });
 
-  it('임시 상태로 끝난 첫 댓글이 있으면 대기 중이던 재시도 댓글을 다시 처리한다', async () => {
-    let resolveUser: ((value: { userid: string; username: string; waketime: string } | null) => void) | null = null;
+  it('얼리 출석으로 최종 판정된 첫 댓글이 있으면 대기 중이던 두 번째 댓글을 다시 처리하지 않는다', async () => {
+    let resolveUser: ((value: { userid: string; username: string; waketime: string }) => void) | null = null;
     mockUsers.findOne
       .mockImplementationOnce(
         () =>
@@ -1034,7 +1152,7 @@ describe('US-12: daily message 데모', () => {
 
     const firstMessage = {
       id: 'message-1',
-      createdTimestamp: new Date('2026-03-24T07:05:00').getTime(),
+      createdTimestamp: new Date('2026-03-24T06:45:00').getTime(),
       author: {
         id: 'demo-user',
         bot: false,
@@ -1051,7 +1169,7 @@ describe('US-12: daily message 데모', () => {
 
     const secondMessage = {
       id: 'message-2',
-      createdTimestamp: new Date('2026-03-24T07:05:01').getTime(),
+      createdTimestamp: new Date('2026-03-24T06:45:01').getTime(),
       author: {
         id: 'demo-user',
         bot: false,
@@ -1074,12 +1192,17 @@ describe('US-12: daily message 데모', () => {
     expect(resolveUser).not.toBeNull();
     const secondExecution = event.execute(secondMessage as never);
 
-    resolveUser?.(null);
+    resolveUser?.({
+      userid: 'demo-user',
+      username: '데모유저',
+      waketime: '0700',
+    });
     await firstExecution;
     await secondExecution;
 
-    expect(mockUsers.findOne).toHaveBeenCalledTimes(2);
-    expect(reactFirst).toHaveBeenCalledWith('❓');
-    expect(reactSecond).toHaveBeenCalledWith('✅');
+    expect(mockUsers.findOne).toHaveBeenCalledTimes(1);
+    expect(reactFirst).toHaveBeenNthCalledWith(1, '✅');
+    expect(reactFirst).toHaveBeenNthCalledWith(2, '🌅');
+    expect(reactSecond).not.toHaveBeenCalled();
   });
 });
