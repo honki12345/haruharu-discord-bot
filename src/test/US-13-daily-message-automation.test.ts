@@ -88,6 +88,16 @@ describe('US-13: 운영 daily message 자동화', () => {
     vi.restoreAllMocks();
   });
 
+  it('운영 thread 날짜 계산은 UTC 런너에서도 KST 기준을 사용한다', async () => {
+    const { getKoreaDateParts } = await import('../daily-attendance.js');
+
+    expect(getKoreaDateParts(new Date('2026-03-28T15:30:00Z'))).toEqual({
+      year: 2026,
+      month: '03',
+      date: '29',
+    });
+  });
+
   it('운영 채널에 daily message와 출석 쓰레드를 생성한다', async () => {
     const threadSend = vi.fn();
     const startThread = vi.fn().mockResolvedValue({
