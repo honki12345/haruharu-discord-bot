@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Collection, PermissionFlagsBits } from 'discord.js';
 
+process.env.TZ = 'UTC';
+
 const mockUsers = {
   findOne: vi.fn(),
 };
@@ -72,12 +74,14 @@ const createDemoInteraction = (fetch: ReturnType<typeof vi.fn>) => {
 };
 
 const kstDate = (value: string) => new Date(`${value}+09:00`);
+const localDateLabel = (at: Date) =>
+  `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
 
 describe('US-12: daily message 데모', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-03-24T07:05:00'));
+    vi.setSystemTime(kstDate('2026-03-24T07:05:00'));
     mockUsers.findOne.mockReset();
     mockAttendanceLog.findOrCreate.mockReset();
   });
@@ -135,7 +139,16 @@ describe('US-12: daily message 데모', () => {
   });
 
   it('이미 archive된 같은 날짜 쓰레드가 있으면 새 쓰레드를 만들지 않는다', async () => {
-    const send = vi.fn();
+    const threadSend = vi.fn();
+    const startThread = vi.fn().mockResolvedValue({
+      id: 'archived-demo-thread',
+      send: threadSend,
+      toString: () => '<#archived-thread>',
+    });
+    const send = vi.fn().mockResolvedValue({
+      id: 'demo-message',
+      startThread,
+    });
     const fetchActive = vi.fn().mockResolvedValue({
       threads: new Collection(),
     });
@@ -145,7 +158,7 @@ describe('US-12: daily message 데모', () => {
           'archived-thread',
           {
             id: 'archived-thread',
-            name: '2026-03-24 출석-demo',
+            name: `${localDateLabel(new Date())} 출석-demo`,
             toString: () => '<#archived-thread>',
           },
         ],
@@ -451,7 +464,7 @@ describe('US-12: daily message 데모', () => {
   });
 
   it('주말 데모 출석 성공 댓글에는 판정 이모지와 함께 🎁 이모지를 추가한다', async () => {
-    vi.setSystemTime(new Date('2026-03-28T07:05:00'));
+    vi.setSystemTime(kstDate('2026-03-28T07:05:00'));
     mockUsers.findOne.mockResolvedValue({
       userid: 'demo-user',
       username: '데모유저',
@@ -501,7 +514,7 @@ describe('US-12: daily message 데모', () => {
   });
 
   it('주말 운영 지각 댓글에는 판정 이모지와 함께 🎁 이모지를 추가한다', async () => {
-    vi.setSystemTime(new Date('2026-03-28T07:20:00'));
+    vi.setSystemTime(kstDate('2026-03-28T07:20:00'));
     mockUsers.findOne.mockResolvedValue({
       userid: 'prod-user',
       username: '운영유저',
@@ -866,7 +879,7 @@ describe('US-12: daily message 데모', () => {
   });
 
   it('월 경계에서는 현재 시각이 아니라 댓글 시각 기준 yearmonth로 사용자를 조회한다', async () => {
-    vi.setSystemTime(new Date('2026-02-01T00:05:00'));
+    vi.setSystemTime(kstDate('2026-02-01T00:05:00'));
     mockUsers.findOne.mockResolvedValue(null);
 
     const react = vi.fn();
