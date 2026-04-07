@@ -77,7 +77,7 @@ describe('US-12: daily message 데모', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.useFakeTimers();
-    vi.setSystemTime(kstDate('2026-03-24T07:05:00'));
+    vi.setSystemTime(new Date('2026-03-24T07:05:00'));
     mockUsers.findOne.mockReset();
     mockAttendanceLog.findOrCreate.mockReset();
   });
@@ -451,7 +451,7 @@ describe('US-12: daily message 데모', () => {
   });
 
   it('주말 데모 출석 성공 댓글에는 판정 이모지와 함께 🎁 이모지를 추가한다', async () => {
-    vi.setSystemTime(kstDate('2026-03-28T07:05:00'));
+    vi.setSystemTime(new Date('2026-03-28T07:05:00'));
     mockUsers.findOne.mockResolvedValue({
       userid: 'demo-user',
       username: '데모유저',
@@ -501,7 +501,7 @@ describe('US-12: daily message 데모', () => {
   });
 
   it('주말 운영 지각 댓글에는 판정 이모지와 함께 🎁 이모지를 추가한다', async () => {
-    vi.setSystemTime(kstDate('2026-03-28T07:20:00'));
+    vi.setSystemTime(new Date('2026-03-28T07:20:00'));
     mockUsers.findOne.mockResolvedValue({
       userid: 'prod-user',
       username: '운영유저',
@@ -866,7 +866,7 @@ describe('US-12: daily message 데모', () => {
   });
 
   it('월 경계에서는 현재 시각이 아니라 댓글 시각 기준 yearmonth로 사용자를 조회한다', async () => {
-    vi.setSystemTime(kstDate('2026-02-01T00:05:00'));
+    vi.setSystemTime(new Date('2026-02-01T00:05:00'));
     mockUsers.findOne.mockResolvedValue(null);
 
     const react = vi.fn();
