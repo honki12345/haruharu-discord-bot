@@ -1,6 +1,6 @@
 import process from 'node:process';
 import {
-  ATTENDANCE_LATE_MINUTES,
+  ATTENDANCE_ABSENT_CUTOFF_MINUTES,
   ATTENDANCE_OPEN_MINUTES,
   AttendanceStatus,
   getAttendanceStatusEmoji,
@@ -89,7 +89,7 @@ const classifyAttendanceStatusInKorea = (waketime: string, at: Date): BackfillAt
     return 'attended';
   }
 
-  if (diff <= ATTENDANCE_LATE_MINUTES) {
+  if (commentTimeInMinutes < ATTENDANCE_ABSENT_CUTOFF_MINUTES) {
     return 'late';
   }
 

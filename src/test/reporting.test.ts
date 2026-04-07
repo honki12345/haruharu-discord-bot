@@ -186,7 +186,7 @@ describe('reporting service', () => {
     });
   });
 
-  it('AttendanceLog.status=late 사용자는 지각으로 출력되고 latecount가 1 증가한다', async () => {
+  it('평일 12:59 late 로그는 지각으로 출력되고 streak는 0으로 초기화된다', async () => {
     vi.setSystemTime(new Date('2025-12-08T13:00:00'));
 
     await TestWakeUpMembership.create({
@@ -214,7 +214,7 @@ describe('reporting service', () => {
       yearmonthday: '20251208',
       threadid: 'thread-1',
       messageid: 'message-1',
-      commentedat: '2025-12-07T22:11:00Z',
+      commentedat: '2025-12-08T03:59:00Z',
       status: 'late',
     });
 
@@ -723,9 +723,18 @@ describe('reporting service', () => {
     expect(updatedUser?.absencecount).toBe(0);
   });
 
-  it('주말 late 로그도 absencecount를 우선 차감한다', async () => {
+  it('주말 12:59 late 로그는 absencecount를 우선 차감하고 streak를 증가시킨다', async () => {
     vi.setSystemTime(new Date('2025-12-07T13:00:00'));
 
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 2,
+      attendancestreakupdatedon: '20251206',
+    } as never);
     await TestUsers.create({
       userid: 'user1',
       username: '홍길동',
@@ -742,16 +751,19 @@ describe('reporting service', () => {
       yearmonthday: '20251207',
       threadid: 'thread-1',
       messageid: 'message-1',
-      commentedat: '2025-12-06T22:15:00Z',
+      commentedat: '2025-12-07T03:59:00Z',
       status: 'late',
     });
 
     const { attendanceMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202512' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
 
     expect(attendanceMessage).toBeNull();
     expect(updatedUser?.latecount).toBe(1);
     expect(updatedUser?.absencecount).toBe(1);
+    expect(membership?.get('attendancestreak')).toBe(3);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20251207');
   });
 
   it('주말 late 로그는 absencecount가 없으면 latecount를 차감한다', async () => {
@@ -900,9 +912,18 @@ describe('reporting service', () => {
     expect(updatedUser?.absencecount).toBe(2);
   });
 
-  it('공휴일 late 로그도 주말과 같은 보너스 규칙을 적용한다', async () => {
+  it('공휴일 12:59 late 로그도 주말과 같은 보너스 규칙을 적용한다', async () => {
     vi.setSystemTime(new Date('2026-01-01T13:00:00'));
 
+    await TestWakeUpMembership.create({
+      userid: 'user1',
+      username: '홍길동',
+      waketime: '0700',
+      status: 'active',
+      stoppedat: null,
+      attendancestreak: 2,
+      attendancestreakupdatedon: '20251231',
+    } as never);
     await TestUsers.create({
       userid: 'user1',
       username: '홍길동',
@@ -919,16 +940,19 @@ describe('reporting service', () => {
       yearmonthday: '20260101',
       threadid: 'thread-1',
       messageid: 'message-1',
-      commentedat: '2025-12-31T22:15:00Z',
+      commentedat: '2026-01-01T03:59:00Z',
       status: 'late',
     });
 
     const { attendanceMessage } = await buildChallengeReport();
     const updatedUser = await TestUsers.findOne({ where: { userid: 'user1', yearmonth: '202601' } });
+    const membership = await TestWakeUpMembership.findOne({ where: { userid: 'user1' } });
 
     expect(attendanceMessage).toBeNull();
     expect(updatedUser?.latecount).toBe(1);
     expect(updatedUser?.absencecount).toBe(1);
+    expect(membership?.get('attendancestreak')).toBe(3);
+    expect(membership?.get('attendancestreakupdatedon')).toBe('20260101');
   });
 
   it('스케줄 리포트 실행이 실패해도 에러를 로깅하고 다음 실행으로 죽지 않는다', async () => {
