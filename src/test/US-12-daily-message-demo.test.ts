@@ -122,6 +122,7 @@ describe('US-12: daily message 데모', () => {
     expect(threadGuide).toContain('- 🌅 얼리 출석: 등록 시간 -11분 이전 댓글도 출석으로 인정, ✅와 함께 추가 반응');
     expect(threadGuide).toContain('- ✅ 출석: 등록 시간 -10분~+10분');
     expect(threadGuide).not.toContain('- ⏰ 대기: 출석 가능 시간 전');
+    expect(threadGuide).not.toContain('😌 주말/공휴일 미참여 또는 absent: 무패널티');
     expect(interaction.getLastReply()).toContain('데모 출석 메시지와 쓰레드를 생성했습니다');
     randomSpy.mockRestore();
   });
