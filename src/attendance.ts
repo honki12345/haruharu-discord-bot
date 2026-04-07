@@ -1,7 +1,27 @@
 export type AttendanceStatus = 'attended' | 'late' | 'absent';
 
+const KOREA_TIME_ZONE = 'Asia/Seoul';
 const ATTENDANCE_OPEN_MINUTES = 10;
-const ATTENDANCE_LATE_MINUTES = 30;
+const ATTENDANCE_ABSENT_CUTOFF_HOUR = 13;
+const ATTENDANCE_ABSENT_CUTOFF_MINUTES = ATTENDANCE_ABSENT_CUTOFF_HOUR * 60;
+
+const getKoreaTimeInMinutes = (at: Date) => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: KOREA_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(at);
+  const hours = parts.find(part => part.type === 'hour')?.value;
+  const minutes = parts.find(part => part.type === 'minute')?.value;
+
+  if (!hours || !minutes) {
+    throw new Error('Failed to resolve Korea time');
+  }
+
+  return Number(hours) * 60 + Number(minutes);
+};
 
 const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   attended: '출석',
@@ -34,19 +54,20 @@ const getAttendanceTimeDifferenceInMinutes = (waketime: string, at: Date = new D
   const hours = Number(waketime.slice(0, 2));
   const minutes = Number(waketime.slice(2));
   const waketimeInMinutes = hours * 60 + minutes;
-  const nowInMinutes = at.getHours() * 60 + at.getMinutes();
+  const nowInMinutes = getKoreaTimeInMinutes(at);
 
   return nowInMinutes - waketimeInMinutes;
 };
 
 const classifyAttendanceStatus = (waketime: string, at: Date = new Date()): AttendanceStatus => {
   const diff = getAttendanceTimeDifferenceInMinutes(waketime, at);
+  const nowInMinutes = getKoreaTimeInMinutes(at);
 
   if (diff <= ATTENDANCE_OPEN_MINUTES) {
     return 'attended';
   }
 
-  if (diff <= ATTENDANCE_LATE_MINUTES) {
+  if (nowInMinutes < ATTENDANCE_ABSENT_CUTOFF_MINUTES) {
     return 'late';
   }
 
@@ -59,7 +80,7 @@ const getAttendanceStatusEmoji = (status: AttendanceStatus) => ATTENDANCE_STATUS
 
 export {
   ATTENDANCE_OPEN_MINUTES,
-  ATTENDANCE_LATE_MINUTES,
+  ATTENDANCE_ABSENT_CUTOFF_MINUTES,
   classifyAttendanceStatus,
   getAttendanceTimeDifferenceInMinutes,
   getAttendanceStatusLabel,

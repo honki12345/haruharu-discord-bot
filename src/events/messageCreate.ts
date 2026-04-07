@@ -12,12 +12,22 @@ import { logger } from '../logger.js';
 import { AttendanceLog } from '../repository/AttendanceLog.js';
 import { Users } from '../repository/Users.js';
 import { ensureWakeUpMembershipSnapshot } from '../services/challengeSelfService.js';
-import { getYearMonthDay, isChallengeBonusDate, padTwoDigits } from '../utils.js';
+import { getYearMonthDay, isChallengeBonusDay } from '../utils.js';
 
 const DEMO_THREAD_SUFFIX = '출석-demo';
 const BONUS_REACTION = '🎁';
 const EARLY_ATTENDANCE_REACTION = '🌅';
 const FINAL_ATTENDANCE_EMOJIS = new Set(['✅', '🟡', '❌']);
+const KOREA_TIME_ZONE = 'Asia/Seoul';
+const WEEKDAY_TO_NUMBER: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
 const finalizedAttendanceCache = new Map<string, Set<string>>();
 const inFlightAttendanceKeys = new Set<string>();
 const pendingAttendanceMessages = new Map<string, Message>();
@@ -59,8 +69,40 @@ const hasRememberedFinalAttendance = (threadId: string, userId: string) => {
   return finalizedAttendanceCache.get(threadId)?.has(userId) ?? false;
 };
 
+const getKoreaDateParts = (at: Date) => {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: KOREA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  });
+  const parts = formatter.formatToParts(at);
+  const readPart = (type: Intl.DateTimeFormatPartTypes) => {
+    const value = parts.find(part => part.type === type)?.value;
+    if (!value) {
+      throw new Error(`Missing ${type} while formatting Korea date parts`);
+    }
+
+    return value;
+  };
+
+  const year = Number(readPart('year'));
+  const month = readPart('month');
+  const date = readPart('day');
+  const weekday = readPart('weekday');
+  const day = WEEKDAY_TO_NUMBER[weekday];
+
+  if (day === undefined) {
+    throw new Error(`Unsupported weekday while formatting Korea date parts: ${weekday}`);
+  }
+
+  return { year, month, date, day };
+};
+
 const getProductionAttendanceThreadName = (at: Date) => {
-  return buildAttendanceThreadName(at.getFullYear(), padTwoDigits(at.getMonth() + 1), padTwoDigits(at.getDate()));
+  const { year, month, date } = getKoreaDateParts(at);
+  return buildAttendanceThreadName(year, month, date);
 };
 
 const resolveAttendanceScope = (channel: AnyThreadChannel, at: Date) => {
@@ -124,9 +166,7 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string,
     }
 
     const createdAt = new Date(message.createdTimestamp);
-    const year = createdAt.getFullYear();
-    const month = String(createdAt.getMonth() + 1).padStart(2, '0');
-    const date = padTwoDigits(createdAt.getDate());
+    const { year, month, date, day } = getKoreaDateParts(createdAt);
     const yearmonthday = getYearMonthDay(year, month, date);
     await ensureWakeUpMembershipSnapshot(message.author.id, `${year}${month}`);
     const user = await Users.findOne({
@@ -196,7 +236,7 @@ const processAttendanceMessage = async (message: Message, attendanceKey: string,
     if (isEarlyAttendance && emoji === '✅') {
       await message.react(EARLY_ATTENDANCE_REACTION);
     }
-    if (isChallengeBonusDate(createdAt) && (status === 'attended' || status === 'late')) {
+    if (isChallengeBonusDay(day, `${month}${date}`) && (status === 'attended' || status === 'late')) {
       await message.react(BONUS_REACTION);
     }
 

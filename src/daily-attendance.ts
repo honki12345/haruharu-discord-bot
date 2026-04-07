@@ -1,10 +1,34 @@
 import { ChannelType, Client, TextChannel, ThreadAutoArchiveDuration, ThreadChannel } from 'discord.js';
 import { pickDailyMessageQuestion } from './daily-message.js';
 import { logger } from './logger.js';
-import { getYearMonthDate } from './utils.js';
 
 const DAILY_ATTENDANCE_THREAD_SUFFIX = '출석';
+const KOREA_TIME_ZONE = 'Asia/Seoul';
 const pendingAttendanceThreadCreations = new Map<string, Promise<{ thread: ThreadChannel; created: boolean }>>();
+
+const getKoreaDateParts = (at: Date = new Date()) => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: KOREA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(at);
+  const readPart = (type: Intl.DateTimeFormatPartTypes) => {
+    const value = parts.find(part => part.type === type)?.value;
+    if (!value) {
+      throw new Error(`Missing ${type} while formatting Korea date parts`);
+    }
+
+    return value;
+  };
+
+  return {
+    year: Number(readPart('year')),
+    month: readPart('month'),
+    date: readPart('day'),
+  };
+};
 
 const buildAttendanceThreadName = (year: number, month: string, date: string) => {
   return `${year}-${month}-${date} ${DAILY_ATTENDANCE_THREAD_SUFFIX}`;
@@ -26,8 +50,8 @@ const buildDailyAttendanceThreadGuide = () => {
     '봇 판정(이모지) 안내',
     '- 🌅 얼리 출석: 등록 시간 -11분 이전 댓글도 출석으로 인정, ✅와 함께 추가 반응',
     '- ✅ 출석: 등록 시간 -10분~+10분',
-    '- 🟡 지각: 등록 시간 +11~30분',
-    '- ❌ 결석: 등록 시간 +30분 초과',
+    '- 🟡 +11분~12:59 지각: 등록 시간 이후에도 당일 12:59까지는 지각',
+    '- ❌ 결석: 13:00 집계 무댓글 결석',
     '- 🎁 주말/공휴일 보너스: 출석/지각 성공 댓글에 추가 반응, 13:00에 결석 1회 없으면 지각 1회 차감',
     '- ❓ 미등록: 등록되지 않은 사용자',
   ].join('\n');
@@ -89,7 +113,7 @@ const ensureAttendanceThreadForChannel = async (
 };
 
 const ensureTodayAttendanceThread = async (client: Client, channelId: string) => {
-  const { year, month, date } = getYearMonthDate();
+  const { year, month, date } = getKoreaDateParts();
   const threadName = buildAttendanceThreadName(year, month, date);
   const question = pickDailyMessageQuestion();
 
@@ -130,6 +154,7 @@ export {
   buildDailyAttendanceMessageContent,
   buildDailyAttendanceThreadGuide,
   findExistingAttendanceThread,
+  getKoreaDateParts,
   ensureAttendanceThreadForChannel,
   ensureTodayAttendanceThread,
 };

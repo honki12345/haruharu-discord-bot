@@ -281,7 +281,7 @@ haruharu-discord-bot/
 - `ClientReady` 직후 운영 `#start-here`, `#time-start-here`의 bot-owned self-service UI 메시지를 기존 fingerprint 기반 sync 로직으로 1회 자동 갱신하고, 실패해도 에러 로그만 남긴 뒤 나머지 부팅을 계속한다.
 - 평일 13:00 기상 결과표는 당일 출석 thread를 재탐색하거나 확보한 뒤 해당 thread 댓글로 전송한다.
 - 실제 출석표 생성과 캠스터디 집계는 `src/services/reporting.ts`로 위임한다.
-- 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `attended` 또는 `late` 시 `absencecount` 우선 1회 차감 후 없으면 `latecount`를 1회 차감한다.
+- 주말/공휴일 13:00 집계는 결과 메시지를 보내지 않고, `attended` 또는 `late` 시 `absencecount` 우선 1회 차감 후 없으면 `latecount`를 1회 차감하며 streak 도 1 증가시킨다.
 - `ClientReady` 직후에는 저장된 `CamStudyActiveSession`과 현재 voice state를 비교해 세션을 복구/종료 정산한다.
 - heartbeat는 `lastobservedat`를 주기적으로 갱신해 재배포 중 종료 이벤트를 놓쳤을 때 손실 범위를 제한한다.
 - 스케줄러는 중복 실행 방지 플래그와 예외 로깅을 포함한다.
@@ -404,10 +404,10 @@ flowchart TD
 
 #### backfill-attendance.ts
 
-| 항목   | 내용                                                                                                          |
-| ------ | ------------------------------------------------------------------------------------------------------------- |
+| 항목   | 내용                                                                                                                                  |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | 역할   | 운영자가 누락된 출석 댓글에 대해 `AttendanceLog`와 봇 반응 이모지(`✅`, `🌅`, `🟡`, `❌`)를 함께 1회성 backfill 할 때 사용하는 helper |
-| 사용처 | 배포된 artifact에서 `node dist/backfill-attendance.js <input.json>` 형태로 수동 실행                          |
+| 사용처 | 배포된 artifact에서 `node dist/backfill-attendance.js <input.json>` 형태로 수동 실행                                                  |
 
 ---
 
@@ -641,8 +641,9 @@ flowchart TD
 
 - `(userid, yearmonthday)` 조합은 UNIQUE이며 하루 1건만 저장한다.
 - 등록 시간보다 10분 초과로 이른 댓글도 `attended`로 저장하며, 이 경우 반응은 `✅`와 `🌅`를 함께 사용한다.
+- 등록 시간 `+11분`부터 당일 `12:59`까지의 첫 댓글은 `late`로 저장한다.
 - 13:00 출석 집계의 단일 원본이며, `attended` / `late` / `absent` 상태에 따라 결과표와 `latecount` / `absencecount`가 반영된다.
-- `AttendanceLog`가 없는 등록 사용자는 `TimeLog` 여부와 무관하게 결석으로 확정된다.
+- 평일에는 13:00 집계 시점까지 `AttendanceLog`가 없는 등록 사용자를 `TimeLog` 여부와 무관하게 결석으로 확정한다.
 - 결과표는 헤더 `YYYY-MM-DD 출석표` 아래에 `이름(HH:mm): 출석(연속 n회)`, `이름(HH:mm): 지각(누적 n회)`, `이름(HH:mm): 결석(누적 n회)`, `이름(HH:mm): 휴가(잔여 n일)` 형식으로 출력한다.
 - 결과표의 상태 그룹 순서는 `출석 -> 지각 -> 휴가 -> 결석`이며, 각 그룹 내부는 기상시간 오름차순으로 정렬한다. 같은 기상시간이면 사용자명 오름차순을 보조 정렬 키로 사용한다.
 - 연속 출석 streak는 `WakeUpMembership.attendancestreak`에 저장하며, 평일 `attended`는 1 증가, 평일 `late` / `absent` / 무댓글은 0으로 초기화, 평일 휴가는 유지한다.

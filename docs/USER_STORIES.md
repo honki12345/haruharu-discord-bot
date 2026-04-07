@@ -488,11 +488,11 @@ SO THAT 나와 다른 챌린저들의 출석 상태를 알 수 있다
 
 - `AttendanceLog` 기준 출석/지각/결석 인원 집계
 - 휴가 등록된 날짜는 `휴가`로 표시하고 결석으로 처리하지 않음
-- 댓글이 없는 사용자도 결석으로 확정
-- `AttendanceLog`가 없는 등록 사용자는 `TimeLog` 여부와 무관하게 결석으로 확정
+- 평일 13:00 집계 시점까지 댓글이 없는 사용자는 결석으로 확정
+- 평일에는 `AttendanceLog`가 없는 등록 사용자는 `TimeLog` 여부와 무관하게 결석으로 확정
 - `attended` 상태에는 등록 시간보다 10분 초과로 이른 댓글도 포함되며, 이 경우 `✅`와 `🌅` 반응을 함께 사용한다
-- `late` 상태는 `latecount` 증가
-- `absent` 상태 또는 무댓글 사용자는 `absencecount` 증가
+- 평일 `late` 상태는 등록 시간 `+11분`부터 당일 `12:59`까지 댓글이며 `latecount` 증가
+- 평일 `absent` 상태 또는 13:00 집계 시점 무댓글 사용자는 `absencecount` 증가
 - 결과표에 사용자별 오늘 상태와 기상시간을 간결 포맷으로 표시한다
 - 출석은 `출석(연속 n회)`, 지각은 `지각(누적 n회)`, 결석은 `결석(누적 n회)`, 휴가는 `휴가(잔여 n일)` 형식을 사용한다
 - 결과표의 상태 그룹 순서는 `출석 -> 지각 -> 휴가 -> 결석`을 유지한다
@@ -541,7 +541,7 @@ sequenceDiagram
         loop 각 사용자별
             alt 휴가 등록됨
                 B->>B: 휴가자 목록에 추가
-            else AttendanceLog 없음
+            else 13:00 집계 시점까지 AttendanceLog 없음
                 B->>DB: Users.absencecount++
                 B->>B: 결석자 목록에 추가
             else AttendanceLog.status = late
